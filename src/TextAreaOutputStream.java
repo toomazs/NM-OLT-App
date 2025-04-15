@@ -13,8 +13,12 @@ public class TextAreaOutputStream extends OutputStream {
 
     @Override
     public void write(int b) throws IOException {
-        buffer.append((char) b);
-        if ((char) b == '\n' || buffer.length() > 100) {
+        // converte byte para char e adiciona p buffer
+        char c = (char) b;
+        buffer.append(c);
+
+        // quebra de linha ou buffer muito grande = flush
+        if (c == '\n' || buffer.length() > 100) {
             flushBuffer();
         }
     }

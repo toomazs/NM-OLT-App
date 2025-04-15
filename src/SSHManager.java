@@ -63,9 +63,12 @@ public class SSHManager {
     public static void sendCommand(String command) {
         try {
             if (pipeOut != null && channel != null && channel.isConnected()) {
-                pipeOut.write((command + "\n").getBytes("UTF-8"));
+                // envia o comando seguido por enter com (\r\n)
+                pipeOut.write((command + "\r\n").getBytes("UTF-8"));
                 pipeOut.flush();
-                Main.appendToTerminal("\n");
+
+                // add comando no terminal com format correta
+                Main.appendToTerminal(command + "\n");
             }
         } catch (Exception e) {
             e.printStackTrace();

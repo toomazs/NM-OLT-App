@@ -195,13 +195,12 @@ public class Main extends Application {
             switch(event.getCode()) {
                 case ENTER:
                     event.consume();
-                    String command = commandBuffer.toString();
-                    if (!command.trim().isEmpty()) {
+                    String command = commandBuffer.toString().trim();
+                    if (!command.isEmpty()) {
+                        // envia o comando com espaço certo
                         SSHManager.sendCommand(command);
-                        terminalArea.appendText("\n");
-                        lastCommandPosition = terminalArea.getLength();
+                        commandBuffer.setLength(0);
                     }
-                    commandBuffer.setLength(0);
                     break;
                 case BACK_SPACE:
                     if (terminalArea.getCaretPosition() <= lastCommandPosition) {
