@@ -1,0 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono+NL&display=swap');
+
+* {
+    -fx-font-family: 'Inter', sans-serif;
+}
+
+.root {
+    -fx-background-color: #1e1e2e;
+}
+
+.title-bar {
+    -fx-background-color: #2a2a3a;
+    -fx-padding: 5 10;
+    -fx-background-radius: 8 8 0 0;
+}
+
+.title {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-padding: 0 0 20 0;
+}
+
+.olt-card {
+    -fx-background-color: #2a2a3a;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: #3a3a4a;
+    -fx-border-width: 1;
+    -fx-padding: 15;
+    -fx-spacing: 10;
+}
+
+.olt-name {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+.olt-ip {
+    -fx-text-fill: #bbbbbb;
+    -fx-font-size: 14px;
+}
+
+.connect-btn {
+    -fx-background-color: #4a6fa5;
+    -fx-text-fill: white;
+    -fx-padding: 8 15;
+    -fx-background-radius: 5;
+    -fx-cursor: hand;
+    -fx-font-size: 14px;
+}
+
+.connect-btn:hover {
+    -fx-background-color: #5a7fb5;
+}
+
+.text-area {
+    -fx-control-inner-background: #000000;
+    -fx-text-fill: #00ff00;
+    -fx-highlight-fill: #4a6fa5;
+    -fx-highlight-text-fill: white;
+    -fx-font-family: 'JetBrains Mono NL', monospace;
+    -fx-font-size: 13px;
+}
+
+.dialog-pane {
+    -fx-background-color: #2a2a3a;
+}
+
+.dialog-pane .label {
+    -fx-text-fill: white;
+}
+
+.dialog-pane:header .header-panel {
+    -fx-background-color: #3a3a4a;
+}
+
+.dialog-pane:header .header-panel .label {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+.window-controls {
+    -fx-spacing: 10;
+}
+
+.window-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 3;
+    -fx-min-width: 30px;
+    -fx-min-height: 30px;
+    -fx-text-fill: #bbbbbb;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+}
+
+.window-button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+    -fx-text-fill: #ffffff;
+}
+
+.window-close-button:hover {
+    -fx-background-color: #e81123;
+    -fx-text-fill: white;
+}
+
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar:vertical {
+    -fx-background-color: #2a2a3a;
+}
+
+.scroll-pane .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb {
+    -fx-background-color: #4a6fa5;
+    -fx-background-radius: 5em;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #5a7fb5;
+}
+
+.scroll-pane .scroll-bar .increment-button,
+.scroll-pane .scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0 0 0 0;
+}
+
+.scroll-pane .scroll-bar .increment-arrow,
+.scroll-pane .scroll-bar .decrement-arrow {
+    -fx-shape: " ";
+    -fx-padding: 0;
+}
+
+.scroll-content {
+    -fx-background-color: transparent;
+}
