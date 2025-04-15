@@ -13,7 +13,7 @@ public class OLTList {
         olts.add(new OLT("OLT_COTIA_05", "10.0.41.74"));
         olts.add(new OLT("OLT_EMBU_01", "10.0.41.18"));
         olts.add(new OLT("OLT_GRVN_01", "10.0.41.46"));
-        olts.add(new OLT("OLT_ITPV_01", "10.0.41.10"));
+        olts.add(new OLT("OLT_ITPV_01", "10.0.42.10"));
         olts.add(new OLT("OLT_TRMS_01", "10.0.41.38"));
         olts.add(new OLT("OLT_TRMS_02", "10.0.41.50"));
         olts.add(new OLT("OLT_VGPA_01", "10.0.41.30"));
