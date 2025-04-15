@@ -46,7 +46,6 @@ public class SSHManager {
 
                 Platform.runLater(() -> {
                     Main.appendToTerminal("Conectado com sucesso!\n");
-                    Main.appendToTerminal("Digite comandos como: display ont info summary 0/7/7\n\n");
                 });
 
             } catch (Exception e) {
