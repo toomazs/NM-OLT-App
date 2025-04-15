@@ -5,6 +5,7 @@
 <br>
 
  <b> <h3> ⚠️ ATENÇÃO! </h3> </b> <br>
+ ~ Certifique-se de ter o Java 22+ instalado na máquina. <br>
  ~ Esse projeto é privado apenas à colaboradores da <b>N-Multifibra</b>, MUITA ATENÇÃO; <br>
  ~ As OLTs já vem configuradas de acordo com o IP. Usuário e senha também já pré-descritos; <br>
  ~ Validar se está com VPN ligado/conectado à rede interna; <br>
