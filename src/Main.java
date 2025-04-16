@@ -13,7 +13,7 @@ import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import javafx.geometry.*;
 import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
+import javafx.scene.image.ImageView;laun
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
@@ -40,8 +40,8 @@ public class Main extends Application {
 
     static {
         // Carregar fontes embutidas
-        Font.loadFont(Main.class.getResourceAsStream("/fonts/Inter-Regular.ttf"), 12);
-        Font.loadFont(Main.class.getResourceAsStream("/fonts/Inter-Bold.ttf"), 12);
+        Font.loadFont(Main.class.getResourceAsStream("/fonts/Rubik-Regular.ttf"), 12);
+        Font.loadFont(Main.class.getResourceAsStream("/fonts/Rubik-Bold.ttf"), 12);
         Font.loadFont(Main.class.getResourceAsStream("/fonts/JetBrainsMono-Regular.ttf"), 12);
     }
 
