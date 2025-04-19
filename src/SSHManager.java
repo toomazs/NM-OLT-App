@@ -1,204 +1,145 @@
 import com.jcraft.jsch.*;
-import javafx.scene.control.TextArea;
 import javafx.application.Platform;
-import java.util.function.BiConsumer;
+import javafx.scene.control.TextArea;
+
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
-import javafx.util.Duration;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
+import java.util.Properties;
+import java.util.function.Consumer;
 
 public class SSHManager {
-    private static Channel channel;
-    private static Session session;
-    private static PipedOutputStream pipeOut;
-    private static boolean sentCommand = false;
-    private static Timeline connectionTimeoutTimer;
+    private Session session;
+    private ChannelShell channel;
+    private OutputStream outputStream;
+    private final Consumer<String> outputCallback;
 
-    public static boolean testConnection(String ip) {
+    public SSHManager(Consumer<String> outputCallback) {
+        this.outputCallback = outputCallback;
+    }
+
+    public void connect(String host, String user, String password, TextArea terminalArea) {
         try {
-            Process pingProcess = Runtime.getRuntime().exec("ping -n 2 " + ip);
-            return pingProcess.waitFor() == 0;
-        } catch (Exception e) {
-            return false;
-        }
-    }
+            JSch jsch = new JSch();
+            session = jsch.getSession(user, host, 22);
+            session.setPassword(password);
 
-    public static void connect(String ip, String user, String password,
-                               TextArea terminalArea, BiConsumer<String, String> errorHandler) {
-        new Thread(() -> {
-            try {
-                JSch jsch = new JSch();
-                session = jsch.getSession(user, ip, 22);
-                session.setPassword(password);
-                session.setConfig("StrictHostKeyChecking", "no");
-                session.setTimeout(10000);
+            Properties config = new Properties();
+            config.put("StrictHostKeyChecking", "no");
+            config.put("PreferredAuthentications", "password");
+            config.put("HostKeyAlgorithms", "+ssh-rsa");
+            session.setConfig(config);
 
-                // Mensagem de conexão com efeito de "carregando"
-                Platform.runLater(() -> {
-                    Main.appendToTerminal("Conectando a " + ip + "... ");
-                    startLoadingAnimation(terminalArea);
-                });
+            // Configurar timeout mais curto para melhor experiência do usuário
+            session.setTimeout(10000); // 10 segundos
 
-                session.connect();
+            session.connect();
 
-                // Parar animação de carregamento
-                Platform.runLater(() -> {
-                    stopLoadingAnimation();
-                });
+            channel = (ChannelShell) session.openChannel("shell");
 
-                pipeOut = new PipedOutputStream();
-                PipedInputStream pipeIn = new PipedInputStream(pipeOut);
+            PipedInputStream pis = new PipedInputStream();
+            PipedOutputStream pos = new PipedOutputStream(pis);
+            outputStream = pos;
 
-                channel = session.openChannel("shell");
-                ((ChannelShell)channel).setPtyType("xterm");
-                channel.setInputStream(pipeIn);
-                channel.setOutputStream(new TextAreaOutputStream(terminalArea));
-                channel.connect();
-
-                // Mensagem de sucesso com cores e emojis
-                Platform.runLater(() -> {
-                    Main.appendToTerminal("\n✅ Conectado com sucesso!\n");
-                    Main.appendToTerminal("\nDigite comandos como: display ont info summary 0/7/7\n\n");
-                });
-
-            } catch (Exception e) {
-                String errorMessage = getErrorMessage(e);
-                // Parar animação de carregamento em caso de erro
-                Platform.runLater(() -> {
-                    stopLoadingAnimation();
-                    Main.appendToTerminal("\n❌ Falha na conexão: " + errorMessage + "\n");
-                });
-                errorHandler.accept("Erro SSH", errorMessage);
-                disconnect();
-            }
-        }).start();
-    }
-
-    private static Timeline loadingAnimation;
-    private static String[] loadingFrames = {".  ", ".. ", "...", " ..", "  .", "   "};
-    private static int frameIndex = 0;
-
-    private static void startLoadingAnimation(TextArea terminalArea) {
-        if (loadingAnimation != null) {
-            loadingAnimation.stop();
-        }
-
-        frameIndex = 0;
-        loadingAnimation = new Timeline(
-                new KeyFrame(Duration.millis(200), event -> {
-                    // Deletar os últimos 3 caracteres e substituir com o novo frame
-                    String text = terminalArea.getText();
-                    if (text.length() >= 3) {
-                        String newText = text.substring(0, text.length() - 3) + loadingFrames[frameIndex];
-                        terminalArea.setText(newText);
-                    }
-                    frameIndex = (frameIndex + 1) % loadingFrames.length;
-                })
-        );
-        loadingAnimation.setCycleCount(Timeline.INDEFINITE);
-        loadingAnimation.play();
-
-        // Configurar timeout para a conexão
-        connectionTimeoutTimer = new Timeline(
-                new KeyFrame(Duration.seconds(15), event -> {
-                    stopLoadingAnimation();
-                    Main.appendToTerminal("\n❌ Tempo esgotado! Conexão não estabelecida após 15 segundos.\n");
-                })
-        );
-        connectionTimeoutTimer.setCycleCount(1);
-        connectionTimeoutTimer.play();
-    }
-
-    private static void stopLoadingAnimation() {
-        if (loadingAnimation != null) {
-            loadingAnimation.stop();
-            loadingAnimation = null;
-        }
-
-        if (connectionTimeoutTimer != null) {
-            connectionTimeoutTimer.stop();
-            connectionTimeoutTimer = null;
-        }
-    }
-
-    public static void sendCommand(String command) {
-        try {
-            if (pipeOut != null && channel != null && channel.isConnected()) {
-                // Se já enviamos um comando recentemente, aguarde um momento para evitar duplicação
-                if (sentCommand) {
-                    Thread.sleep(100);
+            channel.setInputStream(pis);
+            channel.setOutputStream(new OutputStream() {
+                @Override
+                public void write(int b) {
+                    outputCallback.accept(String.valueOf((char) b));
                 }
+            });
 
-                // Efeito visual: mostrar o comando sendo executado em verde
-                Platform.runLater(() -> {
-                    Main.appendToTerminal("\n$ " + command + "\n");
-                });
+            channel.connect();
 
-                // envia o comando seguido por enter com (\r\n)
-                pipeOut.write((command + "\r\n").getBytes("UTF-8"));
-                pipeOut.flush();
-
-                // Marcar que enviamos um comando
-                sentCommand = true;
-
-                // Reset o flag após um período
-                new Thread(() -> {
-                    try {
-                        Thread.sleep(500);
-                        sentCommand = false;
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }).start();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+            Platform.runLater(() -> terminalArea.appendText("\n✅ Conectado a " + host + "\n"));
+        } catch (JSchException e) {
             Platform.runLater(() -> {
-                Main.appendToTerminal("\n❌ Erro ao enviar comando: " + e.getMessage() + "\n");
+                String errorMessage = e.getMessage();
+
+                // Tratamento específico para "socket is not established"
+                if (errorMessage.contains("socket is not established") || errorMessage.contains("timeout")) {
+                    terminalArea.appendText("\n❌ Erro de conexão: Falha no estabelecimento de conexão com " + host + "\n");
+                    terminalArea.appendText("\nDetalhes do problema:\n");
+                    terminalArea.appendText("• A conexão inicial foi feita, mas o protocolo SSH não conseguiu ser estabelecido\n");
+                    terminalArea.appendText("• Isso geralmente acontece quando um firewall está interceptando ou bloqueando conexões SSH\n");
+                    terminalArea.appendText("• Você pode estar conectado à rede, mas sem acesso à rede interna onde a OLT está localizada\n");
+                    terminalArea.appendText("• A OLT pode estar com problemas no serviço SSH\n\n");
+                    terminalArea.appendText("Sugestões:\n");
+                    terminalArea.appendText("1. Verifique se você está na rede corporativa ou VPN\n");
+                    terminalArea.appendText("2. Certifique-se de que a OLT está online (ping " + host + ")\n");
+                    terminalArea.appendText("3. Consulte o administrador de rede se o acesso SSH está liberado\n");
+                }
+                // Causa específica: Connection timed out
+                else if (e.getCause() instanceof ConnectException || e.getCause() instanceof SocketTimeoutException ||
+                        errorMessage.contains("Connection timed out")) {
+                    terminalArea.appendText("\n❌ Erro de conexão: Tempo esgotado ao conectar à OLT " + host + "\n");
+                    terminalArea.appendText("\nPossíveis causas:\n");
+                    terminalArea.appendText("• Você não está conectado à rede interna da empresa\n");
+                    terminalArea.appendText("• A OLT está desligada ou inacessível\n");
+                    terminalArea.appendText("• Um firewall está bloqueando a conexão na porta 22\n");
+                    terminalArea.appendText("• O endereço IP da OLT mudou ou está incorreto\n\n");
+                    terminalArea.appendText("Sugestão: Verifique sua conexão VPN ou rede corporativa e tente novamente.\n");
+                }
+                // Falha de autenticação
+                else if (errorMessage.contains("Auth fail") || errorMessage.contains("authentication")) {
+                    terminalArea.appendText("\n❌ Erro de autenticação\n");
+                    terminalArea.appendText("\nO nome de usuário ou senha estão incorretos.\n");
+                    terminalArea.appendText("Verifique suas credenciais e tente novamente.\n");
+                }
+                // Host desconhecido
+                else if (e.getCause() instanceof UnknownHostException) {
+                    terminalArea.appendText("\n❌ Host desconhecido: " + host + "\n");
+                    terminalArea.appendText("\nO endereço IP não pode ser resolvido. Verifique se o IP está correto.\n");
+                }
+                // Erro genérico
+                else {
+                    terminalArea.appendText("\n❌ Erro na conexão: " + errorMessage + "\n");
+                    terminalArea.appendText("\nDetalhes técnicos: JSchException" +
+                            (e.getCause() != null ? " causado por " + e.getCause().getClass().getSimpleName() : "") + "\n");
+                    terminalArea.appendText("\nVerifique sua conexão com a rede e se o serviço SSH está disponível na OLT.\n");
+                }
+            });
+        } catch (Exception e) {
+            Platform.runLater(() -> {
+                terminalArea.appendText("\n❌ Erro inesperado: " + e.getMessage() + "\n");
+                terminalArea.appendText("Tipo: " + e.getClass().getSimpleName() + "\n");
+                terminalArea.appendText("\nPor favor, reporte este erro para o suporte técnico.\n");
             });
         }
     }
 
-    public static void disconnect() {
+    public void sendCommand(String command) {
         try {
-            // Mensagem de desconexão
-            Platform.runLater(() -> {
-                Main.appendToTerminal("\nDesconectando...\n");
-            });
+            if (outputStream != null && channel != null && channel.isConnected()) {
+                outputStream.write((command + "\n").getBytes());
+                outputStream.flush();
+            } else {
+                outputCallback.accept("\n⚠️ Não foi possível enviar o comando: conexão não estabelecida ou fechada.\n");
+            }
+        } catch (IOException e) {
+            outputCallback.accept("\n❌ Erro ao enviar comando: " + e.getMessage() + "\n");
+            if (e.getMessage().contains("Broken pipe") || e.getMessage().contains("closed")) {
+                outputCallback.accept("A conexão foi interrompida. Reconecte à OLT para continuar.\n");
+            }
+        } catch (Exception e) {
+            outputCallback.accept("\n❌ Erro inesperado: " + e.getMessage() + "\n");
+        }
+    }
 
-            stopLoadingAnimation();
-
-            if (channel != null) {
+    public void disconnect() {
+        try {
+            if (channel != null && channel.isConnected()) {
                 channel.disconnect();
             }
-            if (session != null) {
+            if (session != null && session.isConnected()) {
                 session.disconnect();
             }
-            if (pipeOut != null) {
-                pipeOut.close();
-            }
-
-            // Mensagem final
-            Platform.runLater(() -> {
-                Main.appendToTerminal("Desconectado com sucesso.\n");
-            });
         } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private static String getErrorMessage(Exception e) {
-        if (e.getMessage() == null) {
-            return "Erro desconhecido";
-        } else if (e.getMessage().contains("Auth fail")) {
-            return "Credenciais inválidas! Verifique usuário/senha da OLT";
-        } else if (e.getMessage().contains("Connection timed out")) {
-            return "Timeout de conexão. OLT pode estar lenta, valide a VPN/IP";
-        } else if (e.getMessage().contains("Network is unreachable")) {
-            return "Rede inacessível. Você está na rede interna?";
-        } else {
-            return "Erro técnico bizonho (avise o Eduardo): " + e.getMessage();
+            // Absorve exceções durante o fechamento
         }
     }
 }

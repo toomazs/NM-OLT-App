@@ -12,6 +12,7 @@
       <root url="jar://$PROJECT_DIR$/lib/javafx-sdk-24/lib/javafx.media.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/javafx-sdk-24/lib/javafx.graphics.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/javafx-sdk-24/lib/javafx.fxml.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/pty4j-0.12.13.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />
