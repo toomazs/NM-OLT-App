@@ -52,6 +52,6 @@ this repo is public, so:
 
 ## 📞 support
 
-any issues? just reach out me here or in my social medias @tomazdudux 
+any issues? just reach out me here or in my social medias: **@tomazdudux** <br>
 always happy to help. 😊
 
