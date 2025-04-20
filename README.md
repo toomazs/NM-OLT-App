@@ -3,7 +3,7 @@
 🔧 project by **eduardo tomaz** — internal tool for managing huawei olts at **n-multifibra**
 
 > a simple and intuitive java tool to connect, diagnose and monitor huawei olts — with ssh access, signal analysis, visual outage tracking and pdf report export.
-
+ 
 ---
 
 ## ⚠️ before you start
@@ -26,7 +26,7 @@ this repo is public, so:
   are stored in a separate file  
 - that file is **ignored by git** via `.gitignore`, so it won’t be uploaded here  
 - you'll need to create your own secret file with the required data to run the app correctly
-- if you are an n-multifibra employee, contact Eduardo Tomaz cuz he will send you the correct java
+- if you are an **n-multifibra** employee, contact **eduardo tomaz** cuz he will send you the correct file :D
 
 
 ## 🚀 what it does
@@ -52,6 +52,6 @@ this repo is public, so:
 
 ## 📞 support
 
-any issues? just reach out to **eduardo tomaz**. 
+any issues? just reach out me here or in my social medias @tomazdudux 
 always happy to help. 😊
 
