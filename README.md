@@ -1,22 +1,33 @@
 # 🧠 olt manager — n-multifibra
 
-🔧 project by **eduardo tomaz** — internal use only for **n-multifibra employees**
+🔧 project by **eduardo tomaz** — internal tool for managing huawei olts at **n-multifibra**
 
-> a simple and intuitive tool to manage and troubleshoot huawei olts, with ssh access, signal analysis, outage diagnostics, and report exports.
+> a simple and intuitive java tool to connect, diagnose and monitor huawei olts — with ssh access, signal analysis, visual outage tracking and pdf report export.
 
 ---
 
 ## ⚠️ before you start
 
-make sure you’ve checked the following:
+just a few things to keep in mind before running it:
 
-- ✅ java **version 22 or higher** is installed  
-- ✅ vpn or internal network connection is active  
-- ✅ no olt should be offline or unreachable  
-- ✅ firewall/antivirus isn’t blocking port 22 (ssh)  
-- ✅ olts are already set up with ip, username, and password  
+- ✅ java **version 22 or higher** is required  
+- ✅ make sure you're connected to the **vpn** or internal network  
+- ✅ no olt should be offline or unreachable
+- ✅ **port 22** (ssh) must not be blocked by firewall/antivirus  
+- ❗ **credentials and IPs are not included in this repo** – see below 👇
 
 ---
+
+## 🔐 where are the secrets?
+
+this repo is public, so:
+
+- all sensitive info (like **olt ip addresses**, **ssh username**, and **password**)  
+  are stored in a separate file  
+- that file is **ignored by git** via `.gitignore`, so it won’t be uploaded here  
+- you'll need to create your own secret file with the required data to run the app correctly
+- if you are an n-multifibra employee, contact Eduardo Tomaz cuz he will send you the correct java
+
 
 ## 🚀 what it does
 
@@ -41,11 +52,6 @@ make sure you’ve checked the following:
 
 ## 📞 support
 
-any issues? just reach out to **eduardo tomaz** from the tech support team.  
+any issues? just reach out to **eduardo tomaz**. 
 always happy to help. 😊
-
----
-
-> ⚠️ heads up: this project is for **internal use only** by the n-multifibra team.  
-> don’t share it outside, pls.
 
