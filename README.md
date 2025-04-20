@@ -1,23 +1,51 @@
-### <h1> Gerenciador de OLTs, Sinal e Rompimentos da N-Multifibra </h1>
+# 🧠 olt manager — n-multifibra
 
-🌐 ~ Projeto por Eduardo Tomaz | Gerenciamento prático interno  <br>
+🔧 project by **eduardo tomaz** — internal use only for **n-multifibra employees**
 
-<br>
+> a simple and intuitive tool to manage and troubleshoot huawei olts, with ssh access, signal analysis, outage diagnostics, and report exports.
 
- <b> <h3> ⚠️ ATENÇÃO! </h3> </b> <br>
- ~ Certifique-se de ter o Java 22+ instalado na máquina. <br>
- ~ Esse projeto é privado apenas à colaboradores da <b>N-Multifibra</b>, MUITA ATENÇÃO; <br>
- ~ As OLTs já vem configuradas de acordo com o IP. Usuário e senha também já pré-descritos; <br>
- ~ Validar se está com VPN ligado/conectado à rede interna; <br>
- ~ Validar se antes de conectar não possui nenhuma OLT offline/derrubada; <br>
- ~ Caso antivirus do Windows estiver brecando, manda o Windows pra pqp e baixa Linux <br>
+---
 
- <br>
- 
-  <b> <h3> 📃 BIBLIOTECAS USADAS: </h3> </b> <br>
- ~ Jsch - JSch is a pure Java implementation of SSH2 (para acessar as OLTs no terminal); <br>
- ~ JavaFX - next generation client application platform for desktop on Java (aplicação rica); <br>
- ~ Launch4j -  cross-platform tool for wrapping Java applications (geração de .exe) <br>
- 
-<br>
-Caso dúvidas, apenas contate o Eduardo Tomaz do Suporte Técnico. ^^
+## ⚠️ before you start
+
+make sure you’ve checked the following:
+
+- ✅ java **version 22 or higher** is installed  
+- ✅ vpn or internal network connection is active  
+- ✅ no olt should be offline or unreachable  
+- ✅ firewall/antivirus isn’t blocking port 22 (ssh)  
+- ✅ olts are already set up with ip, username, and password  
+
+---
+
+## 🚀 what it does
+
+- automatic **ssh connection** to huawei olts (via jsch)  
+- **signal check** by gpon interface  
+- **visual diagnostics** for detecting outages  
+- built-in **terminal** for sending custom commands  
+- **pdf report export** with clean layout (openpdf)  
+- ui built with **javafx**  
+- `.exe` generation with **launch4j**
+
+---
+
+## 📚 libs used
+
+- [`jsch`](http://www.jcraft.com/jsch/) — ssh access in java  
+- [`javafx`](https://openjfx.io/) — modern ui toolkit  
+- [`openpdf`](https://github.com/LibrePDF/OpenPDF) — generates pdf reports  
+- [`launch4j`](http://launch4j.sourceforge.net/) — creates windows executables  
+
+---
+
+## 📞 support
+
+any issues? just reach out to **eduardo tomaz** from the tech support team.  
+always happy to help. 😊
+
+---
+
+> ⚠️ heads up: this project is for **internal use only** by the n-multifibra team.  
+> don’t share it outside, pls.
+
