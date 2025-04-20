@@ -1,3 +1,0 @@
-Caso o .exe esteja com problemas para abrir, clique duas vezes nesse "launch.bat".
-Peço também que imediatamente envie ao Eduardo o erro que apareceu no CMD, por favor.
-Certifique-se de ter o Java 22+.

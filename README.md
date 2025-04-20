@@ -1,6 +1,6 @@
-### <h1> Gerenciador de OLTs da N-Multifibra </h1>
+### <h1> Gerenciador de OLTs, Sinal e Rompimentos da N-Multifibra </h1>
 
-🌐 ~ Projeto por Eduardo Tomaz | Gerenciamento prático de OLTs  <br>
+🌐 ~ Projeto por Eduardo Tomaz | Gerenciamento prático interno  <br>
 
 <br>
 
