@@ -1,0 +1,25 @@
+----- ATTENTION!! - This file is completely useless in the project -
+- This is an example of how you should structure your secret file.
+- In short, wherever it says SSH_USER & SSH_PASS, you should insert the credentials to access your private OLT.
+- Below, in OLT_LIST, add the names of your OLTs, followed by the IPs to access them.
+- The project handles this automatically, as long as that .java is set and located in /src along with the Main.
+
+
+public class Example {
+    public static final String SSH_USER = "usuario";
+    public static final String SSH_PASS = "senha";
+
+    public static final String[][] OLT_LIST = {
+            {"OLT_01", "192.168.0.1"},
+            {"OLT_02", "192.168.0.1"},
+            {"OLT_03", "192.168.0.1"},
+            {"OLT_04", "192.168.0.1"},
+            {"OLT_05", "192.168.0.1"},
+            {"OLT_06", "192.168.0.1"},
+            {"OLT_07", "192.168.0.1"},
+            {"OLT_09", "192.168.0.1"},
+            {"OLT_10", "192.168.0.1"},
+    };
+}
+
+
