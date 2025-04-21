@@ -7,6 +7,10 @@ src/Secrets.java
 # Ignorar arquivos .log
 *.log
 
+# Ignorar arquivos .bat
+*.bat
+
+
 ### IntelliJ IDEA ###
 out/
 !**/src/main/**/out/
