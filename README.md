@@ -1,23 +1,57 @@
-### <h1> Gerenciador de OLTs, Sinal e Rompimentos da N-Multifibra </h1>
+# 🧠 olt manager — n-multifibra
 
-🌐 ~ Projeto por Eduardo Tomaz | Gerenciamento prático interno  <br>
+🔧 project by **eduardo tomaz** — internal tool for managing huawei olts at **n-multifibra**
 
-<br>
-
- <b> <h3> ⚠️ ATENÇÃO! </h3> </b> <br>
- ~ Certifique-se de ter o Java 22+ instalado na máquina. <br>
- ~ Esse projeto é privado apenas à colaboradores da <b>N-Multifibra</b>, MUITA ATENÇÃO; <br>
- ~ As OLTs já vem configuradas de acordo com o IP. Usuário e senha também já pré-descritos; <br>
- ~ Validar se está com VPN ligado/conectado à rede interna; <br>
- ~ Validar se antes de conectar não possui nenhuma OLT offline/derrubada; <br>
- ~ Caso antivirus do Windows estiver brecando, manda o Windows pra pqp e baixa Linux <br>
-
- <br>
+> a simple and intuitive java tool to connect, diagnose and monitor huawei olts — with ssh access, signal analysis, visual outage tracking and pdf report export.
  
-  <b> <h3> 📃 BIBLIOTECAS USADAS: </h3> </b> <br>
- ~ Jsch - JSch is a pure Java implementation of SSH2 (para acessar as OLTs no terminal); <br>
- ~ JavaFX - next generation client application platform for desktop on Java (aplicação rica); <br>
- ~ Launch4j -  cross-platform tool for wrapping Java applications (geração de .exe) <br>
- 
-<br>
-Caso dúvidas, apenas contate o Eduardo Tomaz do Suporte Técnico. ^^
+---
+
+## ⚠️ before you start
+
+just a few things to keep in mind before running it:
+
+- ✅ java **version 22 or higher** is required  
+- ✅ make sure you're connected to the **vpn** or internal network  
+- ✅ no olt should be offline or unreachable
+- ✅ **port 22** (ssh) must not be blocked by firewall/antivirus  
+- ❗ **credentials and IPs are not included in this repo** – see below 👇
+
+---
+
+## 🔐 where are the secrets?
+
+this repo is public, so:
+
+- all sensitive info (like **olt ip addresses**, **ssh username**, and **password**)  
+  are stored in a separate file  
+- that file is **ignored by git** via `.gitignore`, so it won’t be uploaded here  
+- you'll need to create your own secret file with the required data to run the app correctly
+- if you are an **n-multifibra** employee, contact **eduardo tomaz** cuz he will send you the correct file :D
+
+
+## 🚀 what it does
+
+- automatic **ssh connection** to huawei olts (via jsch)  
+- **signal check** by gpon interface  
+- **visual diagnostics** for detecting outages  
+- built-in **terminal** for sending custom commands  
+- **pdf report export** with clean layout (openpdf)  
+- ui built with **javafx**  
+- `.exe` generation with **launch4j**
+
+---
+
+## 📚 libs used
+
+- [`jsch`](http://www.jcraft.com/jsch/) — ssh access in java  
+- [`javafx`](https://openjfx.io/) — modern ui toolkit  
+- [`openpdf`](https://github.com/LibrePDF/OpenPDF) — generates pdf reports  
+- [`launch4j`](http://launch4j.sourceforge.net/) — creates windows executables  
+
+---
+
+## 📞 support
+
+any issues? just reach out me here or in my social medias: **@tomazdudux** <br>
+always happy to help. 😊
+
