@@ -12,6 +12,7 @@ src/Secrets.java
 
 
 ### IntelliJ IDEA ###
+.idea/
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
