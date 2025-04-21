@@ -33,9 +33,13 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import javafx.scene.control.Button;
+import screens.LoginScreen;
+import models.Usuario;
+
 
 
 public class Main extends Application {
+    private Usuario usuario;
     private VBox rootLayout;
     private Stage primaryStage;
     private static TextArea terminalArea;
@@ -67,6 +71,14 @@ public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        LoginScreen loginScreen = new LoginScreen();
+        this.usuario = loginScreen.showLogin(new Stage());
+
+        if (this.usuario == null) {
+            Platform.exit();
+            return;
+        }
+
         this.primaryStage = primaryStage;
         primaryStage.initStyle(StageStyle.UNDECORATED);
 
@@ -111,11 +123,7 @@ public class Main extends Application {
         );
         fadeIn.play();
 
-
-        // Inicio de monitoramento dos rompimentos a cada 30 min
         startBreakageMonitoring();
-        // Inicio de monitoramento dos rompimentos a cada 30 min
-
 
         scene.setOnKeyPressed(event -> {
             if (event.isControlDown() && event.getCode() == javafx.scene.input.KeyCode.F) {
@@ -135,6 +143,8 @@ public class Main extends Application {
             }
         });
     }
+
+
 
     private void startBreakageMonitoring() {
         breakageMonitor = Executors.newSingleThreadScheduledExecutor();
@@ -182,7 +192,7 @@ public class Main extends Application {
         sideNav.setPrefWidth(200);
         sideNav.setPadding(new Insets(20, 0, 20, 0));
 
-        Label menuTitle = new Label("Feito por Eduardo Tomaz\n v1.4.0.0");
+        Label menuTitle = new Label("Feito por Eduardo Tomaz\n v1.5.0.0");
         menuTitle.getStyleClass().add("menu-title");
         menuTitle.setPadding(new Insets(0, 0, 10, 15));
 
@@ -200,7 +210,39 @@ public class Main extends Application {
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
-        sideNav.getChildren().addAll(spacer, menuTitle);
+
+        VBox footerBox = new VBox(5);
+        footerBox.setAlignment(Pos.CENTER_LEFT);
+        footerBox.setPadding(new Insets(10, 15, 10, 15));
+
+
+        Label userInfo = new Label("👤 " + usuario.getNome() + "\n ㅤ(" + usuario.getCargo() + ")");
+        userInfo.getStyleClass().add("user-footer");
+
+        Button logoutBtn = new Button("Deslogar");
+        logoutBtn.setVisible(false);
+        logoutBtn.setManaged(false);
+        logoutBtn.getStyleClass().add("logout-button");
+
+        userInfo.setOnMouseClicked(e -> {
+            logoutBtn.setVisible(!logoutBtn.isVisible());
+            logoutBtn.setManaged(logoutBtn.isVisible());
+        });
+
+        logoutBtn.setOnAction(e -> {
+            Stage stage = new Stage();
+            Usuario novoLogin = new LoginScreen().showLogin(stage);
+            if (novoLogin != null) {
+                Platform.runLater(() -> {
+                    primaryStage.close();
+                    new Main().start(new Stage());
+                });
+            }
+        });
+
+        footerBox.getChildren().addAll(menuTitle, userInfo, logoutBtn);
+        sideNav.getChildren().addAll(spacer, footerBox);
+
 
 
         return sideNav;

@@ -244,7 +244,7 @@
 
 .action-btn:hover {
     -fx-background-color: #334155;
-    -fx-effect: glow(#3b82f6, 0.5);
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.5), 10, 0.5, 0, 0);
     -fx-translate-y: -1px;
 }
 
@@ -560,3 +560,179 @@
     -fx-text-fill: white;
 }
 
+.password-field {
+    -fx-font-size: 12px;
+}
+
+.user-footer {
+    -fx-text-fill: #94a3b8;
+    -fx-font-size: 11px;
+    -fx-padding: 5 15 5 15;
+}
+
+.user-footer:hover {
+    -fx-text-fill: #f1f5f9;
+    -fx-cursor: hand;
+}
+
+.logout-button {
+    -fx-background-color: #991b1b;
+    -fx-text-fill: white;
+    -fx-padding: 5px 10px;
+    -fx-background-radius: 5px;
+    -fx-cursor: hand;
+    -fx-font-size: 11px;
+}
+
+.logout-button:hover {
+    -fx-background-color: #b91c1c;
+}
+
+.text-field:focused, .combo-box:focused, .password-field:focused {
+    -fx-background-color: #475569;
+    -fx-border-color: #3b82f6;
+    -fx-border-width: 1px;
+    -fx-effect: dropshadow(gaussian, #3b82f6, 4, 0.2, 0, 0);
+}
+
+.button:hover {
+    -fx-effect: dropshadow(three-pass-box, rgba(255, 255, 255, 0.2), 8, 0, 0, 0);
+}
+
+/* Estilos modernos para a aplicação */
+.root {
+    -fx-font-family: 'Segoe UI', Arial, sans-serif;
+    -fx-background-color: #0f172a;
+}
+/* Estilos da barra de título */
+.title-bar {
+    -fx-background-color: #1e293b;
+    -fx-background-radius: 5 5 0 0;
+    -fx-padding: 0 8px;
+}
+/* Botões da janela */
+.window-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #cbd5e1;
+    -fx-font-size: 10px;
+    -fx-padding: 3px 8px;
+    -fx-cursor: hand;
+}
+.window-button:hover {
+    -fx-background-color: #334155;
+    -fx-text-fill: white;
+}
+.window-close-button:hover {
+    -fx-background-color: #ef4444;
+    -fx-text-fill: white;
+}
+/* Campos de texto modernos */
+.modern-text-field {
+    -fx-background-color: rgba(30, 41, 59, 0.7);
+    -fx-background-radius: 5px;
+    -fx-border-color: #475569;
+    -fx-border-width: 0 0 1 0;
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-padding: 12px 15px;
+    -fx-prompt-text-fill: #94a3b8;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 1);
+    -fx-transition: all 0.3s;
+}
+.modern-text-field:focused {
+    -fx-background-color: rgba(30, 41, 59, 0.9);
+    -fx-border-color: #3b82f6;
+    -fx-border-width: 0 0 2 0;
+}
+/* Botão moderno principal */
+.modern-button {
+    -fx-background-color: #3b82f6;
+    -fx-background-radius: 5px;
+    -fx-padding: 12px 15px;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 5, 0, 0, 2);
+    -fx-transition: all 0.3s;
+}
+.modern-button:hover {
+    -fx-background-color: #2563eb;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 8, 0, 0, 3);
+    -fx-translate-y: -1px;
+}
+.modern-button:pressed {
+    -fx-background-color: #1d4ed8;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 3, 0, 0, 1);
+    -fx-translate-y: 1px;
+}
+/* Botão secundário */
+.secondary-button {
+    -fx-background-color: #475569;
+    -fx-background-radius: 5px;
+    -fx-padding: 12px 15px;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 5, 0, 0, 2);
+}
+.secondary-button:hover {
+    -fx-background-color: #334155;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 8, 0, 0, 3);
+    -fx-translate-y: -1px;
+}
+.secondary-button:pressed {
+    -fx-background-color: #1e293b;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 3, 0, 0, 1);
+    -fx-translate-y: 1px;
+}
+/* Botão link */
+.link-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #93c5fd;
+    -fx-font-size: 13px;
+    -fx-padding: 5px;
+    -fx-cursor: hand;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-underline: false;
+}
+.link-button:hover {
+    -fx-text-fill: #60a5fa;
+    -fx-underline: true;
+}
+.link-button:pressed {
+    -fx-text-fill: #3b82f6;
+}
+/* Glassmorphism para cards e containers */
+.glass-pane {
+    -fx-background-color: rgba(15, 23, 42, 0.7);
+    -fx-background-radius: 10px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 10, 0, 0, 5);
+    -fx-border-color: rgba(255, 255, 255, 0.1);
+    -fx-border-width: 1px;
+    -fx-border-radius: 10px;
+}
+/* Estilos para labels */
+.header-label {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 3, 0, 0, 1);
+}
+.sub-header-label {
+    -fx-font-size: 16px;
+    -fx-font-weight: normal;
+    -fx-text-fill: #cbd5e1;
+}
+/* Animações para transições */
+.fade-transition {
+    -fx-transition: opacity 0.3s ease-in-out;
+}
+.scale-transition {
+    -fx-transition: scale 0.2s ease-out;
+}
+/* Efeitos para ícones */
+.icon-glow {
+    -fx-effect: dropshadow(three-pass-box, #60a5fa, 15, 0.5, 0, 0);
+}

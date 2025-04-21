@@ -1,5 +1,6 @@
 # Ignorar arquivo com dados sensíveis
 src/Secrets.java
+src/database/SecretsDB.java
 
 # Ignorar arquivos .jar
 *.jar
