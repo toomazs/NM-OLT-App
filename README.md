@@ -3,7 +3,28 @@
 🔧 project by **eduardo tomaz** — internal tool for managing huawei olts at **n-multifibra**
 
 > a simple and intuitive java tool to connect, diagnose and monitor huawei olts — with ssh access, signal analysis, visual outage tracking and pdf report export.
- 
+
+---
+
+## 🚀 what it does
+
+- automatic **ssh connection** to huawei olts (via jsch)  
+- **signal check** by gpon interface  
+- **visual diagnostics** for detecting outages  
+- built-in **terminal** for sending custom commands  
+- **pdf report export** with clean layout (openpdf)  
+- ui built with **javafx**  
+- `.exe` generation with **launch4j**
+
+---
+
+## 📚 libs used
+
+- [`jsch`](http://www.jcraft.com/jsch/) — ssh access in java  
+- [`javafx`](https://openjfx.io/) — modern ui toolkit  
+- [`openpdf`](https://github.com/LibrePDF/OpenPDF) — generates pdf reports  
+- [`launch4j`](http://launch4j.sourceforge.net/) — creates windows executables  
+
 ---
 
 ## ⚠️ before you start
@@ -36,27 +57,6 @@ to make it easier:
 - it shows **exactly** how your secret file should look  
 - just follow the structure and replace the placeholders (`SSH_USER`, `SSH_PASS`, IPs, etc.)
 - save it as a `.java` file (like `Secrets.java`) and put it in `/src` next to `Main.java`
-
----
-
-## 🚀 what it does
-
-- automatic **ssh connection** to huawei olts (via jsch)  
-- **signal check** by gpon interface  
-- **visual diagnostics** for detecting outages  
-- built-in **terminal** for sending custom commands  
-- **pdf report export** with clean layout (openpdf)  
-- ui built with **javafx**  
-- `.exe` generation with **launch4j**
-
----
-
-## 📚 libs used
-
-- [`jsch`](http://www.jcraft.com/jsch/) — ssh access in java  
-- [`javafx`](https://openjfx.io/) — modern ui toolkit  
-- [`openpdf`](https://github.com/LibrePDF/OpenPDF) — generates pdf reports  
-- [`launch4j`](http://launch4j.sourceforge.net/) — creates windows executables  
 
 ---
 
