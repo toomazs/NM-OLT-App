@@ -1,6 +1,12 @@
 # Ignorar arquivo com dados sensíveis
 src/Secrets.java
 
+# Ignorar arquivos .jar
+*.jar
+
+# Ignorar arquivos .log
+*.log
+
 ### IntelliJ IDEA ###
 out/
 !**/src/main/**/out/
