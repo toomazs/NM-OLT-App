@@ -13,8 +13,8 @@
 - **visual diagnostics** for detecting outages  
 - built-in **terminal** for sending custom commands  
 - **pdf report export** with clean layout (openpdf)  
+- **postgresql integration** for login, user roles and password management  
 - ui built with **javafx**  
-- `.exe` generation with **launch4j**
 
 ---
 
@@ -23,7 +23,8 @@
 - [`jsch`](http://www.jcraft.com/jsch/) — ssh access in java  
 - [`javafx`](https://openjfx.io/) — modern ui toolkit  
 - [`openpdf`](https://github.com/LibrePDF/OpenPDF) — generates pdf reports  
-- [`launch4j`](http://launch4j.sourceforge.net/) — creates windows executables  
+- [`launch4j`](http://launch4j.sourceforge.net/) — creates windows executables
+- [`postgresql`](https://jdbc.postgresql.org/) — creates postgresql database interaction  
 
 ---
 
