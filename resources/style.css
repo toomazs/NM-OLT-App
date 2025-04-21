@@ -9,7 +9,6 @@
     -fx-font-family: "Rubik", sans-serif;
 }
 
-/* Padronização de cores de texto */
 .label {
     -fx-text-fill: #e2e8f0;
 }
@@ -18,7 +17,7 @@
     -fx-text-fill: #ffffff;
 }
 
-/* Title Bar Styles */
+/* Titulos */
 .title-bar {
     -fx-background-color: #1e293b;
     -fx-min-height: 30px;
@@ -52,7 +51,7 @@
     -fx-effect: dropshadow(three-pass-box, rgba(232, 17, 35, 0.5), 10, 0, 0, 0);
 }
 
-/* Side Navigation Styles - Enhanced with animations */
+/* Aba vertical */
 .side-nav {
     -fx-background-color: #1e293b;
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 8, 0, 0, 0);
@@ -91,7 +90,7 @@
     -fx-effect: innershadow(gaussian, #233b63, 5, 0, 0, 0);
 }
 
-/* Content Area Styles */
+/* Tela de conteudo */
 .content-area {
     -fx-background-color: #0f172a;
 }
@@ -109,7 +108,7 @@
     -fx-padding: 0 0 10 0;
 }
 
-/* OLT Card Styles - Enhanced with shadows and animations */
+/* Cards Olts */
 .olt-card {
     -fx-background-color: #0b111f;
     -fx-background-radius: 12px;
@@ -162,7 +161,7 @@
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 3, 0, 0, 1);
 }
 
-/* Terminal Screen Styles */
+/* Tela Terminal */
 .terminal-box {
     -fx-background-color: #0f172a;
     -fx-background-radius: 8px;
@@ -265,7 +264,7 @@
     -fx-translate-y: -1px;
 }
 
-/* Help Dialog Styles */
+/* Tela Ajuda */
 .help-content {
     -fx-background-color: #1e293b;
 }
@@ -309,7 +308,7 @@
     -fx-translate-y: -1px;
 }
 
-/* Form Styles */
+/* Tela Forms */
 .form-area {
     -fx-background-color: #1e293b;
     -fx-background-radius: 12px;
@@ -367,7 +366,7 @@
     -fx-background-radius: 4px;
 }
 
-/* Scroll Style */
+/* Scrolls */
 .scroll-pane {
     -fx-background-color: transparent;
     -fx-border-width: 0;
@@ -390,7 +389,16 @@
     -fx-background-color: transparent;
 }
 
-/* Status Boxes for Dashboard */
+.scroll-pane > .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane > .scroll-bar:horizontal > .thumb {
+    -fx-background-color: #475569;
+    -fx-background-radius: 6px;
+}
+
+/* Status pro dash */
 .status-box {
     -fx-background-radius: 12px;
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 8, 0, 0, 2);
@@ -428,7 +436,7 @@
     -fx-text-fill: white;
 }
 
-/* Data Table Styles */
+/* Tabela dos rompimentos */
 .data-table {
     -fx-background-color: #1e293b;
     -fx-table-cell-border-color: transparent;
@@ -464,7 +472,7 @@
     -fx-background-color: #334155;
 }
 
-/* Dialog styles from antigostyle */
+/* Dialogo do outro css */
 .dialog-pane {
     -fx-background-color: #2a2a3a;
 }
@@ -474,15 +482,15 @@
 }
 
 .dialog-pane:header .header-panel {
-    -fx-background-color: #3a3a4a;
+    -fx-background-color: #1e293b;
 }
 
 .dialog-pane:header .header-panel .label {
     -fx-font-size: 16px;
     -fx-font-weight: bold;
+    -fx-text-fill: white;
 }
 
-/* Enhanced button effects */
 .button {
     -fx-transition: all 0.3s ease;
 }
@@ -491,7 +499,6 @@
     -fx-effect: dropshadow(three-pass-box, rgba(59, 130, 246, 0.4), 8, 0, 0, 0);
 }
 
-/* New minimalist card styles */
 .minimalist-card {
     -fx-background-color: rgba(30, 41, 59, 0.7);
     -fx-background-radius: 10;
@@ -502,7 +509,6 @@
     -fx-border-radius: 10;
 }
 
-/* Enhanced container for content */
 .content-container {
     -fx-background-color: rgba(15, 23, 42, 0.6);
     -fx-background-radius: 15;
@@ -511,7 +517,6 @@
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 15, 0, 0, 5);
 }
 
-/* Animated nav indicators */
 .nav-indicator {
     -fx-background-color: #3b82f6;
     -fx-background-radius: 10 0 0 10;
@@ -520,3 +525,38 @@
     -fx-translate-y: 0;
     -fx-opacity: 0;
 }
+
+.pagination {
+    -fx-page-information-visible: false;
+    -fx-background-color: transparent;
+    -fx-padding: 10px;
+}
+
+.pagination .pagination-control {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.pagination .control-box {
+    -fx-spacing: 5px;
+}
+
+.pagination .number-button {
+    -fx-background-color: #1e293b;
+    -fx-text-fill: #f8fafc;
+    -fx-font-weight: bold;
+    -fx-background-radius: 6px;
+    -fx-padding: 5 10;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 6, 0, 0, 1);
+}
+
+.pagination .number-button:hover {
+    -fx-background-color: #334155;
+}
+
+.pagination .number-button:selected {
+    -fx-background-color: #3b82f6;
+    -fx-text-fill: white;
+}
+

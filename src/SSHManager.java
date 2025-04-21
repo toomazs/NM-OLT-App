@@ -52,7 +52,17 @@ public class SSHManager {
 
             Platform.runLater(() -> terminalArea.appendText("\n✅ Conectado a " + host + "\n"));
         } catch (Exception e) {
-            Platform.runLater(() -> terminalArea.appendText("\n❌ Erro na conexão: " + e.getMessage() + "\n"));
+            Platform.runLater(() -> {
+                terminalArea.appendText(
+                        "\n❌ Não foi possível conectar à OLT.\n\n" +
+                                "Verifique se:\n" +
+                                "1 - Você está na rede interna da empresa\n" +
+                                "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
+                                "3 - Se não há firewall ou antivírus bloqueando\n\n" +
+                                "Caso esteja tudo correto, contate imediatamente o Eduardo.\n" +
+                                "Detalhes técnicos: " + e.getMessage() + "\n"
+                );
+            });
             disconnect();
         }
     }
@@ -115,7 +125,7 @@ public class SSHManager {
         }
     }
 
-    public String queryOpticalSignal(String ontId) {
+    public String queryOpticalSignal(String fs, String p) {
         try {
             commandOutput.setLength(0);
             capturingOutput = true;
@@ -124,17 +134,14 @@ public class SSHManager {
             Thread.sleep(1000);
             sendCommand("config");
             Thread.sleep(1000);
-
-            if (ontId.isEmpty()) {
-                sendCommand("display ont optical-info all");
-            } else {
-                sendCommand("display ont optical-info " + ontId);
-            }
-
+            sendCommand("interface gpon " + fs);
+            Thread.sleep(1000);
+            sendCommand("display ont optical-info " + p + " all");
             Thread.sleep(5000);
+
             capturingOutput = false;
 
-            return parseRealOpticalSignalOutput(commandOutput.toString(), ontId);
+            return parseRealOpticalSignalOutput(commandOutput.toString(), fs + "/" + p);
 
         } catch (Exception e) {
             return "Erro na consulta: " + e.getMessage();
@@ -149,6 +156,9 @@ public class SSHManager {
         int totalOnts = 0;
         int weakSignal = 0;
         int noSignal = 0;
+        double totalRx = 0;
+        double totalTx = 0;
+
 
         result.append("RESULTADO DA CONSULTA DE SINAL:\n");
         result.append("--------------------------------------------------\n");
@@ -164,25 +174,43 @@ public class SSHManager {
             String temp = matcher.group(5);
 
             double rx = Double.parseDouble(rxPower);
+            double tx = Double.parseDouble(txPower);
+
+            totalRx += rx;
+            totalTx += tx;
+
             String status = "";
 
-            if (rx < -27.0) {
-                status = " (!)";
-                weakSignal++;
-            } else if (rx < -40.0) {
-                status = " (X)";
+            if (rx > -29.0) {
+                status = " (⚠ CRÍTICO)";
                 noSignal++;
+            } else if (rx <= -29.0 && rx >= -27.0) {
+                status = " (ℹ VERIFICAR MÉDIA)";
+                weakSignal++;
             }
+
 
             result.append(String.format("%-8s%-9s%-16s%-16s%-16s%s\n",
                     port, ont, rxPower, txPower, temp, status));
         }
 
-        result.append("--------------------------------------------------\n");
-        result.append("Status: (!) indica sinal fraco | (X) indica sem sinal\n\n");
+        result.append("--------------------------------------------------\n\n");
+
+        result.append("Status:\n");
+        result.append("• (ℹ VERIFICAR MÉDIA) entre -27 e -29  — analisar com média da primária\n");
+        result.append("• (⚠ CRÍTICO) acima de -29 — pode causar quedas/oscilação\n\n");
+
         result.append("Total de ONTs: ").append(totalOnts).append("\n");
         result.append("ONTs com sinal fraco: ").append(weakSignal).append("\n");
         result.append("ONTs sem sinal: ").append(noSignal).append("\n");
+
+        if (totalOnts > 0) {
+            double avgRx = totalRx / totalOnts;
+            double avgTx = totalTx / totalOnts;
+
+            result.append(String.format("\nMédia Sinal RX: %.2f dBm", avgRx));
+            result.append(String.format("\nMédia Sinal TX: %.2f dBm\n", avgTx));
+        }
 
         return result.toString();
     }
@@ -219,6 +247,7 @@ public class SSHManager {
             String offlineCount = matcher.group(3);
             String reason = matcher.group(4);
 
+
             if (!ponFailures.containsKey(pon)) {
                 ponFailures.put(pon, new ArrayList<>());
             }
@@ -237,36 +266,6 @@ public class SSHManager {
 
     public Map<String, List<String>> getBreakageData() {
         return breakageData;
-    }
-
-    public String getBreakagesReport() {
-        StringBuilder report = new StringBuilder();
-        report.append("RELATÓRIO DE ROMPIMENTOS DETECTADOS:\n");
-        report.append("--------------------------------------------------\n");
-
-        int critical = 0;
-        int warning = 0;
-
-        for (Map.Entry<String, List<String>> entry : breakageData.entrySet()) {
-            String pon = entry.getKey();
-            List<String> failures = entry.getValue();
-
-            if (failures.size() >= 15) {
-                report.append("[URGENTE] PON ").append(pon).append(": ")
-                        .append(failures.size()).append(" ONTs offline por LOSi/LOBi\n");
-                critical++;
-            } else if (failures.size() >= 6) {
-                report.append("[ALERTA] PON ").append(pon).append(": ")
-                        .append(failures.size()).append(" ONTs offline por LOSi/LOBi\n");
-                warning++;
-            }
-        }
-
-        report.append("\nTOTAL:\n");
-        report.append("Rompimentos críticos: ").append(critical).append("\n");
-        report.append("Rompimentos em alerta: ").append(warning).append("\n");
-
-        return report.toString();
     }
 
     public void sendCtrlC() {

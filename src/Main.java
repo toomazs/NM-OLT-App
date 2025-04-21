@@ -1,3 +1,8 @@
+import java.io.*;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ButtonBar;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.animation.*;
@@ -20,7 +25,15 @@ import javafx.collections.FXCollections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
-import java.util.regex.*;
+import java.util.List;
+import java.util.ArrayList;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import javafx.scene.control.Button;
+
 
 public class Main extends Application {
     private VBox rootLayout;
@@ -31,7 +44,7 @@ public class Main extends Application {
     private SSHManager sshManager;
     private BorderPane mainContent;
     private ToggleGroup navGroup;
-    private String currentSection = "OLTs";
+    private String currentSection = null;
     private Map<String, Node> contentCache = new HashMap<>();
     private boolean isConnectedToOLT = false;
     private OLT connectedOLT;
@@ -41,6 +54,15 @@ public class Main extends Application {
     /* ATENÇÃO!!!!
     - Abaixo tem +300h de código, chatgpt e muito café/energético. Tomar cuidado <3
      */
+
+
+    private static ObservableList<RompimentoData> rompimentosDetectados = FXCollections.observableArrayList();
+
+    public static void adicionarRompimento(String olt, String pon, String impacted, String location, String status, String time) {
+        Platform.runLater(() -> {
+            rompimentosDetectados.add(new RompimentoData(olt, pon, impacted, location, status, time));
+        });
+    }
 
 
     @Override
@@ -89,27 +111,61 @@ public class Main extends Application {
         );
         fadeIn.play();
 
-        // Monitoramento de rompimentos a cada 30 min
+
+        // Inicio de monitoramento dos rompimentos a cada 30 min
         startBreakageMonitoring();
+        // Inicio de monitoramento dos rompimentos a cada 30 min
+
+
+        scene.setOnKeyPressed(event -> {
+            if (event.isControlDown() && event.getCode() == javafx.scene.input.KeyCode.F) {
+                showSection("ONT/ONU By-SN");
+
+                Platform.runLater(() -> {
+                    Node content = contentCache.get("ONT/ONU By-SN");
+                    if (content != null) {
+                        TextField snField = (TextField) content.lookup("#snField");
+                        if (snField != null) {
+                            snField.requestFocus();
+                        }
+                    }
+                });
+
+                event.consume();
+            }
+        });
     }
 
     private void startBreakageMonitoring() {
         breakageMonitor = Executors.newSingleThreadScheduledExecutor();
         breakageMonitor.scheduleAtFixedRate(() -> {
+            Platform.runLater(() -> rompimentosDetectados.clear()); // Limpa dados antigos
+
             for (OLT olt : OLTList.getOLTs()) {
                 SSHManager tempSSH = new SSHManager();
                 try {
-                    tempSSH.connect(olt.ip, "suporte", "@Suporte123288", new TextArea());
+                    tempSSH.connect(olt.ip, Secrets.SSH_USER, Secrets.SSH_PASS, new TextArea());
                     tempSSH.scanForBreakages();
-                    String report = tempSSH.getBreakagesReport();
+                    Map<String, List<String>> breakages = tempSSH.getBreakageData();
 
-                    if (!report.contains("0 ONTs offline")) {
-                        Platform.runLater(() -> {
-                            // atualiza interface com novos rompimentos
-                            if (currentSection.equals("Rompimentos")) {
-                                showSection("Rompimentos"); // recarrega a secao
-                            }
-                        });
+                    for (Map.Entry<String, List<String>> entry : breakages.entrySet()) {
+                        String pon = entry.getKey();
+                        int impacted = entry.getValue().size();
+                        String status = (impacted >= 15) ? "Crítico" : "Alerta";
+                        String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+
+                        adicionarRompimento(
+                                olt.name,
+                                pon,
+                                String.valueOf(impacted),
+                                "PON " + pon + " - " + olt.name,
+                                status,
+                                time
+                        );
+                    }
+
+                    if (currentSection.equals("Rompimentos")) {
+                        Platform.runLater(() -> showSection("Rompimentos"));
                     }
                 } catch (Exception e) {
                     System.err.println("Erro ao monitorar OLT " + olt.name + ": " + e.getMessage());
@@ -117,7 +173,7 @@ public class Main extends Application {
                     tempSSH.disconnect();
                 }
             }
-        }, 0, 30, TimeUnit.MINUTES); // Verificacao a cada 30min
+        }, 0, 30, TimeUnit.MINUTES);
     }
 
     private VBox createSideNavigation() {
@@ -126,7 +182,7 @@ public class Main extends Application {
         sideNav.setPrefWidth(200);
         sideNav.setPadding(new Insets(20, 0, 20, 0));
 
-        Label menuTitle = new Label("Feito por Eduardo Tomaz");
+        Label menuTitle = new Label("Feito por Eduardo Tomaz\n v1.4.0.0");
         menuTitle.getStyleClass().add("menu-title");
         menuTitle.setPadding(new Insets(0, 0, 10, 15));
 
@@ -134,9 +190,18 @@ public class Main extends Application {
 
         ToggleButton oltBtn = createNavButton("OLTs", false);
         ToggleButton signalBtn = createNavButton("Consulta de Sinal", false);
+        ToggleButton ponSummaryBtn = createNavButton("PON Summary", false);
+        ToggleButton onuBySNBtn = createNavButton("ONT/ONU By-SN", false);
         ToggleButton breaksBtn = createNavButton("Rompimentos", false);
+        ToggleButton diagnosisBtn = createNavButton("ONT/ONU Quedas", false);
 
-        sideNav.getChildren().addAll(menuTitle, oltBtn, signalBtn, breaksBtn);
+        sideNav.getChildren().addAll(oltBtn, signalBtn, ponSummaryBtn, onuBySNBtn, diagnosisBtn, breaksBtn);
+
+
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+        sideNav.getChildren().addAll(spacer, menuTitle);
+
 
         return sideNav;
     }
@@ -174,6 +239,15 @@ public class Main extends Application {
                 case "Consulta de Sinal":
                     newContent = createSignalQueryScreen();
                     break;
+                case "PON Summary":
+                    newContent = createPONSummaryScreen();
+                    break;
+                case "ONT/ONU By-SN":
+                    newContent = createONUBySNScreen();
+                    break;
+                case "ONT/ONU Quedas":
+                    newContent = createDropDiagnosisScreen();
+                    break;
                 case "Rompimentos":
                     newContent = createBreaksScreen();
                     break;
@@ -209,6 +283,8 @@ public class Main extends Application {
         currentSection = section;
     }
 
+
+    // ------------ OLTS
     private Node createOLTSelectionScreen() {
         VBox content = new VBox(20);
         content.getStyleClass().add("content-area");
@@ -219,11 +295,18 @@ public class Main extends Application {
         title.getStyleClass().add("title");
 
         FlowPane cardsPane = new FlowPane();
-        cardsPane.setHgap(25);
-        cardsPane.setVgap(25);
+        cardsPane.setHgap(15);
+        cardsPane.setVgap(15);
         cardsPane.setPadding(new Insets(25));
-        cardsPane.setAlignment(Pos.CENTER);
+        cardsPane.setAlignment(Pos.TOP_CENTER);
+        cardsPane.setPrefWrapLength(900);
+        cardsPane.setMaxWidth(Double.MAX_VALUE);
         cardsPane.getStyleClass().add("scroll-content");
+
+        mainContent.widthProperty().addListener((obs, oldVal, newVal) -> {
+            cardsPane.setPrefWrapLength(newVal.doubleValue() - 250); // deixa espaço pro menu lateral
+        });
+
 
         for (OLT olt : OLTList.getOLTs()) {
             VBox card = createOLTCard(olt);
@@ -247,92 +330,201 @@ public class Main extends Application {
         return content;
     }
 
-    private Node createSignalQueryScreen() {
-        VBox content = new VBox(20);
-        content.getStyleClass().add("content-area");
-        content.setAlignment(Pos.TOP_CENTER);
-        content.setPadding(new Insets(20));
 
-        Label title = new Label("Consulta de Sinal Óptico");
-        title.getStyleClass().add("title");
+    // ------------ CONSULTA DE SINAL
+        private Node createSignalQueryScreen () {
+            VBox content = new VBox(20);
+            content.getStyleClass().add("content-area");
+            content.setAlignment(Pos.TOP_CENTER);
+            content.setPadding(new Insets(20));
 
-        VBox formArea = new VBox(15);
-        formArea.getStyleClass().add("form-area");
-        formArea.setMaxWidth(800);
-        formArea.setPadding(new Insets(25));
+            Label title = new Label("Consulta de Sinal Óptico");
+            title.getStyleClass().add("title");
 
-        Label infoLabel = new Label("Verifique a média de Sinal da Primária");
-        infoLabel.getStyleClass().add("info-label");
+            VBox formArea = new VBox(15);
+            formArea.getStyleClass().add("form-area");
+            formArea.setMaxWidth(800);
+            formArea.setPadding(new Insets(25));
 
-        HBox formRow = new HBox(15);
-        formRow.setAlignment(Pos.CENTER_LEFT);
+            Label infoLabel = new Label("Verifique o Sinal Óptico da Primária.");
+            infoLabel.getStyleClass().add("info-label");
 
-        Label oltLabel = new Label("OLT:");
-        oltLabel.setPrefWidth(80);
-        oltLabel.getStyleClass().add("form-label");
+            HBox formRow1 = new HBox(15);
+            formRow1.setAlignment(Pos.CENTER_LEFT);
 
-        ComboBox<OLT> oltComboBox = new ComboBox<>();
-        oltComboBox.getItems().addAll(OLTList.getOLTs());
-        oltComboBox.setPromptText("Selecione uma OLT");
-        oltComboBox.setMaxWidth(Double.MAX_VALUE);
-        oltComboBox.setPrefWidth(300);
-        oltComboBox.getStyleClass().add("combo-box");
-        HBox.setHgrow(oltComboBox, Priority.ALWAYS);
+            ComboBox<OLT> oltComboBox = new ComboBox<>();
+            oltComboBox.getItems().addAll(OLTList.getOLTs());
+            oltComboBox.setPromptText("Selecione a OLT");
+            oltComboBox.getStyleClass().add("combo-box");
+            HBox.setHgrow(oltComboBox, Priority.ALWAYS);
 
-        Label ontLabel = new Label("PON:");
-        ontLabel.setPrefWidth(80);
-        ontLabel.getStyleClass().add("form-label");
+            formRow1.getChildren().addAll(oltComboBox);
 
-        TextField ontIdField = new TextField();
-        ontIdField.setPromptText("F/S/P");
-        ontIdField.setPrefWidth(250);
-        ontIdField.getStyleClass().add("text-field");
+            HBox formRow2 = new HBox(15);
+            formRow2.setAlignment(Pos.CENTER_LEFT);
 
-        formRow.getChildren().addAll(oltLabel, oltComboBox, ontLabel, ontIdField);
+            TextField fsField = new TextField();
+            fsField.setPromptText("Digite o F/S");
+            fsField.setMaxWidth(100);
+            fsField.getStyleClass().add("text-field");
 
-        Button queryBtn = new Button("Consultar Sinal");
-        queryBtn.getStyleClass().add("connect-btn");
-        queryBtn.setPrefWidth(200);
+            TextField pField = new TextField();
+            pField.setPromptText("Digite o P");
+            pField.setMaxWidth(100);
+            pField.getStyleClass().add("text-field");
 
-        TextArea resultArea = new TextArea();
-        resultArea.setEditable(false);
-        resultArea.getStyleClass().add("text-area");
-        resultArea.setPrefHeight(350);
-        resultArea.setPromptText("Os resultados da consulta serão exibidos aqui...");
-        VBox.setVgrow(resultArea, Priority.ALWAYS);
+            formRow2.getChildren().addAll(fsField, pField);
 
-        queryBtn.setOnAction(e -> {
-            OLT selectedOLT = oltComboBox.getValue();
-            String ontId = ontIdField.getText().trim();
+            Button queryBtn = new Button("Consultar");
+            queryBtn.getStyleClass().add("connect-btn");
 
-            if (selectedOLT == null) {
-                resultArea.setText("Por favor, selecione uma OLT para consultar.");
-                return;
+            TextArea resultArea = new TextArea();
+            resultArea.setEditable(false);
+            resultArea.getStyleClass().add("text-area");
+            resultArea.setPrefHeight(350);
+            resultArea.setPromptText("...");
+            VBox.setVgrow(resultArea, Priority.ALWAYS);
+
+            queryBtn.setOnAction(e -> {
+                OLT selectedOLT = oltComboBox.getValue();
+                String fs = fsField.getText().trim();
+                String p = pField.getText().trim();
+
+                if (selectedOLT == null || fs.isEmpty() || p.isEmpty()) {
+                    resultArea.setText("Por favor, preencha todos os campos corretamente.");
+                    return;
+                }
+
+                resultArea.setText("Conectando e executando comandos à " + selectedOLT.name + " (" + selectedOLT.ip + ")...\n");
+
+                Thread queryThread = new Thread(() -> {
+                    SSHManager tempSSHManager = new SSHManager();
+                    try {
+                        tempSSHManager.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, resultArea);
+                        String queryResult = tempSSHManager.queryOpticalSignal(fs, p);
+                        Platform.runLater(() -> resultArea.setText(queryResult));
+                    } catch (Exception ex) {
+                        Platform.runLater(() -> resultArea.setText("Erro na consulta: " + ex.getMessage()));
+                    } finally {
+                        tempSSHManager.disconnect();
+                    }
+                });
+                queryThread.setDaemon(true);
+                queryThread.start();
+            });
+
+            HBox exportRow = new HBox(10);
+            exportRow.setAlignment(Pos.CENTER_RIGHT);
+
+            Button exportBtn = new Button("Exportar");
+            exportBtn.getStyleClass().add("connect-btn");
+
+            exportBtn.setOnAction(e -> {
+                String resultado = resultArea.getText();
+                if (resultado.isEmpty()) {
+                    resultArea.setText("Nada para exportar. Faça uma consulta primeiro.");
+                    return;
+                }
+
+                Dialog<String> exportDialog = new Dialog<>();
+                exportDialog.setTitle("Exportar");
+
+                DialogPane dialogPane = exportDialog.getDialogPane();
+                dialogPane.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+                dialogPane.getStyleClass().add("dialog-pane");
+
+                ButtonType csvButton = new ButtonType("CSV", ButtonBar.ButtonData.OK_DONE);
+                ButtonType pdfButton = new ButtonType("PDF", ButtonBar.ButtonData.OK_DONE);
+                ButtonType cancelButton = new ButtonType("Cancelar", ButtonBar.ButtonData.CANCEL_CLOSE);
+
+                dialogPane.getButtonTypes().addAll(csvButton, pdfButton, cancelButton);
+
+                VBox dialogContent = new VBox(10);
+                dialogContent.setStyle("-fx-padding: 10;");
+                Label label = new Label("Escolha o formato de exportação:");
+                label.getStyleClass().add("info-label");
+                dialogContent.getChildren().add(label);
+                dialogPane.setContent(dialogContent);
+
+                exportDialog.setOnShown(event -> {
+                    Button btnCSV = (Button) dialogPane.lookupButton(csvButton);
+                    Button btnPDF = (Button) dialogPane.lookupButton(pdfButton);
+                    Button btnCancel = (Button) dialogPane.lookupButton(cancelButton);
+
+                    btnCSV.getStyleClass().add("connect-btn");
+                    btnPDF.getStyleClass().add("connect-btn");
+                    btnCancel.getStyleClass().add("back-btn");
+                });
+
+                exportDialog.setResultConverter(dialogBtn -> {
+                    if (dialogBtn == csvButton) return "CSV";
+                    if (dialogBtn == pdfButton) return "PDF";
+                    return null;
+                });
+
+                exportDialog.showAndWait().ifPresent(formato -> {
+                    switch (formato) {
+                        case "CSV":
+                            exportarCSV(resultado);
+                            break;
+                        case "PDF":
+                            exportarPDF(resultado);
+                            break;
+                    }
+                });
+            });
+
+            exportRow.getChildren().add(exportBtn);
+            formArea.getChildren().addAll(infoLabel, formRow1, formRow2, queryBtn, resultArea, exportRow);
+            content.getChildren().addAll(title, formArea);
+
+            return content;
+        }
+
+
+    // exportar p csv
+    private void exportarCSV(String texto) {
+        try {
+            File dir = new File("csv");
+            if (!dir.exists()) dir.mkdir();
+
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm"));
+            String nomeArquivo = "consultas/sinal_" + timestamp + ".csv";
+            FileWriter writer = new FileWriter(nomeArquivo);
+
+            for (String line : texto.split("\n")) {
+                writer.append(line.replaceAll("\\s{2,}", ",").replaceAll("\\s", ",")).append("\n");
             }
 
-            resultArea.setText("Conectando à " + selectedOLT.name + "...\n");
-
-            Thread queryThread = new Thread(() -> {
-                SSHManager tempSSHManager = new SSHManager();
-                try {
-                    String queryResult = tempSSHManager.queryOpticalSignal(ontId);
-                    Platform.runLater(() -> resultArea.setText(queryResult));
-                } catch (Exception ex) {
-                    Platform.runLater(() -> resultArea.setText("Erro na consulta: " + ex.getMessage()));
-                } finally {
-                    tempSSHManager.disconnect();
-                }
-            });
-            queryThread.setDaemon(true);
-            queryThread.start();
-        });
-
-        formArea.getChildren().addAll(infoLabel, formRow, queryBtn, resultArea);
-        content.getChildren().addAll(title, formArea);
-
-        return content;
+            writer.flush();
+            writer.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 
+
+    // exportar p pdf
+    private void exportarPDF(String texto) {
+        try {
+            File dir = new File("consultas");
+            if (!dir.exists()) dir.mkdir();
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm"));
+            String nomeArquivo = "consultas/sinal_" + timestamp + ".pdf";
+
+            com.lowagie.text.Document document = new com.lowagie.text.Document();
+            com.lowagie.text.pdf.PdfWriter.getInstance(document, new FileOutputStream(nomeArquivo));
+            document.open();
+            document.add(new com.lowagie.text.Paragraph(texto));
+            document.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+    // ------------ CONSULTA DE SINAL
+
+
+    // ------------ ROMPIMENTOS
     private Node createBreaksScreen() {
         VBox content = new VBox(20);
         content.getStyleClass().add("content-area");
@@ -350,12 +542,17 @@ public class Main extends Application {
         Label infoLabel = new Label("Acompanhe rompimentos/drops. O aplicativo faz uma verificação em todas as OLTs a cada 30 minutos.");
         infoLabel.getStyleClass().add("info-label");
 
+        // Status boxes dinâmicos
+        int totalOnts = rompimentosDetectados.stream().mapToInt(d -> Integer.parseInt(d.getImpacted())).sum();
+        int criticos = (int) rompimentosDetectados.stream().filter(d -> d.getStatus().equals("Crítico")).count();
+        int alertas = (int) rompimentosDetectados.stream().filter(d -> d.getStatus().equals("Alerta")).count();
+
         HBox statusRow = new HBox(15);
         statusRow.setAlignment(Pos.CENTER);
 
-        VBox statusBox1 = createStatusBox("ONTs Ativos", "843", "status-normal");
-        VBox statusBox2 = createStatusBox("Perda de Sinal", "12", "status-warning");
-        VBox statusBox3 = createStatusBox("Potenciais Rompimentos", "3", "status-critical");
+        VBox statusBox1 = createStatusBox("ONTs Ativos", String.valueOf(totalOnts), "status-normal");
+        VBox statusBox2 = createStatusBox("Perda de Sinal", String.valueOf(alertas), "status-warning");
+        VBox statusBox3 = createStatusBox("Rompimentos Críticos", String.valueOf(criticos), "status-critical");
 
         statusRow.getChildren().addAll(statusBox1, statusBox2, statusBox3);
         HBox.setHgrow(statusBox1, Priority.ALWAYS);
@@ -365,10 +562,12 @@ public class Main extends Application {
         Label breakagesTitle = new Label("Rompimentos Detectados");
         breakagesTitle.getStyleClass().add("subtitle");
 
+        // Configuração da TableView com Scroll e Paginação
         TableView<RompimentoData> tableView = new TableView<>();
         tableView.getStyleClass().add("data-table");
-        VBox.setVgrow(tableView, Priority.ALWAYS);
+        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
+        // Configurar colunas
         TableColumn<RompimentoData, String> oltCol = new TableColumn<>("OLT");
         oltCol.setCellValueFactory(cellData -> cellData.getValue().oltProperty());
         oltCol.setPrefWidth(150);
@@ -395,15 +594,43 @@ public class Main extends Application {
 
         tableView.getColumns().addAll(oltCol, ponCol, impactedCol, locationCol, statusCol, timeCol);
 
-        // DADOS DE EXEMPLO - serao substituídos pelos dados reais do monitoramento
-        ObservableList<RompimentoData> data = FXCollections.observableArrayList(
-                new RompimentoData("OLT_COTIA_01", "0/1/2", "45", "Rua Exemplo, 123", "Crítico", "2h 15m"),
-                new RompimentoData("OLT_TRMS_02", "0/3/4", "28", "Avenida Exemplo, 456", "Crítico", "1h 30m"),
-                new RompimentoData("OLT_GRVN_01", "0/5/6", "17", "Rodovia Exemplo, km 67", "Crítico", "45m")
-        );
+        // ScrollPane para permitir rolagem horizontal
+        ScrollPane tableScroll = new ScrollPane(tableView);
+        tableScroll.setFitToWidth(true);
+        tableScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        tableScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        tableScroll.getStyleClass().add("scroll-pane");
 
-        tableView.setItems(data);
+        // Configuração da Paginação
+        Pagination pagination = new Pagination();
+        pagination.setPageCount(1);
+        pagination.setMaxPageIndicatorCount(5);
+        pagination.getStyleClass().add("pagination");
 
+        // Atualizar paginação quando os dados mudarem
+        rompimentosDetectados.addListener((javafx.collections.ListChangeListener.Change<? extends RompimentoData> c) -> {
+            int itemsPerPage = 10;
+            int pageCount = (int) Math.ceil((double) rompimentosDetectados.size() / itemsPerPage);
+            pagination.setPageCount(pageCount > 0 ? pageCount : 1);
+        });
+
+        // Configurar factory da paginação
+        pagination.setPageFactory(pageIndex -> {
+            int itemsPerPage = 10;
+            int fromIndex = pageIndex * itemsPerPage;
+            int toIndex = Math.min(fromIndex + itemsPerPage, rompimentosDetectados.size());
+
+            tableView.setItems(FXCollections.observableArrayList(
+                    rompimentosDetectados.subList(fromIndex, toIndex)
+            ));
+            return tableScroll;
+        });
+
+        // Container da tabela com paginação
+        VBox tableContainer = new VBox(10, tableScroll, pagination);
+        VBox.setVgrow(tableContainer, Priority.ALWAYS);
+
+        // Botões de ação
         HBox actionRow = new HBox(15);
         actionRow.setAlignment(Pos.CENTER_RIGHT);
 
@@ -427,11 +654,261 @@ public class Main extends Application {
 
         actionRow.getChildren().addAll(refreshBtn, analyzeBtn);
 
-        dashboardArea.getChildren().addAll(infoLabel, statusRow, breakagesTitle, tableView, actionRow);
-        content.getChildren().addAll(title, dashboardArea);
+        // Montagem do layout final
+        dashboardArea.getChildren().addAll(
+                infoLabel,
+                statusRow,
+                breakagesTitle,
+                tableContainer,
+                actionRow
+        );
 
+        content.getChildren().addAll(title, dashboardArea);
         return content;
     }
+    // ------------ ROMPIMENTOS
+
+
+    // ------------ PON SUMMARY
+    private Node createPONSummaryScreen() {
+        VBox content = new VBox(20);
+        content.getStyleClass().add("content-area");
+        content.setPadding(new Insets(20));
+        content.setAlignment(Pos.TOP_CENTER);
+
+        Label title = new Label("Resumo da PON");
+        title.getStyleClass().add("title");
+
+        VBox formArea = new VBox(15);
+        formArea.getStyleClass().add("form-area");
+        formArea.setMaxWidth(800);
+        formArea.setPadding(new Insets(25));
+
+        Label infoLabel = new Label("Verifique todas as informações da Primária.");
+        infoLabel.getStyleClass().add("info-label");
+
+        ComboBox<OLT> oltComboBox = new ComboBox<>();
+        oltComboBox.getItems().addAll(OLTList.getOLTs());
+        oltComboBox.setPromptText("Selecione a OLT");
+        oltComboBox.getStyleClass().add("combo-box");
+
+        TextField ponField = new TextField();
+        ponField.setPromptText("Digite o F/S/P");
+        ponField.setMaxWidth(100);
+        ponField.getStyleClass().add("text-field");
+
+        Button consultarBtn = new Button("Consultar");
+        consultarBtn.getStyleClass().add("connect-btn");
+
+        TextArea resultadoArea = new TextArea();
+        resultadoArea.setEditable(false);
+        resultadoArea.getStyleClass().add("text-area");
+        resultadoArea.setPrefHeight(350);
+
+        consultarBtn.setOnAction(e -> {
+            OLT selectedOLT = oltComboBox.getValue();
+            String pon = ponField.getText().trim();
+
+            if (selectedOLT == null || pon.isEmpty()) {
+                resultadoArea.setText("Por favor, selecione a OLT e informe a PON.");
+                return;
+            }
+
+            resultadoArea.setText("Conectando e executando comandos na " + selectedOLT.name + "...\n");
+
+            Thread thread = new Thread(() -> {
+                SSHManager tempSSH = new SSHManager();
+                try {
+                    tempSSH.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, resultadoArea);
+                    Thread.sleep(800);
+                    tempSSH.sendCommand("enable");
+                    Thread.sleep(800);
+                    tempSSH.sendCommand("config");
+                    Thread.sleep(800);
+                    tempSSH.sendCommand("display ont info summary " + pon);
+                    Thread.sleep(5000);
+                } catch (Exception ex) {
+                    Platform.runLater(() -> resultadoArea.appendText("Erro: " + ex.getMessage()));
+                } finally {
+                    tempSSH.disconnect();
+                }
+            });
+
+            thread.setDaemon(true);
+            thread.start();
+        });
+
+        formArea.getChildren().addAll(infoLabel, oltComboBox, ponField, consultarBtn, resultadoArea);
+        content.getChildren().addAll(title, formArea);
+        return content;
+    }
+    // ------------ PON SUMMARY
+
+
+    // ------------ ONT/ONU BY-SN
+    private Node createONUBySNScreen() {
+        VBox content = new VBox(20);
+        content.getStyleClass().add("content-area");
+        content.setPadding(new Insets(20));
+        content.setAlignment(Pos.TOP_CENTER);
+
+        Label title = new Label("Consulta ONT/ONU por SN");
+        title.getStyleClass().add("title");
+
+        VBox formArea = new VBox(15);
+        formArea.getStyleClass().add("form-area");
+        formArea.setMaxWidth(800);
+        formArea.setPadding(new Insets(25));
+
+        Label infoLabel = new Label("Verifique todos as informações do SN.");
+        infoLabel.getStyleClass().add("info-label");
+
+        ComboBox<OLT> oltComboBox = new ComboBox<>();
+        oltComboBox.getItems().addAll(OLTList.getOLTs());
+        oltComboBox.setPromptText("Selecione a OLT");
+        oltComboBox.getStyleClass().add("combo-box");
+
+        TextField snField = new TextField();
+        snField.setPromptText("Digite o SN da ONT/ONU");
+        snField.setMaxWidth(300);
+        snField.setId("snField");
+        snField.getStyleClass().add("text-field");
+
+        Button consultarBtn = new Button("Consultar");
+        consultarBtn.getStyleClass().add("connect-btn");
+
+        TextArea resultadoArea = new TextArea();
+        resultadoArea.setEditable(false);
+        resultadoArea.getStyleClass().add("text-area");
+        resultadoArea.setPrefHeight(350);
+
+        consultarBtn.setOnAction(e -> {
+            OLT selectedOLT = oltComboBox.getValue();
+            String sn = snField.getText().trim();
+
+            if (selectedOLT == null || sn.isEmpty()) {
+                resultadoArea.setText("Por favor, selecione a OLT e informe o SN do cliente.");
+                return;
+            }
+
+            resultadoArea.setText("Conectando e buscando ONU com SN " + sn + "...\n");
+
+            Thread thread = new Thread(() -> {
+                SSHManager tempSSH = new SSHManager();
+                try {
+                    tempSSH.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, resultadoArea);
+                    Thread.sleep(800);
+                    tempSSH.sendCommand("enable");
+                    Thread.sleep(800);
+                    tempSSH.sendCommand("config");
+                    Thread.sleep(800);
+                    tempSSH.sendCommand("display ont info by-sn " + sn);
+                    Thread.sleep(5000);
+                } catch (Exception ex) {
+                    Platform.runLater(() -> resultadoArea.appendText("Erro: " + ex.getMessage()));
+                } finally {
+                    tempSSH.disconnect();
+                }
+            });
+
+            thread.setDaemon(true);
+            thread.start();
+        });
+
+        formArea.getChildren().addAll(infoLabel, oltComboBox, snField, consultarBtn, resultadoArea);
+        content.getChildren().addAll(title, formArea);
+        return content;
+    }
+    // ------------ ONT/ONU BY-SN
+
+
+    // ------------ DIAGNÓSTICO DE QUEDAS
+    private Node createDropDiagnosisScreen() {
+        VBox content = new VBox(20);
+        content.getStyleClass().add("content-area");
+        content.setPadding(new Insets(20));
+        content.setAlignment(Pos.TOP_CENTER);
+
+        Label title = new Label("Diagnóstico de Quedas da ONT/ONU");
+        title.getStyleClass().add("title");
+
+        VBox formArea = new VBox(15);
+        formArea.getStyleClass().add("form-area");
+        formArea.setMaxWidth(800);
+        formArea.setPadding(new Insets(25));
+
+        Label infoLabel = new Label("Verifique o diagnóstico de quedas da ONT/ONU.");
+        infoLabel.getStyleClass().add("info-label");
+
+        ComboBox<OLT> oltComboBox = new ComboBox<>();
+        oltComboBox.getItems().addAll(OLTList.getOLTs());
+        oltComboBox.setPromptText("Selecione a OLT");
+        oltComboBox.getStyleClass().add("combo-box");
+
+        HBox formRow = new HBox(15);
+        formRow.setAlignment(Pos.CENTER_LEFT);
+
+        TextField fsField = new TextField();
+        fsField.setPromptText("Digite F/S");
+        fsField.setMaxWidth(100);
+        fsField.getStyleClass().add("text-field");
+
+        TextField pidField = new TextField();
+        pidField.setPromptText("Digite o P ID");
+        pidField.setMaxWidth(100);
+        pidField.getStyleClass().add("text-field");
+
+        formRow.getChildren().addAll(fsField, pidField);
+
+        Button diagnosticarBtn = new Button("Consultar");
+        diagnosticarBtn.getStyleClass().add("connect-btn");
+
+        TextArea resultadoArea = new TextArea();
+        resultadoArea.setEditable(false);
+        resultadoArea.getStyleClass().add("text-area");
+        resultadoArea.setPrefHeight(350);
+
+        diagnosticarBtn.setOnAction(e -> {
+            OLT selectedOLT = oltComboBox.getValue();
+            String fs = fsField.getText().trim();
+            String pid = pidField.getText().trim();
+
+            if (selectedOLT == null || fs.isEmpty() || pid.isEmpty()) {
+                resultadoArea.setText("Preencha todos os campos corretamente.");
+                return;
+            }
+
+            resultadoArea.setText("Executando diagnóstico na " + selectedOLT.name + "...\n");
+
+            Thread thread = new Thread(() -> {
+                SSHManager ssh = new SSHManager();
+                try {
+                    ssh.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, resultadoArea);
+                    Thread.sleep(800);
+                    ssh.sendCommand("enable");
+                    Thread.sleep(800);
+                    ssh.sendCommand("config");
+                    Thread.sleep(800);
+                    ssh.sendCommand("interface gpon " + fs);
+                    Thread.sleep(800);
+                    ssh.sendCommand("display ont register-info " + pid);
+                    Thread.sleep(5000);
+                } catch (Exception ex) {
+                    Platform.runLater(() -> resultadoArea.appendText("Erro: " + ex.getMessage()));
+                } finally {
+                    ssh.disconnect();
+                }
+            });
+            thread.setDaemon(true);
+            thread.start();
+        });
+
+        formArea.getChildren().addAll(infoLabel, oltComboBox, formRow, diagnosticarBtn, resultadoArea);
+        content.getChildren().addAll(title, formArea);
+        return content;
+    }
+    // ------------ DIAGNÓSTICO DE QUEDAS
+
 
     private VBox createStatusBox(String title, String value, String styleClass) {
         VBox box = new VBox(5);
@@ -604,9 +1081,11 @@ public class Main extends Application {
         VBox card = new VBox(10);
         card.getStyleClass().add("olt-card");
         card.setAlignment(Pos.CENTER);
-        card.setPrefSize(200, 130);
 
-        Rectangle clip = new Rectangle(200, 130);
+        card.setPrefSize(180, 120);
+        Rectangle clip = new Rectangle(180, 120);
+
+
         clip.setArcWidth(24);
         clip.setArcHeight(24);
         card.setClip(clip);
@@ -637,21 +1116,29 @@ public class Main extends Application {
 
         addEnhancedButtonHoverEffects(connectBtn);
 
+        // no css era mais facil fazer o card levantar pprt
         card.setOnMouseEntered(e -> {
-            Timeline glowAnimation = new Timeline(
-                    new KeyFrame(Duration.ZERO, new KeyValue(card.opacityProperty(), 1.0)),
-                    new KeyFrame(Duration.millis(200), new KeyValue(card.opacityProperty(), 0.95))
-            );
-            glowAnimation.play();
+            TranslateTransition lift = new TranslateTransition(Duration.millis(200), card);
+            lift.setToY(-5);
+            lift.play();
+
+            ScaleTransition scale = new ScaleTransition(Duration.millis(200), card);
+            scale.setToX(1.03);
+            scale.setToY(1.03);
+            scale.play();
         });
 
         card.setOnMouseExited(e -> {
-            Timeline glowAnimation = new Timeline(
-                    new KeyFrame(Duration.ZERO, new KeyValue(card.opacityProperty(), 0.95)),
-                    new KeyFrame(Duration.millis(200), new KeyValue(card.opacityProperty(), 1.0))
-            );
-            glowAnimation.play();
+            TranslateTransition drop = new TranslateTransition(Duration.millis(200), card);
+            drop.setToY(0);
+            drop.play();
+
+            ScaleTransition scale = new ScaleTransition(Duration.millis(200), card);
+            scale.setToX(1.0);
+            scale.setToY(1.0);
+            scale.play();
         });
+
 
         card.getChildren().addAll(nameLabel, ipLabel, connectBtn);
         return card;
@@ -782,7 +1269,7 @@ public class Main extends Application {
         Thread connectThread = new Thread(() -> {
             try {
                 terminalArea.appendText("Conectando a " + olt.name + " (" + olt.ip + ")...\n");
-                sshManager.connect(olt.ip, "suporte", "@Suporte123288", terminalArea);
+                sshManager.connect(olt.ip, Secrets.SSH_USER, Secrets.SSH_PASS, terminalArea);
             } catch (Exception e) {
                 Platform.runLater(() -> terminalArea.appendText("\nErro ao conectar: " + e.getMessage() + "\n"));
             }
@@ -798,11 +1285,41 @@ public class Main extends Application {
             }
         });
 
+        List<String> commandHistory = new ArrayList<>();
+        int[] commandHistoryIndex = {-1};
+
         commandField.setOnKeyPressed(e -> {
-            if (e.getCode() == javafx.scene.input.KeyCode.ENTER) {
-                sendBtn.fire();
+            switch (e.getCode()) {
+                case ENTER: {
+                    String cmd = commandField.getText();
+                    if (cmd != null && !cmd.trim().isEmpty() && sshManager != null) {
+                        sshManager.sendCommand(cmd.trim());
+                        commandHistory.add(cmd.trim());
+                        commandHistoryIndex[0] = commandHistory.size(); // reseta pro final
+                        commandField.clear();
+                    }
+                    break;
+                }
+                case UP:
+                    if (!commandHistory.isEmpty() && commandHistoryIndex[0] > 0) {
+                        commandHistoryIndex[0]--;
+                        commandField.setText(commandHistory.get(commandHistoryIndex[0]));
+                        commandField.positionCaret(commandField.getText().length());
+                    }
+                    break;
+                case DOWN:
+                    if (!commandHistory.isEmpty() && commandHistoryIndex[0] < commandHistory.size() - 1) {
+                        commandHistoryIndex[0]++;
+                        commandField.setText(commandHistory.get(commandHistoryIndex[0]));
+                        commandField.positionCaret(commandField.getText().length());
+                    } else {
+                        commandHistoryIndex[0] = commandHistory.size();
+                        commandField.clear();
+                    }
+                    break;
             }
         });
+
 
         ctrlCBtn.setOnAction(e -> {
             if (sshManager != null) {
@@ -821,6 +1338,7 @@ public class Main extends Application {
         return content;
     }
 
+    // ------------ Ajuda inside-terminal
     private void showHelpDialog() {
         Stage helpStage = new Stage();
         helpStage.initStyle(StageStyle.UNDECORATED);
@@ -878,6 +1396,8 @@ public class Main extends Application {
         helpStage.setScene(helpScene);
         helpStage.show();
     }
+    // ------------ Ajuda inside-terminal
+
 
     public static class RompimentoData {
         private final javafx.beans.property.SimpleStringProperty olt;
@@ -896,6 +1416,15 @@ public class Main extends Application {
             this.time = new javafx.beans.property.SimpleStringProperty(time);
         }
 
+        // Getters para propriedades
+        public String getOlt() { return olt.get(); }
+        public String getPon() { return pon.get(); }
+        public String getImpacted() { return impacted.get(); }
+        public String getLocation() { return location.get(); }
+        public String getStatus() { return status.get(); }
+        public String getTime() { return time.get(); }
+
+        // Property accessors
         public javafx.beans.property.StringProperty oltProperty() { return olt; }
         public javafx.beans.property.StringProperty ponProperty() { return pon; }
         public javafx.beans.property.StringProperty impactedProperty() { return impacted; }
@@ -910,11 +1439,7 @@ public class Main extends Application {
 
     @Override
     public void stop() {
-        if (sshManager != null) {
-            sshManager.disconnect();
-        }
-        if (breakageMonitor != null) {
-            breakageMonitor.shutdown();
-        }
+        if (sshManager != null) sshManager.disconnect();
+        if (breakageMonitor != null) breakageMonitor.shutdownNow();
     }
 }

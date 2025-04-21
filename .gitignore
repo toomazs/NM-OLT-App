@@ -1,3 +1,6 @@
+# Ignorar arquivo com dados sensíveis
+src/Secrets.java
+
 ### IntelliJ IDEA ###
 out/
 !**/src/main/**/out/
@@ -26,3 +29,5 @@ out/
 
 ### Mac OS ###
 .DS_Store
+
+
