@@ -18,6 +18,46 @@
 
 ---
 
+## 🖼️ screenshots
+
+### 📡 olt connection
+
+<img src="https://i.imgur.com/G2CAmJV.png" width="535"/>
+
+---
+
+### 🔍 signal diagnostics
+
+<img src="https://i.imgur.com/EsNE742.png" width="535"/>
+
+---
+
+### 📊 pon summary
+
+<img src="https://i.imgur.com/rbIGZUm.png" width="535"/>
+
+---
+
+### 📌 by-sn query
+
+<img src="https://i.imgur.com/h9RWPQR.png" width="535"/>
+
+---
+
+### ⚠️ ont drops detection
+
+<img src="https://i.imgur.com/HqOWTtJ.png" width="535"/>
+> ⏱️ every 30 mins, the app performs a full scan on all olts and updates this screen with critical fiber breakages
+
+
+---
+
+### 🚨 fiber breakage tracker
+
+<img src="https://i.imgur.com/43zIu1E.png" width="535"/>
+
+---
+
 ## 📚 libs used
 
 - [`jsch`](http://www.jcraft.com/jsch/) — ssh access in java  
