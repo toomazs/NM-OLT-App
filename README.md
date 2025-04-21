@@ -47,15 +47,13 @@
 ### ⚠️ ont drops detection
 
 <img src="https://i.imgur.com/HqOWTtJ.png" width="535"/>
-> ⏱️ every 30 mins, the app performs a full scan on all olts and updates this screen with critical fiber breakages
-
 
 ---
 
 ### 🚨 fiber breakage tracker
 
 <img src="https://i.imgur.com/43zIu1E.png" width="535"/>
-
+> ⏱️ every 30 mins, the app performs a full scan on all olts and updates this screen with critical fiber breakages
 ---
 
 ## 📚 libs used
