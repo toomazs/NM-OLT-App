@@ -12,7 +12,7 @@ just a few things to keep in mind before running it:
 
 - ✅ java **version 22 or higher** is required  
 - ✅ make sure you're connected to the **vpn** or internal network  
-- ✅ no olt should be offline or unreachable
+- ✅ no olt should be offline or unreachable  
 - ✅ **port 22** (ssh) must not be blocked by firewall/antivirus  
 - ❗ **credentials and IPs are not included in this repo** – see below 👇
 
@@ -28,6 +28,16 @@ this repo is public, so:
 - you'll need to create your own secret file with the required data to run the app correctly
 - if you are an **n-multifibra** employee, contact **eduardo tomaz** cuz he will send you the correct file :D
 
+### 📄 use the `Example.txt` as a template!
+
+to make it easier:
+
+- there's a file named `Example.txt` included in this repo, is located on `src/Example.txt`
+- it shows **exactly** how your secret file should look  
+- just follow the structure and replace the placeholders (`SSH_USER`, `SSH_PASS`, IPs, etc.)
+- save it as a `.java` file (like `Secrets.java`) and put it in `/src` next to `Main.java`
+
+---
 
 ## 🚀 what it does
 
@@ -54,4 +64,3 @@ this repo is public, so:
 
 any issues? just reach out me here or in my social medias: **@tomazdudux** <br>
 always happy to help. 😊
-
