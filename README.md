@@ -9,59 +9,132 @@
 ## 🚀 what it does
 
 - automatic **ssh connection** to huawei olts (via jsch)  
-- **signal check** by gpon interface  
-- **visual diagnostics** for detecting outages  
-- built-in **terminal** for sending custom commands  
-- **pdf report export** with clean layout (openpdf)  
-- **postgresql integration** for login, user roles and password management  
-- ui built with **javafx**  
+- **signal check** by gpon interface (custom f/s + p input)  
+- **visual diagnostics** for detecting fiber cuts / outages  
+- built-in **terminal** for sending custom commands straight to the olt  
+- **pdf report export** with clean layout (via openpdf)  
+- **postgresql integration** for login, user roles and password updates  
+- modern ui with **javafx**, styled with css  
 
 ---
 
 ## 📚 libs used
 
 - [`jsch`](http://www.jcraft.com/jsch/) — ssh access in java  
-- [`javafx`](https://openjfx.io/) — modern ui toolkit  
-- [`openpdf`](https://github.com/LibrePDF/OpenPDF) — generates pdf reports  
-- [`launch4j`](http://launch4j.sourceforge.net/) — creates windows executables
-- [`postgresql`](https://jdbc.postgresql.org/) — creates postgresql database interaction  
+- [`javafx`](https://openjfx.io/) — for building the ui  
+- [`openpdf`](https://github.com/LibrePDF/OpenPDF) — generate nice-looking pdfs  
+- [`launch4j`](http://launch4j.sourceforge.net/) — wraps the app into a windows .exe  
+- [`postgresql`](https://jdbc.postgresql.org/) — handles login and role control  
 
 ---
 
-## ⚠️ before you start
+## 💾 installation
 
-just a few things to keep in mind before running it:
+you **don’t need to clone the repo or download javafx sdk** unless you're going to **modify the source code**.
 
-- ✅ java **version 22 or higher** is required  
-- ✅ make sure you're connected to the **vpn** or internal network  
-- ✅ no olt should be offline or unreachable  
-- ✅ **port 22** (ssh) must not be blocked by firewall/antivirus  
-- ❗ **credentials and IPs are not included in this repo** – see below 👇
+if you're just running the app:
+
+✅ everything is already packed, including javafx and other libs.  
+✅ just run the compiled `OLTApp.exe` provided and have fun.
+
+if you're a dev and want to tweak the project:
+
+1. **clone the repo**
+
+```bash
+git clone https://github.com/toomazs/NM-OLT-App.git
+cd NM-OLT-App
+```
+
+2. **make sure you have java 22+ installed**
+
+```bash
+java -version
+```
+
+3. **open the project in your ide** (intellij recommended)  
+javafx sdk is already included in `lib/javafx-sdk-24/lib` — no need to install it manually.
+
+4. **check `lib/` folder for dependencies**  
+includes all required `.jar` files for:
+- javafx
+- openpdf
+- jsch
+- postgresql jdbc
+
+make sure they’re added to your module path.
 
 ---
 
-## 🔐 where are the secrets?
+## 🛠️ database setup (postgresql)
 
-this repo is public, so:
+1. **create the database**
 
-- all sensitive info (like **olt ip addresses**, **ssh username**, and **password**)  
-  are stored in a separate file  
-- that file is **ignored by git** via `.gitignore`, so it won’t be uploaded here  
-- you'll need to create your own secret file with the required data to run the app correctly
-- if you are an **n-multifibra** employee, contact **eduardo tomaz** cuz he will send you the correct file :D
+```sql
+create database nm_olt_db;
+```
 
-### 📄 use the `Example.txt` as a template!
+2. **create the users table**  
+(use the exact names and structure below — all java files expect this format)
 
-to make it easier:
+```sql
+create table usuarios (
+  id serial primary key,
+  nome varchar(100) not null,
+  usuario varchar(100) unique not null,
+  senha varchar(100) not null,
+  cargo varchar(50) not null
+);
+```
 
-- there's a file named `Example.txt` included in this repo, is located on `src/Example.txt`
-- it shows **exactly** how your secret file should look  
-- just follow the structure and replace the placeholders (`SSH_USER`, `SSH_PASS`, IPs, etc.)
-- save it as a `.java` file (like `Secrets.java`) and put it in `/src` next to `Main.java`
+3. **insert some default users**
+
+```sql
+insert into usuarios (nome, usuario, senha, cargo)
+values
+  ('intern user', 'intern', 'nm12345678', 'estagiario'),
+  ('admin user', 'admin', 'nm12345678', 'supervisor');
+```
+
+4. **set up the secrets**
+
+you’ll need **two secret files** for the app to run properly:
+
+### 🔐 `SecretsDB.java` — database connection
+
+```java
+package database;
+
+public class SecretsDB {
+    public static final String DB_URL = "jdbc:postgresql://localhost:5432/nm_olt_db";
+    public static final String DB_USER = "your_db_user";
+    public static final String DB_PASSWORD = "your_db_password";
+}
+```
+
+📁 **save this file inside:** `src/database/`  
+(it must be in the same folder as `DatabaseManager.java`)
+
+---
+
+### 🔐 `Secrets.java` — ssh credentials + olt list
+
+```java
+public class Secrets {
+    public static final String SSH_USER = "your_ssh_user";
+    public static final String SSH_PASS = "your_ssh_pass";
+    public static final String[][] OLT_LIST = {
+        {"OLT_NAME_1", "IP_1"},
+        {"OLT_NAME_2", "IP_2"}
+    };
+}
+```
+
+📁 **save this file inside:** `src/` (next to `Main.java`)
 
 ---
 
 ## 📞 support
 
-any issues? just reach out me here or in my social medias: **@tomazdudux** <br>
-always happy to help. 😊
+any issues? just reach out here or hit me up on socials: **@tomazdudux**  
+always happy to help. 😄
