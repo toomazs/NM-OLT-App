@@ -1,6 +1,6 @@
 # 🧠 olt manager — n-multifibra
 
-🔧 project by **eduardo tomaz** — internal tool for managing huawei olts at **n-multifibra**
+🔧 project by **Eduardo Tomaz** — internal tool for managing huawei olts at **n-multifibra**
 
 > a simple and intuitive java tool to connect, diagnose and monitor huawei olts — with ssh access, signal analysis, visual outage tracking and pdf report export.
 
@@ -8,13 +8,14 @@
 
 ## 🚀 what it does
 
-- automatic **ssh connection** to huawei olts (via jsch)  
-- **signal check** by gpon interface (custom f/s + p input)  
-- **visual diagnostics** for detecting fiber cuts / outages  
-- built-in **terminal** for sending custom commands straight to the olt  
-- **pdf report export** with clean layout (via openpdf)  
-- **postgresql integration** for login, user roles and password updates  
-- modern ui with **javafx**, styled with css  
+- **ssh-rsa connection** to huawei olt terminal (via jsch)  
+- **real-time signal analysis** for each pon: captures TX/RX levels, calculates averages, and alerts for critical or borderline levels  
+- **pon summary**: shows all ONT details for the selected primary interface  
+- **search by serial (by-sn)**: type the ONT/ONU serial and get full info instantly  
+- **drop diagnosis**: displays the last 10 disconnection events from each ONT/ONU  
+- **breakages tab**: every 30 mins, all registered olts are automatically scanned for fiber cuts or suspicious signal drops  
+- **postgresql integration**: for user login, roles, and permissions  
+- clean and responsive UI with **javafx**, styled with **css** 
 
 ---
 
@@ -30,9 +31,9 @@
 
 ## 💾 installation
 
-you **don’t need to clone the repo or download javafx sdk** unless you're going to **modify the source code**.
+if you're a employee at **n-multifibra**, just reach out to **Eduardo Tomaz** — he'll provide you with all the ready-to-use `Secrets.java`, `SecretsDB.java` autoconfigured and a fully working version of the code — literally the project with all correct credentials and olts lists. <br>
 
-if you're just running the app:
+if you're just a stranger running by here, you **don’t need to clone the repo or download javafx sdk** unless you're going to **modify the source code**.
 
 ✅ everything is already packed, including javafx and other libs.  
 ✅ just run the compiled `OLTApp.exe` provided and have fun.
@@ -71,27 +72,27 @@ make sure they’re added to your module path.
 1. **create the database**
 
 ```sql
-create database nm_olt_db;
+CREATE DATABASE nm_olt_db;
 ```
 
 2. **create the users table**  
 (use the exact names and structure below — all java files expect this format)
 
 ```sql
-create table usuarios (
-  id serial primary key,
-  nome varchar(100) not null,
-  usuario varchar(100) unique not null,
-  senha varchar(100) not null,
-  cargo varchar(50) not null
+CREATE TABLE usuarios (
+  id SERIAL PRIMARY KEY,
+  nome TEXT NOT NULL,
+  usuario TEXT UNIQUE NOT NULL,
+  senha TEXT NOT NULL,
+  cargo TEXT NOT NULL
 );
 ```
 
 3. **insert some default users**
 
 ```sql
-insert into usuarios (nome, usuario, senha, cargo)
-values
+INSERT INTO usuarios (nome, usuario, senha, cargo)
+VALUES
   ('intern user', 'intern', 'nm12345678', 'estagiario'),
   ('admin user', 'admin', 'nm12345678', 'supervisor');
 ```
@@ -136,5 +137,5 @@ public class Secrets {
 
 ## 📞 support
 
-any issues? just reach out here or hit me up on socials: **@tomazdudux**  
+any issues? just reach out here or hit me up on socials: [**@tomazdudux**](https://www.instagram.com/tomazdudux/) <br>
 always happy to help. 😄
