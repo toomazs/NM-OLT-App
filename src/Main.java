@@ -8,6 +8,7 @@ import javafx.application.Platform;
 import javafx.animation.*;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import javafx.geometry.*;
@@ -33,9 +34,33 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import javafx.scene.control.Button;
-import screens.LoginScreen;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import javafx.beans.property.SimpleStringProperty;
+import java.util.Optional;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.control.Alert;
+import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Pagination;
+import javafx.collections.ListChangeListener;
+import javafx.concurrent.Task;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+import javafx.scene.layout.HBox;
+import javafx.scene.control.Label;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.animation.FadeTransition;
+import javafx.scene.text.Font;
+import models.Ticket;
 import models.Usuario;
-
+import database.DatabaseManager;
+import screens.LoginScreen;
 
 
 public class Main extends Application {
@@ -46,13 +71,14 @@ public class Main extends Application {
     private double xOffset = 0;
     private double yOffset = 0;
     private SSHManager sshManager;
+    private ScheduledExecutorService breakageMonitor;
     private BorderPane mainContent;
     private ToggleGroup navGroup;
     private String currentSection = null;
     private Map<String, Node> contentCache = new HashMap<>();
     private boolean isConnectedToOLT = false;
     private OLT connectedOLT;
-    private ScheduledExecutorService breakageMonitor;
+    private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
 
     /* ATENÇÃO!!!!
@@ -71,120 +97,134 @@ public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        LoginScreen loginScreen = new LoginScreen();
-        this.usuario = loginScreen.showLogin(new Stage());
-
-        if (this.usuario == null) {
-            Platform.exit();
-            return;
-        }
-
-        this.primaryStage = primaryStage;
-        primaryStage.initStyle(StageStyle.UNDECORATED);
-
         try {
-            Image icon = new Image(getClass().getResourceAsStream("/oltapp-icon.png"));
-            primaryStage.getIcons().add(icon);
+            LoginScreen loginScreen = new LoginScreen();
+            Font.loadFont(getClass().getResourceAsStream("/fonts/maplemono-regular.ttf"), 12);
+            this.usuario = loginScreen.showLogin(new Stage());
+
+            if (this.usuario == null) {
+                Platform.exit();
+                return;
+            }
+
+
+            // Inicializa os serviços de Monitoramento Rompimentos
+            breakageMonitor = Executors.newSingleThreadScheduledExecutor();
+            scheduler = Executors.newSingleThreadScheduledExecutor();
+            // Inicializa os serviços de Monitoramento Rompimentos
+
+
+            this.primaryStage = primaryStage;
+            primaryStage.initStyle(StageStyle.UNDECORATED);
+
+            try {
+                Image icon = new Image(getClass().getResourceAsStream("/oltapp-icon.png"));
+                primaryStage.getIcons().add(icon);
+            } catch (Exception e) {
+                System.err.println("Erro ao carregar o ícone: " + e.getMessage());
+            }
+
+
+            rootLayout = new VBox();
+            rootLayout.setAlignment(Pos.TOP_CENTER);
+            rootLayout.getStyleClass().add("root");
+
+            rootLayout.getChildren().add(createTitleBar());
+
+            mainContent = new BorderPane();
+            VBox.setVgrow(mainContent, Priority.ALWAYS);
+
+            VBox sideNav = createSideNavigation();
+            mainContent.setLeft(sideNav);
+
+            showSection("OLTs");
+
+            rootLayout.getChildren().add(mainContent);
+
+            Scene scene = new Scene(rootLayout, 1280, 720);
+            scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+
+            rootLayout.setEffect(new DropShadow(15, Color.rgb(0, 0, 0, 0.5)));
+            setupWindowDrag(rootLayout);
+
+            primaryStage.setTitle("Gerenciador de OLTs");
+            primaryStage.setScene(scene);
+
+            primaryStage.setOpacity(0);
+            primaryStage.show();
+
+            Timeline fadeIn = new Timeline(
+                    new KeyFrame(Duration.ZERO, new KeyValue(primaryStage.opacityProperty(), 0)),
+                    new KeyFrame(Duration.millis(400), new KeyValue(primaryStage.opacityProperty(), 1))
+            );
+            fadeIn.play();
+
+            scene.setOnKeyPressed(event -> {
+                if (event.isControlDown() && event.getCode() == javafx.scene.input.KeyCode.F) {
+                    showSection("ONT/ONU By-SN");
+
+                    Platform.runLater(() -> {
+                        Node content = contentCache.get("ONT/ONU By-SN");
+                        if (content != null) {
+                            TextField snField = (TextField) content.lookup("#snField");
+                            if (snField != null) {
+                                snField.requestFocus();
+                            }
+                        }
+                    });
+
+                    event.consume();
+                }
+            });
+
         } catch (Exception e) {
-            System.err.println("Erro ao carregar o ícone: " + e.getMessage());
+            e.printStackTrace();
+            Platform.exit();
+        }
+    }
+
+
+    private void initializeBreakageMonitoring() {
+        runBreakageDetection();
+
+        scheduler.scheduleAtFixedRate(
+                this::runBreakageDetection,
+                30,
+                30,
+                TimeUnit.MINUTES
+        );
+    }
+
+    private void runBreakageDetection() {
+        rompimentosDetectados.clear();
+
+        for (OLT olt : OLTList.getOLTs()) {
+            Platform.runLater(() -> {
+            });
+
+            try {
+                SSHManager sshManager = new SSHManager();
+                sshManager.connect(olt.ip, Secrets.SSH_USER, Secrets.SSH_PASS, new TextArea());
+
+                Thread.sleep(2000);
+
+                if (sshManager.isConnected()) {
+                    sshManager.scanForBreakages(olt.name);
+                    rompimentosDetectados.addAll(sshManager.getBreakageList());
+                    sshManager.disconnect();
+                }
+
+                Thread.sleep(5000);
+
+            } catch (Exception e) {
+                System.err.println("Error scanning OLT " + olt.name + ": " + e.getMessage());
+            }
         }
 
-        rootLayout = new VBox();
-        rootLayout.setAlignment(Pos.TOP_CENTER);
-        rootLayout.getStyleClass().add("root");
-
-        rootLayout.getChildren().add(createTitleBar());
-
-        mainContent = new BorderPane();
-        VBox.setVgrow(mainContent, Priority.ALWAYS);
-
-        VBox sideNav = createSideNavigation();
-        mainContent.setLeft(sideNav);
-
-        showSection("OLTs");
-
-        rootLayout.getChildren().add(mainContent);
-
-        Scene scene = new Scene(rootLayout, 1280, 720);
-        scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
-
-        rootLayout.setEffect(new DropShadow(15, Color.rgb(0, 0, 0, 0.5)));
-        setupWindowDrag(rootLayout);
-
-        primaryStage.setTitle("Gerenciador de OLTs");
-        primaryStage.setScene(scene);
-
-        primaryStage.setOpacity(0);
-        primaryStage.show();
-
-        Timeline fadeIn = new Timeline(
-                new KeyFrame(Duration.ZERO, new KeyValue(primaryStage.opacityProperty(), 0)),
-                new KeyFrame(Duration.millis(400), new KeyValue(primaryStage.opacityProperty(), 1))
-        );
-        fadeIn.play();
-
-        startBreakageMonitoring();
-
-        scene.setOnKeyPressed(event -> {
-            if (event.isControlDown() && event.getCode() == javafx.scene.input.KeyCode.F) {
-                showSection("ONT/ONU By-SN");
-
-                Platform.runLater(() -> {
-                    Node content = contentCache.get("ONT/ONU By-SN");
-                    if (content != null) {
-                        TextField snField = (TextField) content.lookup("#snField");
-                        if (snField != null) {
-                            snField.requestFocus();
-                        }
-                    }
-                });
-
-                event.consume();
-            }
+        Platform.runLater(() -> {
         });
     }
 
-
-
-    private void startBreakageMonitoring() {
-        breakageMonitor = Executors.newSingleThreadScheduledExecutor();
-        breakageMonitor.scheduleAtFixedRate(() -> {
-            Platform.runLater(() -> rompimentosDetectados.clear()); // Limpa dados antigos
-
-            for (OLT olt : OLTList.getOLTs()) {
-                SSHManager tempSSH = new SSHManager();
-                try {
-                    tempSSH.connect(olt.ip, Secrets.SSH_USER, Secrets.SSH_PASS, new TextArea());
-                    tempSSH.scanForBreakages();
-                    Map<String, List<String>> breakages = tempSSH.getBreakageData();
-
-                    for (Map.Entry<String, List<String>> entry : breakages.entrySet()) {
-                        String pon = entry.getKey();
-                        int impacted = entry.getValue().size();
-                        String status = (impacted >= 15) ? "Crítico" : "Alerta";
-                        String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
-
-                        adicionarRompimento(
-                                olt.name,
-                                pon,
-                                String.valueOf(impacted),
-                                "PON " + pon + " - " + olt.name,
-                                status,
-                                time
-                        );
-                    }
-
-                    if (currentSection.equals("Rompimentos")) {
-                        Platform.runLater(() -> showSection("Rompimentos"));
-                    }
-                } catch (Exception e) {
-                    System.err.println("Erro ao monitorar OLT " + olt.name + ": " + e.getMessage());
-                } finally {
-                    tempSSH.disconnect();
-                }
-            }
-        }, 0, 30, TimeUnit.MINUTES);
-    }
 
     private VBox createSideNavigation() {
         VBox sideNav = new VBox(10);
@@ -192,7 +232,7 @@ public class Main extends Application {
         sideNav.setPrefWidth(200);
         sideNav.setPadding(new Insets(20, 0, 20, 0));
 
-        Label menuTitle = new Label("Feito por Eduardo Tomaz\n v1.5.0.0");
+        Label menuTitle = new Label("Feito por Eduardo Tomaz\n v1.5.1.0");
         menuTitle.getStyleClass().add("menu-title");
         menuTitle.setPadding(new Insets(0, 0, 10, 15));
 
@@ -202,11 +242,15 @@ public class Main extends Application {
         ToggleButton signalBtn = createNavButton("Consulta de Sinal", false);
         ToggleButton ponSummaryBtn = createNavButton("PON Summary", false);
         ToggleButton onuBySNBtn = createNavButton("ONT/ONU By-SN", false);
-        ToggleButton breaksBtn = createNavButton("Rompimentos", false);
         ToggleButton diagnosisBtn = createNavButton("ONT/ONU Quedas", false);
+        ToggleButton breaksBtn = createNavButton("Rompimentos", false);
 
         sideNav.getChildren().addAll(oltBtn, signalBtn, ponSummaryBtn, onuBySNBtn, diagnosisBtn, breaksBtn);
 
+        if (usuario.getUsuario().equalsIgnoreCase("Eduardo")) {
+            ToggleButton pendenciasBtn = createNavButton("Chamados", false);
+            sideNav.getChildren().add(pendenciasBtn);
+        }
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
@@ -215,35 +259,68 @@ public class Main extends Application {
         footerBox.setAlignment(Pos.CENTER_LEFT);
         footerBox.setPadding(new Insets(10, 15, 10, 15));
 
+        VBox userInfoBox = new VBox(2);
+        userInfoBox.getStyleClass().add("user-info-box");
+        userInfoBox.setPadding(new Insets(5, 0, 5, 0));
 
-        Label userInfo = new Label("👤 " + usuario.getNome() + "\n ㅤ(" + usuario.getCargo() + ")");
-        userInfo.getStyleClass().add("user-footer");
+        Label usernameLabel = new Label("👤 " + usuario.getNome());
+        usernameLabel.getStyleClass().add("user-name");
+
+        HBox userRoleBox = new HBox(5);
+        userRoleBox.setAlignment(Pos.CENTER_LEFT);
+
+        Label roleLabel = new Label("ㅤ(" + usuario.getCargo() + ")");
+        roleLabel.getStyleClass().add("user-role");
+
+        Button dropdownBtn = new Button("▾");
+        dropdownBtn.getStyleClass().add("dropdown-arrow");
+
+        userRoleBox.getChildren().addAll(roleLabel, dropdownBtn);
+        userInfoBox.getChildren().addAll(usernameLabel, userRoleBox);
 
         Button logoutBtn = new Button("Deslogar");
-        logoutBtn.setVisible(false);
-        logoutBtn.setManaged(false);
         logoutBtn.getStyleClass().add("logout-button");
+        logoutBtn.setMaxWidth(Double.MAX_VALUE);
 
-        userInfo.setOnMouseClicked(e -> {
-            logoutBtn.setVisible(!logoutBtn.isVisible());
-            logoutBtn.setManaged(logoutBtn.isVisible());
+        VBox logoutContainer = new VBox();
+        logoutContainer.setPadding(new Insets(5, 0, 0, 0));
+        logoutContainer.getChildren().add(logoutBtn);
+
+        logoutContainer.setVisible(false);
+        logoutContainer.setManaged(false);
+
+        dropdownBtn.setOnAction(e -> {
+            boolean isVisible = !logoutContainer.isVisible();
+            logoutContainer.setVisible(isVisible);
+            logoutContainer.setManaged(isVisible);
+            dropdownBtn.setText(isVisible ? "▴" : "▾");
+
+            dropdownBtn.getStyleClass().remove("dropdown-arrow-active");
+            if (isVisible) {
+                dropdownBtn.getStyleClass().add("dropdown-arrow-active");
+            }
+
+            logoutBtn.setVisible(true);
+            logoutBtn.setManaged(true);
+
+            sideNav.requestLayout();
         });
 
         logoutBtn.setOnAction(e -> {
-            Stage stage = new Stage();
-            Usuario novoLogin = new LoginScreen().showLogin(stage);
+            primaryStage.close();
+
+            Stage loginStage = new Stage();
+            Usuario novoLogin = new LoginScreen().showLogin(loginStage);
+
+            System.out.println("Usuário retornado: " + (novoLogin != null ? novoLogin.getNome() : "null"));
+
             if (novoLogin != null) {
-                Platform.runLater(() -> {
-                    primaryStage.close();
-                    new Main().start(new Stage());
-                });
+                Platform.runLater(() -> new Main().start(new Stage()));
             }
         });
 
-        footerBox.getChildren().addAll(menuTitle, userInfo, logoutBtn);
+        footerBox.getChildren().addAll(menuTitle, userInfoBox, logoutContainer);
         sideNav.getChildren().addAll(spacer, footerBox);
-
-
 
         return sideNav;
     }
@@ -292,6 +369,9 @@ public class Main extends Application {
                     break;
                 case "Rompimentos":
                     newContent = createBreaksScreen();
+                    break;
+                case "Chamados":
+                    newContent = createTechnicalTicketsScreen();
                     break;
                 default:
                     newContent = new VBox();
@@ -346,7 +426,7 @@ public class Main extends Application {
         cardsPane.getStyleClass().add("scroll-content");
 
         mainContent.widthProperty().addListener((obs, oldVal, newVal) -> {
-            cardsPane.setPrefWrapLength(newVal.doubleValue() - 250); // deixa espaço pro menu lateral
+            cardsPane.setPrefWrapLength(newVal.doubleValue() - 250);
         });
 
 
@@ -371,157 +451,179 @@ public class Main extends Application {
 
         return content;
     }
+    // ------------ OLTS
 
 
     // ------------ CONSULTA DE SINAL
-        private Node createSignalQueryScreen () {
-            VBox content = new VBox(20);
-            content.getStyleClass().add("content-area");
-            content.setAlignment(Pos.TOP_CENTER);
-            content.setPadding(new Insets(20));
+    private Node createSignalQueryScreen() {
+        VBox content = new VBox(20);
+        content.getStyleClass().add("content-area");
+        content.setAlignment(Pos.TOP_CENTER);
+        content.setPadding(new Insets(20));
 
-            Label title = new Label("Consulta de Sinal Óptico");
-            title.getStyleClass().add("title");
+        Label title = new Label("Consulta de Sinal Óptico");
+        title.getStyleClass().add("title");
 
-            VBox formArea = new VBox(15);
-            formArea.getStyleClass().add("form-area");
-            formArea.setMaxWidth(800);
-            formArea.setPadding(new Insets(25));
+        VBox formArea = new VBox(15);
+        formArea.getStyleClass().add("form-area");
+        formArea.setMaxWidth(800);
+        formArea.setPadding(new Insets(25));
 
-            Label infoLabel = new Label("Verifique o Sinal Óptico da Primária.");
-            infoLabel.getStyleClass().add("info-label");
+        Label infoLabel = new Label("Verifique o Sinal Óptico da Primária.");
+        infoLabel.getStyleClass().add("info-label");
 
-            HBox formRow1 = new HBox(15);
-            formRow1.setAlignment(Pos.CENTER_LEFT);
+        HBox formRow1 = new HBox(15);
+        formRow1.setAlignment(Pos.CENTER_LEFT);
 
-            ComboBox<OLT> oltComboBox = new ComboBox<>();
-            oltComboBox.getItems().addAll(OLTList.getOLTs());
-            oltComboBox.setPromptText("Selecione a OLT");
-            oltComboBox.getStyleClass().add("combo-box");
-            HBox.setHgrow(oltComboBox, Priority.ALWAYS);
+        ComboBox<OLT> oltComboBox = new ComboBox<>();
+        oltComboBox.getItems().addAll(OLTList.getOLTs());
+        oltComboBox.setPromptText("Selecione a OLT");
+        oltComboBox.getStyleClass().add("combo-box");
+        HBox.setHgrow(oltComboBox, Priority.ALWAYS);
 
-            formRow1.getChildren().addAll(oltComboBox);
+        formRow1.getChildren().addAll(oltComboBox);
 
-            HBox formRow2 = new HBox(15);
-            formRow2.setAlignment(Pos.CENTER_LEFT);
+        HBox formRow2 = new HBox(15);
+        formRow2.setAlignment(Pos.CENTER_LEFT);
 
-            TextField fsField = new TextField();
-            fsField.setPromptText("Digite o F/S");
-            fsField.setMaxWidth(100);
-            fsField.getStyleClass().add("text-field");
+        TextField fsField = new TextField();
+        fsField.setPromptText("Digite o F/S");
+        fsField.setMaxWidth(110);
+        fsField.getStyleClass().add("text-field");
 
-            TextField pField = new TextField();
-            pField.setPromptText("Digite o P");
-            pField.setMaxWidth(100);
-            pField.getStyleClass().add("text-field");
+        TextField pField = new TextField();
+        pField.setPromptText("Digite o P");
+        pField.setMaxWidth(103);
+        pField.getStyleClass().add("text-field");
 
-            formRow2.getChildren().addAll(fsField, pField);
+        TextFormatter<String> pFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[0-9]{0,3}")) {
+                return change;
+            }
+            return null;
+        });
+        pField.setTextFormatter(pFormatter);
 
-            Button queryBtn = new Button("Consultar");
-            queryBtn.getStyleClass().add("connect-btn");
 
-            TextArea resultArea = new TextArea();
-            resultArea.setEditable(false);
-            resultArea.getStyleClass().add("text-area");
-            resultArea.setPrefHeight(350);
-            resultArea.setPromptText("...");
-            VBox.setVgrow(resultArea, Priority.ALWAYS);
+        formRow2.getChildren().addAll(fsField, pField);
 
-            queryBtn.setOnAction(e -> {
-                OLT selectedOLT = oltComboBox.getValue();
-                String fs = fsField.getText().trim();
-                String p = pField.getText().trim();
+        Button queryBtn = new Button("Consultar");
+        queryBtn.getStyleClass().add("connect-btn");
 
-                if (selectedOLT == null || fs.isEmpty() || p.isEmpty()) {
-                    resultArea.setText("Por favor, preencha todos os campos corretamente.");
-                    return;
+        fsField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                queryBtn.fire();
+            }
+        });
+
+        pField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                queryBtn.fire();
+            }
+        });
+
+        TextArea resultArea = new TextArea();
+        resultArea.setEditable(false);
+        resultArea.getStyleClass().add("text-area");
+        resultArea.setPrefHeight(350);
+        VBox.setVgrow(resultArea, Priority.ALWAYS);
+
+        queryBtn.setOnAction(e -> {
+            OLT selectedOLT = oltComboBox.getValue();
+            String fs = fsField.getText().trim();
+            String p = pField.getText().trim();
+
+            if (selectedOLT == null || fs.isEmpty() || p.isEmpty()) {
+                resultArea.setText("Por favor, preencha todos os campos corretamente.");
+                return;
+            }
+
+            resultArea.setText("Conectando e executando comandos à " + selectedOLT.name + " (" + selectedOLT.ip + ")...\n");
+
+            Thread queryThread = new Thread(() -> {
+                SSHManager tempSSHManager = new SSHManager();
+                try {
+                    tempSSHManager.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, resultArea);
+                    String queryResult = tempSSHManager.queryOpticalSignal(fs, p);
+                    Platform.runLater(() -> resultArea.setText(queryResult));
+                } catch (Exception ex) {
+                    Platform.runLater(() -> resultArea.setText("Erro na consulta: " + ex.getMessage()));
+                } finally {
+                    tempSSHManager.disconnect();
                 }
+            });
+            queryThread.setDaemon(true);
+            queryThread.start();
+        });
 
-                resultArea.setText("Conectando e executando comandos à " + selectedOLT.name + " (" + selectedOLT.ip + ")...\n");
+        HBox exportRow = new HBox(10);
+        exportRow.setAlignment(Pos.CENTER_RIGHT);
 
-                Thread queryThread = new Thread(() -> {
-                    SSHManager tempSSHManager = new SSHManager();
-                    try {
-                        tempSSHManager.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, resultArea);
-                        String queryResult = tempSSHManager.queryOpticalSignal(fs, p);
-                        Platform.runLater(() -> resultArea.setText(queryResult));
-                    } catch (Exception ex) {
-                        Platform.runLater(() -> resultArea.setText("Erro na consulta: " + ex.getMessage()));
-                    } finally {
-                        tempSSHManager.disconnect();
-                    }
-                });
-                queryThread.setDaemon(true);
-                queryThread.start();
+        Button exportBtn = new Button("Exportar");
+        exportBtn.getStyleClass().add("connect-btn");
+
+        exportBtn.setOnAction(e -> {
+            String resultado = resultArea.getText();
+            if (resultado.isEmpty()) {
+                resultArea.setText("Nada para exportar. Faça uma consulta primeiro.");
+                return;
+            }
+
+            Dialog<String> exportDialog = new Dialog<>();
+            exportDialog.setTitle("Exportar");
+
+            DialogPane dialogPane = exportDialog.getDialogPane();
+            dialogPane.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+            dialogPane.getStyleClass().add("dialog-pane");
+
+            ButtonType csvButton = new ButtonType("CSV", ButtonBar.ButtonData.OK_DONE);
+            ButtonType pdfButton = new ButtonType("PDF", ButtonBar.ButtonData.OK_DONE);
+            ButtonType cancelButton = new ButtonType("Cancelar", ButtonBar.ButtonData.CANCEL_CLOSE);
+
+            dialogPane.getButtonTypes().addAll(csvButton, pdfButton, cancelButton);
+
+            VBox dialogContent = new VBox(10);
+            dialogContent.setStyle("-fx-padding: 10;");
+            Label label = new Label("Escolha o formato de exportação:\n" +
+                    "Irá para a pasta consultas.");
+            label.getStyleClass().add("info-label");
+            dialogContent.getChildren().add(label);
+            dialogPane.setContent(dialogContent);
+
+            exportDialog.setOnShown(event -> {
+                Button btnCSV = (Button) dialogPane.lookupButton(csvButton);
+                Button btnPDF = (Button) dialogPane.lookupButton(pdfButton);
+                Button btnCancel = (Button) dialogPane.lookupButton(cancelButton);
+
+                btnCSV.getStyleClass().add("connect-btn");
+                btnPDF.getStyleClass().add("connect-btn");
+                btnCancel.getStyleClass().add("back-btn");
             });
 
-            HBox exportRow = new HBox(10);
-            exportRow.setAlignment(Pos.CENTER_RIGHT);
-
-            Button exportBtn = new Button("Exportar");
-            exportBtn.getStyleClass().add("connect-btn");
-
-            exportBtn.setOnAction(e -> {
-                String resultado = resultArea.getText();
-                if (resultado.isEmpty()) {
-                    resultArea.setText("Nada para exportar. Faça uma consulta primeiro.");
-                    return;
-                }
-
-                Dialog<String> exportDialog = new Dialog<>();
-                exportDialog.setTitle("Exportar");
-
-                DialogPane dialogPane = exportDialog.getDialogPane();
-                dialogPane.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
-                dialogPane.getStyleClass().add("dialog-pane");
-
-                ButtonType csvButton = new ButtonType("CSV", ButtonBar.ButtonData.OK_DONE);
-                ButtonType pdfButton = new ButtonType("PDF", ButtonBar.ButtonData.OK_DONE);
-                ButtonType cancelButton = new ButtonType("Cancelar", ButtonBar.ButtonData.CANCEL_CLOSE);
-
-                dialogPane.getButtonTypes().addAll(csvButton, pdfButton, cancelButton);
-
-                VBox dialogContent = new VBox(10);
-                dialogContent.setStyle("-fx-padding: 10;");
-                Label label = new Label("Escolha o formato de exportação:");
-                label.getStyleClass().add("info-label");
-                dialogContent.getChildren().add(label);
-                dialogPane.setContent(dialogContent);
-
-                exportDialog.setOnShown(event -> {
-                    Button btnCSV = (Button) dialogPane.lookupButton(csvButton);
-                    Button btnPDF = (Button) dialogPane.lookupButton(pdfButton);
-                    Button btnCancel = (Button) dialogPane.lookupButton(cancelButton);
-
-                    btnCSV.getStyleClass().add("connect-btn");
-                    btnPDF.getStyleClass().add("connect-btn");
-                    btnCancel.getStyleClass().add("back-btn");
-                });
-
-                exportDialog.setResultConverter(dialogBtn -> {
-                    if (dialogBtn == csvButton) return "CSV";
-                    if (dialogBtn == pdfButton) return "PDF";
-                    return null;
-                });
-
-                exportDialog.showAndWait().ifPresent(formato -> {
-                    switch (formato) {
-                        case "CSV":
-                            exportarCSV(resultado);
-                            break;
-                        case "PDF":
-                            exportarPDF(resultado);
-                            break;
-                    }
-                });
+            exportDialog.setResultConverter(dialogBtn -> {
+                if (dialogBtn == csvButton) return "CSV";
+                if (dialogBtn == pdfButton) return "PDF";
+                return null;
             });
 
-            exportRow.getChildren().add(exportBtn);
-            formArea.getChildren().addAll(infoLabel, formRow1, formRow2, queryBtn, resultArea, exportRow);
-            content.getChildren().addAll(title, formArea);
+            exportDialog.showAndWait().ifPresent(formato -> {
+                switch (formato) {
+                    case "CSV":
+                        exportarCSV(resultado);
+                        break;
+                    case "PDF":
+                        exportarPDF(resultado);
+                        break;
+                }
+            });
+        });
 
-            return content;
-        }
+        exportRow.getChildren().add(exportBtn);
+        formArea.getChildren().addAll(infoLabel, formRow1, formRow2, queryBtn, resultArea, exportRow);
+        content.getChildren().addAll(title, formArea);
+
+        return content;
+    }
 
 
     // exportar p csv
@@ -545,6 +647,21 @@ public class Main extends Application {
         }
     }
 
+    private void exportarCSV(String texto, String tipo) {
+        try {
+            File dir = new File("consultas");
+            if (!dir.exists()) dir.mkdir();
+
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm"));
+            String nomeArquivo = "consultas/" + tipo + "_" + timestamp + ".csv";
+            FileWriter writer = new FileWriter(nomeArquivo);
+            writer.write(texto);
+            writer.flush();
+            writer.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
 
     // exportar p pdf
     private void exportarPDF(String texto) {
@@ -563,152 +680,25 @@ public class Main extends Application {
             ex.printStackTrace();
         }
     }
-    // ------------ CONSULTA DE SINAL
 
+    private void exportarPDF(String texto, String tipo) {
+        try {
+            File dir = new File("consultas");
+            if (!dir.exists()) dir.mkdir();
 
-    // ------------ ROMPIMENTOS
-    private Node createBreaksScreen() {
-        VBox content = new VBox(20);
-        content.getStyleClass().add("content-area");
-        content.setAlignment(Pos.TOP_CENTER);
-        content.setPadding(new Insets(20));
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm"));
+            String nomeArquivo = "consultas/" + tipo + "_" + timestamp + ".pdf";
 
-        Label title = new Label("Monitoramento de Rompimentos");
-        title.getStyleClass().add("title");
-
-        VBox dashboardArea = new VBox(20);
-        dashboardArea.getStyleClass().add("form-area");
-        dashboardArea.setMaxWidth(900);
-        dashboardArea.setPadding(new Insets(25));
-
-        Label infoLabel = new Label("Acompanhe rompimentos/drops. O aplicativo faz uma verificação em todas as OLTs a cada 30 minutos.");
-        infoLabel.getStyleClass().add("info-label");
-
-        // Status boxes dinâmicos
-        int totalOnts = rompimentosDetectados.stream().mapToInt(d -> Integer.parseInt(d.getImpacted())).sum();
-        int criticos = (int) rompimentosDetectados.stream().filter(d -> d.getStatus().equals("Crítico")).count();
-        int alertas = (int) rompimentosDetectados.stream().filter(d -> d.getStatus().equals("Alerta")).count();
-
-        HBox statusRow = new HBox(15);
-        statusRow.setAlignment(Pos.CENTER);
-
-        VBox statusBox1 = createStatusBox("ONTs Ativos", String.valueOf(totalOnts), "status-normal");
-        VBox statusBox2 = createStatusBox("Perda de Sinal", String.valueOf(alertas), "status-warning");
-        VBox statusBox3 = createStatusBox("Rompimentos Críticos", String.valueOf(criticos), "status-critical");
-
-        statusRow.getChildren().addAll(statusBox1, statusBox2, statusBox3);
-        HBox.setHgrow(statusBox1, Priority.ALWAYS);
-        HBox.setHgrow(statusBox2, Priority.ALWAYS);
-        HBox.setHgrow(statusBox3, Priority.ALWAYS);
-
-        Label breakagesTitle = new Label("Rompimentos Detectados");
-        breakagesTitle.getStyleClass().add("subtitle");
-
-        // Configuração da TableView com Scroll e Paginação
-        TableView<RompimentoData> tableView = new TableView<>();
-        tableView.getStyleClass().add("data-table");
-        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-
-        // Configurar colunas
-        TableColumn<RompimentoData, String> oltCol = new TableColumn<>("OLT");
-        oltCol.setCellValueFactory(cellData -> cellData.getValue().oltProperty());
-        oltCol.setPrefWidth(150);
-
-        TableColumn<RompimentoData, String> ponCol = new TableColumn<>("PON");
-        ponCol.setCellValueFactory(cellData -> cellData.getValue().ponProperty());
-        ponCol.setPrefWidth(100);
-
-        TableColumn<RompimentoData, String> impactedCol = new TableColumn<>("ONTs Afetados");
-        impactedCol.setCellValueFactory(cellData -> cellData.getValue().impactedProperty());
-        impactedCol.setPrefWidth(120);
-
-        TableColumn<RompimentoData, String> locationCol = new TableColumn<>("Localização");
-        locationCol.setCellValueFactory(cellData -> cellData.getValue().locationProperty());
-        locationCol.setPrefWidth(180);
-
-        TableColumn<RompimentoData, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(cellData -> cellData.getValue().statusProperty());
-        statusCol.setPrefWidth(120);
-
-        TableColumn<RompimentoData, String> timeCol = new TableColumn<>("Tempo");
-        timeCol.setCellValueFactory(cellData -> cellData.getValue().timeProperty());
-        timeCol.setPrefWidth(150);
-
-        tableView.getColumns().addAll(oltCol, ponCol, impactedCol, locationCol, statusCol, timeCol);
-
-        // ScrollPane para permitir rolagem horizontal
-        ScrollPane tableScroll = new ScrollPane(tableView);
-        tableScroll.setFitToWidth(true);
-        tableScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        tableScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        tableScroll.getStyleClass().add("scroll-pane");
-
-        // Configuração da Paginação
-        Pagination pagination = new Pagination();
-        pagination.setPageCount(1);
-        pagination.setMaxPageIndicatorCount(5);
-        pagination.getStyleClass().add("pagination");
-
-        // Atualizar paginação quando os dados mudarem
-        rompimentosDetectados.addListener((javafx.collections.ListChangeListener.Change<? extends RompimentoData> c) -> {
-            int itemsPerPage = 10;
-            int pageCount = (int) Math.ceil((double) rompimentosDetectados.size() / itemsPerPage);
-            pagination.setPageCount(pageCount > 0 ? pageCount : 1);
-        });
-
-        // Configurar factory da paginação
-        pagination.setPageFactory(pageIndex -> {
-            int itemsPerPage = 10;
-            int fromIndex = pageIndex * itemsPerPage;
-            int toIndex = Math.min(fromIndex + itemsPerPage, rompimentosDetectados.size());
-
-            tableView.setItems(FXCollections.observableArrayList(
-                    rompimentosDetectados.subList(fromIndex, toIndex)
-            ));
-            return tableScroll;
-        });
-
-        // Container da tabela com paginação
-        VBox tableContainer = new VBox(10, tableScroll, pagination);
-        VBox.setVgrow(tableContainer, Priority.ALWAYS);
-
-        // Botões de ação
-        HBox actionRow = new HBox(15);
-        actionRow.setAlignment(Pos.CENTER_RIGHT);
-
-        Button refreshBtn = new Button("Atualizar Dados");
-        refreshBtn.getStyleClass().add("connect-btn");
-        refreshBtn.setOnAction(e -> {
-            tableView.setOpacity(0.5);
-            PauseTransition pause = new PauseTransition(Duration.seconds(1));
-            pause.setOnFinished(event -> {
-                FadeTransition fade = new FadeTransition(Duration.millis(500), tableView);
-                fade.setFromValue(0.5);
-                fade.setToValue(1.0);
-                fade.play();
-            });
-            pause.play();
-        });
-
-        Button analyzeBtn = new Button("Analisar Rompimentos");
-        analyzeBtn.getStyleClass().add("connect-btn");
-        analyzeBtn.setStyle("-fx-background-color: linear-gradient(to right, #5a6caf, #6a7cbf);");
-
-        actionRow.getChildren().addAll(refreshBtn, analyzeBtn);
-
-        // Montagem do layout final
-        dashboardArea.getChildren().addAll(
-                infoLabel,
-                statusRow,
-                breakagesTitle,
-                tableContainer,
-                actionRow
-        );
-
-        content.getChildren().addAll(title, dashboardArea);
-        return content;
+            com.lowagie.text.Document document = new com.lowagie.text.Document();
+            com.lowagie.text.pdf.PdfWriter.getInstance(document, new FileOutputStream(nomeArquivo));
+            document.open();
+            document.add(new com.lowagie.text.Paragraph(texto));
+            document.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
-    // ------------ ROMPIMENTOS
+    // ------------ CONSULTA DE SINAL
 
 
     // ------------ PON SUMMARY
@@ -736,11 +726,26 @@ public class Main extends Application {
 
         TextField ponField = new TextField();
         ponField.setPromptText("Digite o F/S/P");
-        ponField.setMaxWidth(100);
+        ponField.setMaxWidth(110);
         ponField.getStyleClass().add("text-field");
+
+        TextFormatter<String> ponFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[0-9/]{0,7}")) {
+                return change;
+            }
+            return null;
+        });
+        ponField.setTextFormatter(ponFormatter);
+
 
         Button consultarBtn = new Button("Consultar");
         consultarBtn.getStyleClass().add("connect-btn");
+
+        ponField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                consultarBtn.fire();
+            }
+        });
 
         TextArea resultadoArea = new TextArea();
         resultadoArea.setEditable(false);
@@ -768,7 +773,7 @@ public class Main extends Application {
                     tempSSH.sendCommand("config");
                     Thread.sleep(800);
                     tempSSH.sendCommand("display ont info summary " + pon);
-                    Thread.sleep(5000);
+                    Thread.sleep(8000);
                 } catch (Exception ex) {
                     Platform.runLater(() -> resultadoArea.appendText("Erro: " + ex.getMessage()));
                 } finally {
@@ -812,12 +817,27 @@ public class Main extends Application {
 
         TextField snField = new TextField();
         snField.setPromptText("Digite o SN da ONT/ONU");
-        snField.setMaxWidth(300);
+        snField.setMaxWidth(228);
         snField.setId("snField");
         snField.getStyleClass().add("text-field");
 
+        TextFormatter<String> snFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[A-Za-z0-9]{0,20}")) {
+                return change;
+            }
+            return null;
+        });
+        snField.setTextFormatter(snFormatter);
+
+
         Button consultarBtn = new Button("Consultar");
         consultarBtn.getStyleClass().add("connect-btn");
+
+        snField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                consultarBtn.fire();
+            }
+        });
 
         TextArea resultadoArea = new TextArea();
         resultadoArea.setEditable(false);
@@ -845,7 +865,7 @@ public class Main extends Application {
                     tempSSH.sendCommand("config");
                     Thread.sleep(800);
                     tempSSH.sendCommand("display ont info by-sn " + sn);
-                    Thread.sleep(5000);
+                    Thread.sleep(8000);
                 } catch (Exception ex) {
                     Platform.runLater(() -> resultadoArea.appendText("Erro: " + ex.getMessage()));
                 } finally {
@@ -892,18 +912,48 @@ public class Main extends Application {
 
         TextField fsField = new TextField();
         fsField.setPromptText("Digite F/S");
-        fsField.setMaxWidth(100);
+        fsField.setMaxWidth(110);
         fsField.getStyleClass().add("text-field");
+
+        TextFormatter<String> fsFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[0-9/]{0,4}")) {
+                return change;
+            }
+            return null;
+        });
+        fsField.setTextFormatter(fsFormatter);
+
 
         TextField pidField = new TextField();
         pidField.setPromptText("Digite o P ID");
         pidField.setMaxWidth(100);
         pidField.getStyleClass().add("text-field");
 
+        TextFormatter<String> pidFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[0-9]{0,6}")) {
+                return change;
+            }
+            return null;
+        });
+        pidField.setTextFormatter(pidFormatter);
+
+
         formRow.getChildren().addAll(fsField, pidField);
 
         Button diagnosticarBtn = new Button("Consultar");
         diagnosticarBtn.getStyleClass().add("connect-btn");
+
+        fsField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                diagnosticarBtn.fire();
+            }
+        });
+
+        pidField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                diagnosticarBtn.fire();
+            }
+        });
 
         TextArea resultadoArea = new TextArea();
         resultadoArea.setEditable(false);
@@ -950,6 +1000,336 @@ public class Main extends Application {
         return content;
     }
     // ------------ DIAGNÓSTICO DE QUEDAS
+
+
+    // ------------ ROMPIMENTOS
+    private Node createBreaksScreen() {
+        VBox content = new VBox(20);
+        content.getStyleClass().add("content-area");
+        content.setAlignment(Pos.TOP_CENTER);
+        content.setPadding(new Insets(20));
+
+        Label title = new Label("Monitoramento de Rompimentos");
+        title.getStyleClass().add("title");
+
+        VBox dashboardArea = new VBox(20);
+        dashboardArea.getStyleClass().add("form-area");
+        dashboardArea.setMaxWidth(900);
+        dashboardArea.setPadding(new Insets(25));
+
+        Label infoLabel = new Label("Acompanhe rompimentos/drops. O aplicativo faz uma verificação em todas as OLTs a cada 30 minutos.");
+        infoLabel.getStyleClass().add("info-label");
+
+        int totalOnts = rompimentosDetectados.stream()
+                .mapToInt(d -> Integer.parseInt(d.getImpacted()))
+                .sum();
+        int criticos = (int) rompimentosDetectados.stream()
+                .filter(d -> d.getStatus().equals("Crítico"))
+                .count();
+        int alertas = (int) rompimentosDetectados.stream()
+                .filter(d -> d.getStatus().equals("Alerta"))
+                .count();
+
+        HBox statusRow = new HBox(15);
+        statusRow.setAlignment(Pos.CENTER);
+
+        VBox statusBox1 = createStatusBox("ONTs Ativos", String.valueOf(totalOnts), "status-normal");
+        VBox statusBox2 = createStatusBox("Perda de Sinal", String.valueOf(alertas), "status-warning");
+        VBox statusBox3 = createStatusBox("Rompimentos Críticos", String.valueOf(criticos), "status-critical");
+
+        statusRow.getChildren().addAll(statusBox1, statusBox2, statusBox3);
+        HBox.setHgrow(statusBox1, Priority.ALWAYS);
+        HBox.setHgrow(statusBox2, Priority.ALWAYS);
+        HBox.setHgrow(statusBox3, Priority.ALWAYS);
+
+        Label breakagesTitle = new Label("Rompimentos Detectados");
+        breakagesTitle.getStyleClass().add("subtitle");
+
+        TableView<RompimentoData> tableView = new TableView<>();
+        tableView.getStyleClass().add("data-table");
+        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        TableColumn<RompimentoData, String> oltCol = new TableColumn<>("OLT");
+        oltCol.setCellValueFactory(cellData -> cellData.getValue().oltProperty());
+        oltCol.setPrefWidth(150);
+
+        TableColumn<RompimentoData, String> ponCol = new TableColumn<>("PON");
+        ponCol.setCellValueFactory(cellData -> cellData.getValue().ponProperty());
+        ponCol.setPrefWidth(100);
+
+        TableColumn<RompimentoData, String> impactedCol = new TableColumn<>("Afetados");
+        impactedCol.setCellValueFactory(cellData -> cellData.getValue().impactedProperty());
+        impactedCol.setPrefWidth(120);
+
+        TableColumn<RompimentoData, String> locationCol = new TableColumn<>("Localização");
+        locationCol.setCellValueFactory(cellData -> cellData.getValue().locationProperty());
+        locationCol.setPrefWidth(180);
+
+        TableColumn<RompimentoData, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(cellData -> cellData.getValue().statusProperty());
+        statusCol.setPrefWidth(120);
+
+        statusCol.setCellFactory(column -> {
+            return new TableCell<RompimentoData, String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+
+                    if (item == null || empty) {
+                        setText(null);
+                        setStyle("");
+                    } else {
+                        setText(item);
+                        if ("Crítico".equals(item)) {
+                            setStyle("-fx-text-fill: #cc0000; -fx-font-weight: bold;");
+                        } else if ("Alerta".equals(item)) {
+                            setStyle("-fx-text-fill: #ff9900; -fx-font-weight: bold;");
+                        } else {
+                            setStyle("");
+                        }
+                    }
+                }
+            };
+        });
+
+        TableColumn<RompimentoData, String> timeCol = new TableColumn<>("Tempo");
+        timeCol.setCellValueFactory(cellData -> cellData.getValue().timeProperty());
+        timeCol.setPrefWidth(150);
+
+        TableColumn<RompimentoData, String> predictionCol = new TableColumn<>("Previsão");
+        predictionCol.setCellValueFactory(cellData -> new SimpleStringProperty(""));
+        predictionCol.setPrefWidth(130);
+
+        predictionCol.setCellFactory(column -> {
+            return new TableCell<RompimentoData, String>() {
+                private final Button button = new Button("Definir");
+
+                {
+                    button.setOnAction(event -> {
+                        RompimentoData data = getTableView().getItems().get(getIndex());
+                        TextInputDialog dialog = new TextInputDialog("");
+                        dialog.setTitle("Previsão de Normalização");
+                        dialog.setHeaderText("Defina uma previsão para normalização do rompimento");
+                        dialog.setContentText("Previsão (horas):");
+
+                        Optional<String> result = dialog.showAndWait();
+                        result.ifPresent(hours -> {
+                            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                            alert.setTitle("Previsão Definida");
+                            alert.setHeaderText(null);
+                            alert.setContentText("Previsão de " + hours + " horas definida para " +
+                                    data.getOlt() + " - PON " + data.getPon());
+                            alert.showAndWait();
+                        });
+                    });
+                    button.getStyleClass().add("small-btn");
+                }
+
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+
+                    if (empty) {
+                        setGraphic(null);
+                    } else {
+                        setGraphic(button);
+                    }
+                }
+            };
+        });
+
+        tableView.getColumns().addAll(oltCol, ponCol, impactedCol, locationCol, statusCol, timeCol, predictionCol);
+
+        ScrollPane tableScroll = new ScrollPane(tableView);
+        tableScroll.setFitToWidth(true);
+        tableScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        tableScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        tableScroll.getStyleClass().add("scroll-pane");
+
+        tableView.setItems(rompimentosDetectados);
+
+        Pagination pagination = new Pagination();
+        pagination.setPageCount(calculatePageCount(rompimentosDetectados.size(), 10));
+        pagination.setMaxPageIndicatorCount(5);
+        pagination.getStyleClass().add("pagination");
+
+        rompimentosDetectados.addListener((ListChangeListener.Change<? extends RompimentoData> c) -> {
+            pagination.setPageCount(calculatePageCount(rompimentosDetectados.size(), 10));
+        });
+
+        int itemsPerPage = 10;
+        pagination.setPageFactory(pageIndex -> {
+            int fromIndex = pageIndex * itemsPerPage;
+            int toIndex = Math.min(fromIndex + itemsPerPage, rompimentosDetectados.size());
+
+            if (fromIndex >= rompimentosDetectados.size()) {
+                tableView.setItems(FXCollections.observableArrayList());
+            } else {
+                tableView.setItems(FXCollections.observableArrayList(
+                        rompimentosDetectados.subList(fromIndex, toIndex)
+                ));
+            }
+            return tableScroll;
+        });
+
+        VBox tableContainer = new VBox(10, tableScroll, pagination);
+        VBox.setVgrow(tableContainer, Priority.ALWAYS);
+
+        Label lastScanLabel = new Label("Última verificação: " +
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
+        lastScanLabel.getStyleClass().add("info-label");
+
+        HBox actionRow = new HBox(15);
+        actionRow.setAlignment(Pos.CENTER_RIGHT);
+
+        Button refreshBtn = new Button("Atualizar");
+        refreshBtn.getStyleClass().add("connect-btn");
+        refreshBtn.setOnAction(e -> {
+            tableView.setOpacity(0.5);
+            refreshBtn.setDisable(true);
+
+            Task<Void> task = new Task<Void>() {
+                @Override
+                protected Void call() throws Exception {
+                    runBreakageDetection();
+                    return null;
+                }
+            };
+
+            task.setOnSucceeded(event -> {
+                Platform.runLater(() -> {
+                    lastScanLabel.setText("Última verificação: " +
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
+
+                    FadeTransition fade = new FadeTransition(Duration.millis(500), tableView);
+                    fade.setFromValue(0.5);
+                    fade.setToValue(1.0);
+                    fade.play();
+
+                    refreshBtn.setDisable(false);
+                });
+            });
+
+            new Thread(task).start();
+        });
+
+
+        Button exportBtn = new Button("Exportar");
+        exportBtn.getStyleClass().add("connect-btn");
+        exportBtn.setStyle("-fx-background-color: linear-gradient(to right, #5a6caf, #6a7cbf);");
+        exportBtn.setOnAction(e -> {
+            if (rompimentosDetectados.isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("Exportar");
+                alert.setHeaderText(null);
+                alert.setContentText("Nenhum dado disponível para exportação.");
+                alert.showAndWait();
+                return;
+            }
+
+            Dialog<String> exportDialog = new Dialog<>();
+            exportDialog.setTitle("Exportar");
+
+            DialogPane dialogPane = exportDialog.getDialogPane();
+            dialogPane.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+            dialogPane.getStyleClass().add("dialog-pane");
+
+            ButtonType csvButton = new ButtonType("CSV", ButtonBar.ButtonData.OK_DONE);
+            ButtonType pdfButton = new ButtonType("PDF", ButtonBar.ButtonData.OK_DONE);
+            ButtonType cancelButton = new ButtonType("Cancelar", ButtonBar.ButtonData.CANCEL_CLOSE);
+
+            dialogPane.getButtonTypes().addAll(csvButton, pdfButton, cancelButton);
+
+            VBox dialogContent = new VBox(10);
+            dialogContent.setStyle("-fx-padding: 10;");
+            Label label = new Label("Escolha o formato de exportação:");
+            label.getStyleClass().add("info-label");
+            dialogContent.getChildren().add(label);
+            dialogPane.setContent(dialogContent);
+
+            exportDialog.setResultConverter(dialogBtn -> {
+                if (dialogBtn == csvButton) return "CSV";
+                if (dialogBtn == pdfButton) return "PDF";
+                return null;
+            });
+
+            exportDialog.showAndWait().ifPresent(formato -> {
+                StringBuilder sb = new StringBuilder();
+                sb.append("OLT,PON,Afetados,Localização,Status,Tempo\n");
+                for (RompimentoData d : rompimentosDetectados) {
+                    sb.append(d.getOlt()).append(",")
+                            .append(d.getPon()).append(",")
+                            .append(d.getImpacted()).append(",")
+                            .append(d.getLocation()).append(",")
+                            .append(d.getStatus()).append(",")
+                            .append(d.getTime()).append("\n");
+                }
+
+                if (formato.equals("CSV")) {
+                    exportarCSV(sb.toString(), "rompimentos");
+                } else if (formato.equals("PDF")) {
+                    exportarPDF(sb.toString(), "rompimentos");
+                }
+            });
+        });
+
+
+        actionRow.getChildren().addAll(refreshBtn, exportBtn);
+
+        dashboardArea.getChildren().addAll(
+                infoLabel,
+                statusRow,
+                breakagesTitle,
+                tableContainer,
+                lastScanLabel,
+                actionRow
+        );
+
+        content.getChildren().addAll(title, dashboardArea);
+        return content;
+    }
+
+    private int calculatePageCount(int itemsCount, int itemsPerPage) {
+        return (itemsCount > 0) ? (int) Math.ceil((double) itemsCount / itemsPerPage) : 1;
+    }
+    // ------------ ROMPIMENTOS
+
+
+    // ----------- ABA PRIVADA TICKET
+    private Node createTechnicalTicketsScreen() {
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setAlignment(Pos.TOP_CENTER);
+        content.getStyleClass().add("content-area");
+
+        Label title = new Label("Chamados");
+        title.getStyleClass().add("title");
+
+        TableView<Ticket> table = new TableView<>();
+        table.getStyleClass().add("data-table");
+        table.setItems(FXCollections.observableArrayList(DatabaseManager.getAllTickets()));
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        table.getColumns().addAll(
+                createColumn("OLT", "oltNome"),
+                createColumn("Criado por", "criadoPor"),
+                createColumn("Cargo", "cargo"),
+                createColumn("Descrição", "descricao"),
+                createColumn("Prioridade", "previsao"),
+                createColumn("Data/Hora", "dataHora"),
+                createColumn("Status", "status")
+        );
+
+        content.getChildren().addAll(title, table);
+        return content;
+    }
+
+    private <T> TableColumn<Ticket, String> createColumn(String title, String prop) {
+        TableColumn<Ticket, String> col = new TableColumn<>(title);
+        col.setCellValueFactory(new PropertyValueFactory<>(prop));
+        return col;
+    }
+    // ----------- ABA PRIVADA TICKET
 
 
     private VBox createStatusBox(String title, String value, String styleClass) {
@@ -1079,22 +1459,6 @@ public class Main extends Application {
         return titleBar;
     }
 
-    private void addButtonHoverEffects(Button button) {
-        button.setOnMouseEntered(e -> {
-            ScaleTransition scale = new ScaleTransition(Duration.millis(250), button);
-            scale.setToX(1.1);
-            scale.setToY(1.1);
-            scale.play();
-        });
-
-        button.setOnMouseExited(e -> {
-            ScaleTransition scale = new ScaleTransition(Duration.millis(250), button);
-            scale.setToX(1.0);
-            scale.setToY(1.0);
-            scale.play();
-        });
-    }
-
     private void animateCardsSequentially(ObservableList<Node> nodes, int delay) {
         Timeline timeline = new Timeline();
 
@@ -1158,7 +1522,6 @@ public class Main extends Application {
 
         addEnhancedButtonHoverEffects(connectBtn);
 
-        // no css era mais facil fazer o card levantar pprt
         card.setOnMouseEntered(e -> {
             TranslateTransition lift = new TranslateTransition(Duration.millis(200), card);
             lift.setToY(-5);
@@ -1184,22 +1547,6 @@ public class Main extends Application {
 
         card.getChildren().addAll(nameLabel, ipLabel, connectBtn);
         return card;
-    }
-
-    private void addButtonHoverAnimation(Button button) {
-        button.setOnMouseEntered(e -> {
-            ScaleTransition scale = new ScaleTransition(Duration.millis(300), button);
-            scale.setToX(1.05);
-            scale.setToY(1.05);
-            scale.play();
-        });
-
-        button.setOnMouseExited(e -> {
-            ScaleTransition scale = new ScaleTransition(Duration.millis(300), button);
-            scale.setToX(1.0);
-            scale.setToY(1.0);
-            scale.play();
-        });
     }
 
     private void showSSHTerminal(OLT olt) {
@@ -1233,6 +1580,8 @@ public class Main extends Application {
         currentSection = "Terminal";
     }
 
+
+    // -------- TERMINAL SCREEN
     private Node createTerminalScreen(OLT olt) {
         VBox content = new VBox(20);
         content.getStyleClass().add("content-area");
@@ -1337,7 +1686,7 @@ public class Main extends Application {
                     if (cmd != null && !cmd.trim().isEmpty() && sshManager != null) {
                         sshManager.sendCommand(cmd.trim());
                         commandHistory.add(cmd.trim());
-                        commandHistoryIndex[0] = commandHistory.size(); // reseta pro final
+                        commandHistoryIndex[0] = commandHistory.size();
                         commandField.clear();
                     }
                     break;
@@ -1379,8 +1728,10 @@ public class Main extends Application {
 
         return content;
     }
+    // -------- TERMINAL SCREEN
 
-    // ------------ Ajuda inside-terminal
+
+    // ------------ AJUDA INSIDE-TERMINAL
     private void showHelpDialog() {
         Stage helpStage = new Stage();
         helpStage.initStyle(StageStyle.UNDECORATED);
@@ -1388,7 +1739,7 @@ public class Main extends Application {
 
         VBox helpContent = new VBox(15);
         helpContent.getStyleClass().add("help-content");
-        helpContent.setPadding(new Insets(20));
+        helpContent.setPadding(new Insets(10));
         helpContent.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.5)));
 
         Label title = new Label("Ajuda - Comandos OLT");
@@ -1430,7 +1781,52 @@ public class Main extends Application {
         closeBtn.getStyleClass().add("help-close-btn");
         closeBtn.setOnAction(e -> helpStage.close());
 
-        helpContent.getChildren().addAll(title, commandsBox, closeBtn);
+        Button criarTicketBtn = new Button("Criar Ticket");
+        criarTicketBtn.getStyleClass().add("connect-btn");
+        criarTicketBtn.setOnAction(e -> {
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.setTitle("Novo Ticket para Eduardo");
+
+            DialogPane pane = dialog.getDialogPane();
+            pane.getStyleClass().add("glass-pane");
+            pane.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+            pane.getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+            VBox content = new VBox(12);
+            content.setPadding(new Insets(15));
+
+            Label descLabel = new Label("Descrição:");
+            descLabel.getStyleClass().add("form-label");
+
+            TextArea descricaoArea = new TextArea();
+            descricaoArea.getStyleClass().add("text-area");
+
+            Label prioridadeLabel = new Label("Prioridade:");
+            prioridadeLabel.getStyleClass().add("form-label");
+
+            ComboBox<String> prioridadeBox = new ComboBox<>();
+            prioridadeBox.getItems().addAll("Baixa", "Média", "Alta", "Crítica");
+            prioridadeBox.getStyleClass().add("combo-box");
+            prioridadeBox.setPromptText("Selecione");
+
+            content.getChildren().addAll(descLabel, descricaoArea, prioridadeLabel, prioridadeBox);
+            pane.setContent(content);
+
+            dialog.showAndWait().ifPresent(result -> {
+                if (result == ButtonType.OK) {
+                    DatabaseManager.criarTicket(
+                            usuario.getNome(),
+                            usuario.getCargo(),
+                            connectedOLT.name,
+                            descricaoArea.getText(),
+                            prioridadeBox.getValue()
+                    );
+                }
+            });
+        });
+
+
+        helpContent.getChildren().addAll(title, commandsBox, closeBtn, criarTicketBtn);
 
         Scene helpScene = new Scene(helpContent, 550, 500);
         helpScene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
@@ -1438,7 +1834,7 @@ public class Main extends Application {
         helpStage.setScene(helpScene);
         helpStage.show();
     }
-    // ------------ Ajuda inside-terminal
+    // ------------ AJUDA INSIDE-TERMINAL
 
 
     public static class RompimentoData {
@@ -1458,30 +1854,88 @@ public class Main extends Application {
             this.time = new javafx.beans.property.SimpleStringProperty(time);
         }
 
-        // Getters para propriedades
-        public String getOlt() { return olt.get(); }
-        public String getPon() { return pon.get(); }
-        public String getImpacted() { return impacted.get(); }
-        public String getLocation() { return location.get(); }
-        public String getStatus() { return status.get(); }
-        public String getTime() { return time.get(); }
 
-        // Property accessors
-        public javafx.beans.property.StringProperty oltProperty() { return olt; }
-        public javafx.beans.property.StringProperty ponProperty() { return pon; }
-        public javafx.beans.property.StringProperty impactedProperty() { return impacted; }
-        public javafx.beans.property.StringProperty locationProperty() { return location; }
-        public javafx.beans.property.StringProperty statusProperty() { return status; }
-        public javafx.beans.property.StringProperty timeProperty() { return time; }
+        // --------- GETTERS
+        public String getOlt() {
+            return olt.get();
+        }
+
+        public String getPon() {
+            return pon.get();
+        }
+
+        public String getImpacted() {
+            return impacted.get();
+        }
+
+        public String getLocation() {
+            return location.get();
+        }
+
+        public String getStatus() {
+            return status.get();
+        }
+
+        public String getTime() {
+            return time.get();
+        }
+
+        // PROPERTYS
+        public javafx.beans.property.StringProperty oltProperty() {
+            return olt;
+        }
+
+        public javafx.beans.property.StringProperty ponProperty() {
+            return pon;
+        }
+
+        public javafx.beans.property.StringProperty impactedProperty() {
+            return impacted;
+        }
+
+        public javafx.beans.property.StringProperty locationProperty() {
+            return location;
+        }
+
+        public javafx.beans.property.StringProperty statusProperty() {
+            return status;
+        }
+
+        public javafx.beans.property.StringProperty timeProperty() {
+            return time;
+        }
     }
+
 
     public static void main(String[] args) {
         launch(args);
     }
 
+    // --------- STOPS
     @Override
     public void stop() {
         if (sshManager != null) sshManager.disconnect();
-        if (breakageMonitor != null) breakageMonitor.shutdownNow();
+        if (breakageMonitor != null) {
+            breakageMonitor.shutdownNow();
+            try {
+                if (!breakageMonitor.awaitTermination(2, TimeUnit.SECONDS)) {
+                    breakageMonitor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                breakageMonitor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+        if (scheduler != null) {
+            scheduler.shutdown();
+            try {
+                if (!scheduler.awaitTermination(2, TimeUnit.SECONDS)) {
+                    scheduler.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                scheduler.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 }

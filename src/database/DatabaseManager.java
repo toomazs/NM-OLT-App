@@ -1,10 +1,14 @@
 package database;
 
+import models.Ticket;
+import models.Usuario;
 import java.sql.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.nio.charset.StandardCharsets;
-import models.Usuario;
+import java.sql.*;
+import java.util.List;
+import java.util.ArrayList;
 
 
 public class DatabaseManager {
@@ -104,10 +108,10 @@ public class DatabaseManager {
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
                 String nome = rs.getString("nome");
-                String usuario = rs.getString("usuario"); // <-- adicionado aqui
+                String usuario = rs.getString("usuario");
                 String cargo = rs.getString("cargo");
 
-                return new Usuario(nome, usuario, cargo); // <-- agora usa o valor certo
+                return new Usuario(nome, usuario, cargo);
             }
 
         } catch (SQLException e) {
@@ -116,5 +120,45 @@ public class DatabaseManager {
 
         return null;
     }
+
+    public static void criarTicket(String nome, String cargo, String oltNome, String descricao, String previsao) {
+        String sql = "INSERT INTO tickets (criado_por, cargo, olt_nome, descricao, previsao) VALUES (?, ?, ?, ?, ?)";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, nome);
+            stmt.setString(2, cargo);
+            stmt.setString(3, oltNome);
+            stmt.setString(4, descricao);
+            stmt.setString(5, previsao);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static List<Ticket> getAllTickets() {
+        List<Ticket> tickets = new ArrayList<>();
+        String sql = "SELECT * FROM tickets ORDER BY data_hora DESC";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                tickets.add(new Ticket(
+                        rs.getString("olt_nome"),
+                        rs.getString("criado_por"),
+                        rs.getString("cargo"),
+                        rs.getString("descricao"),
+                        rs.getString("previsao"),
+                        rs.getTimestamp("data_hora").toString(),
+                        rs.getString("status")
+                ));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return tickets;
+    }
+
+
 
 }

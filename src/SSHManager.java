@@ -7,6 +7,11 @@ import java.io.OutputStream;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.regex.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 
 public class SSHManager {
     private Session session;
@@ -19,7 +24,25 @@ public class SSHManager {
     private static final int BUFFER_SIZE = 1024;
     private StringBuilder commandOutput = new StringBuilder();
     private boolean capturingOutput = false;
-    private Map<String, List<String>> breakageData = new HashMap<>();
+    private ObservableList<Main.RompimentoData> breakageList = FXCollections.observableArrayList();
+    private Map<String, Map<String, List<OntFailureInfo>>> oltBreakageData = new HashMap<>();
+    private String currentOltName;
+
+    public static class OntFailureInfo {
+        private final String ontId;
+        private final String reason;
+        private final LocalDateTime timestamp;
+
+        public OntFailureInfo(String ontId, String reason) {
+            this.ontId = ontId;
+            this.reason = reason;
+            this.timestamp = LocalDateTime.now();
+        }
+
+        public String getOntId() { return ontId; }
+        public String getReason() { return reason; }
+        public LocalDateTime getTimestamp() { return timestamp; }
+    }
 
     public void connect(String host, String user, String password, TextArea terminalArea) {
         this.terminalArea = terminalArea;
@@ -84,20 +107,34 @@ public class SSHManager {
 
                     String outputText = new String(buffer, 0, bytesRead);
 
-                    if (capturingOutput) {
-                        commandOutput.append(outputText);
-                    }
-
-                    if (outputText.contains("---- More ( Press 'Q' to break ) ----") ||
-                            outputText.contains("{ <cr>||<K> }:") ||
-                            outputText.contains("More: <space>") ||
-                            outputText.contains("-- More --")) {
+                    if (outputText.contains("---- More ( Press 'Q' to break ) ----")) {
+                        outputText = outputText.replaceAll("---- More \\( Press 'Q' to break \\) ----\\[37D \\[37D", "");
                         try {
                             outputStream.write(' ');
                             outputStream.flush();
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
+                    } else if (outputText.contains("More: <space>") || outputText.contains("-- More --")) {
+                        try {
+                            outputStream.write(' ');
+                            outputStream.flush();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    } else if (outputText.contains("{ <cr>||<K> }:")) {
+                        try {
+                            outputStream.write('\r');
+                            outputStream.flush();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    outputText = outputText.replaceAll("\\[\\d+D", "");
+
+                    if (capturingOutput) {
+                        commandOutput.append(outputText);
                     }
 
                     final String finalText = outputText;
@@ -137,20 +174,22 @@ public class SSHManager {
             sendCommand("interface gpon " + fs);
             Thread.sleep(1000);
             sendCommand("display ont optical-info " + p + " all");
-            Thread.sleep(5000);
 
+            Thread.sleep(10000);
             capturingOutput = false;
 
             return parseRealOpticalSignalOutput(commandOutput.toString(), fs + "/" + p);
 
         } catch (Exception e) {
+            e.printStackTrace();
             return "Erro na consulta: " + e.getMessage();
         }
     }
 
     private String parseRealOpticalSignalOutput(String output, String ontId) {
         StringBuilder result = new StringBuilder();
-        Pattern pattern = Pattern.compile("(\\d+/\\d+/\\d+)\\s+(\\d+)\\s+(-?\\d+\\.\\d+)\\s+(-?\\d+\\.\\d+)\\s+(-?\\d+\\.\\d+)");
+
+        Pattern pattern = Pattern.compile("(\\d+)\\s+(-\\d+\\.\\d+)\\s+(\\d+\\.\\d+)\\s+(-\\d+\\.\\d+)\\s+(\\d+)\\s+(\\d+\\.\\d+)\\s+(\\d+)\\s+(\\d+)");
         Matcher matcher = pattern.matcher(output);
 
         int totalOnts = 0;
@@ -159,19 +198,20 @@ public class SSHManager {
         double totalRx = 0;
         double totalTx = 0;
 
-
         result.append("RESULTADO DA CONSULTA DE SINAL:\n");
-        result.append("--------------------------------------------------\n");
-        result.append("F/S/P   ONT-ID   RX Power(dBm)   TX Power(dBm)   Temperature(°C)\n");
-        result.append("--------------------------------------------------\n");
+        result.append("----------------------------------------------------------------------\n");
+        result.append("ONT-ID   RX Power(dBm)   TX Power(dBm)   OLT RX(dBm)   Temp(°C)   Dist(m)\n");
+        result.append("----------------------------------------------------------------------\n");
 
         while (matcher.find()) {
             totalOnts++;
-            String port = matcher.group(1);
-            String ont = matcher.group(2);
-            String rxPower = matcher.group(3);
-            String txPower = matcher.group(4);
+
+            String ont = matcher.group(1);
+            String rxPower = matcher.group(2);
+            String txPower = matcher.group(3);
+            String oltRxPower = matcher.group(4);
             String temp = matcher.group(5);
+            String distance = matcher.group(8);
 
             double rx = Double.parseDouble(rxPower);
             double tx = Double.parseDouble(txPower);
@@ -181,91 +221,184 @@ public class SSHManager {
 
             String status = "";
 
-            if (rx > -29.0) {
+            if (rx < -29.0) {
                 status = " (⚠ CRÍTICO)";
                 noSignal++;
-            } else if (rx <= -29.0 && rx >= -27.0) {
+            } else if (rx <= -27.0 && rx >= -29.0) {
                 status = " (ℹ VERIFICAR MÉDIA)";
                 weakSignal++;
             }
 
-
-            result.append(String.format("%-8s%-9s%-16s%-16s%-16s%s\n",
-                    port, ont, rxPower, txPower, temp, status));
+            result.append(String.format("%-9s%-16s%-16s%-14s%-12s%-8s%s\n",
+                    ont, rxPower, txPower, oltRxPower, temp, distance, status));
         }
 
-        result.append("--------------------------------------------------\n\n");
-
-        result.append("Status:\n");
-        result.append("• (ℹ VERIFICAR MÉDIA) entre -27 e -29  — analisar com média da primária\n");
-        result.append("• (⚠ CRÍTICO) acima de -29 — pode causar quedas/oscilação\n\n");
-
-        result.append("Total de ONTs: ").append(totalOnts).append("\n");
-        result.append("ONTs com sinal fraco: ").append(weakSignal).append("\n");
-        result.append("ONTs sem sinal: ").append(noSignal).append("\n");
+        result.append("----------------------------------------------------------------------\n\n");
 
         if (totalOnts > 0) {
+            result.append("Status:\n");
+            result.append("• (ℹ VERIFICAR MÉDIA) entre -27 e -29 dBm — analisar com média da primária\n");
+            result.append("• (⚠ CRÍTICO) menor que -29 dBm — pode causar quedas/oscilação\n\n");
+
+            result.append("Total de ONTs: ").append(totalOnts).append("\n");
+            result.append("ONTs com sinal fraco: ").append(weakSignal).append("\n");
+            result.append("ONTs com sinal crítico: ").append(noSignal).append("\n");
+
             double avgRx = totalRx / totalOnts;
             double avgTx = totalTx / totalOnts;
 
             result.append(String.format("\nMédia Sinal RX: %.2f dBm", avgRx));
             result.append(String.format("\nMédia Sinal TX: %.2f dBm\n", avgTx));
+        } else {
+            result.append("Não foram encontrados dados de sinal óptico.\n");
+            result.append("Verifique se o comando foi executado corretamente e se há ONTs configuradas nesta porta.\n");
         }
 
         return result.toString();
     }
 
-    public void scanForBreakages() {
+    public void scanForBreakages(String oltName) {
+        this.currentOltName = oltName;
         try {
-            commandOutput.setLength(0);
-            capturingOutput = true;
+            for (int frame = 0; frame <= 0; frame++) {
+                for (int slot = 1; slot <= 20; slot++) {
+                    for (int port = 0; port <= 20; port++) {
+                        String ponId = frame + "/" + slot + "/" + port;
+                        commandOutput.setLength(0);
+                        capturingOutput = true;
 
-            sendCommand("enable");
-            Thread.sleep(1000);
-            sendCommand("config");
-            Thread.sleep(1000);
-            sendCommand("display ont info summary");
-            Thread.sleep(5000);
-            capturingOutput = false;
+                        sendCommand("enable");
+                        Thread.sleep(500);
+                        sendCommand("config");
+                        Thread.sleep(500);
+                        sendCommand("display ont info summary " + ponId);
+                        Thread.sleep(3000);
 
-            parseBreakageOutput(commandOutput.toString());
+                        capturingOutput = false;
+                        parseBreakageOutput(commandOutput.toString(), ponId);
+                        Thread.sleep(1000);
+                    }
+                }
+            }
+
+            analyzeBreakages();
 
         } catch (Exception e) {
-            System.err.println("Erro ao escanear rompimentos: " + e.getMessage());
+            Platform.runLater(() ->
+                    terminalArea.appendText("\n❌ Erro ao escanear rompimentos: " + e.getMessage() + "\n")
+            );
         }
     }
 
-    private void parseBreakageOutput(String output) {
-        Pattern pattern = Pattern.compile("(\\d+/\\d+/\\d+).*?(\\d+)\\s+\\d+\\s+\\d+\\s+(\\d+).*?(LOSi|LOBi)");
+    private void parseBreakageOutput(String output, String pon) {
+        if (!oltBreakageData.containsKey(currentOltName)) {
+            oltBreakageData.put(currentOltName, new HashMap<>());
+        }
+
+        Map<String, List<OntFailureInfo>> oltData = oltBreakageData.get(currentOltName);
+        if (!oltData.containsKey(pon)) {
+            oltData.put(pon, new ArrayList<>());
+        }
+
+        List<OntFailureInfo> ponFailures = oltData.get(pon);
+
+        Pattern pattern = Pattern.compile("(\\d+)\\s+(online|offline)(?:.*?(LOSi|LOBi|LOFi|LOKi|LOS))?");
         Matcher matcher = pattern.matcher(output);
 
-        Map<String, List<String>> ponFailures = new HashMap<>();
-
         while (matcher.find()) {
-            String pon = matcher.group(1);
-            String ontId = matcher.group(2);
-            String offlineCount = matcher.group(3);
-            String reason = matcher.group(4);
+            String ontId = matcher.group(1);
+            String status = matcher.group(2);
 
-
-            if (!ponFailures.containsKey(pon)) {
-                ponFailures.put(pon, new ArrayList<>());
-            }
-            ponFailures.get(pon).add(ontId + "|" + reason + "|" + offlineCount);
-        }
-
-        for (Map.Entry<String, List<String>> entry : ponFailures.entrySet()) {
-            String pon = entry.getKey();
-            List<String> failures = entry.getValue();
-
-            if (failures.size() >= 6) {
-                breakageData.put(pon, failures);
+            if ("offline".equalsIgnoreCase(status) && matcher.groupCount() >= 3) {
+                String reason = matcher.group(3);
+                if (reason != null && (reason.equals("LOSi") || reason.equals("LOBi") ||
+                        reason.equals("LOFi") || reason.equals("LOKi") || reason.equals("LOS"))) {
+                    ponFailures.add(new OntFailureInfo(ontId, reason));
+                }
             }
         }
     }
 
-    public Map<String, List<String>> getBreakageData() {
-        return breakageData;
+    private void analyzeBreakages() {
+        breakageList.clear();
+
+        for (String oltName : oltBreakageData.keySet()) {
+            Map<String, List<OntFailureInfo>> oltData = oltBreakageData.get(oltName);
+
+            for (String pon : oltData.keySet()) {
+                List<OntFailureInfo> failures = oltData.get(pon);
+
+                if (!failures.isEmpty()) {
+                    Map<LocalDateTime, List<OntFailureInfo>> timeGroups = new HashMap<>();
+
+                    for (OntFailureInfo failure : failures) {
+                        boolean addedToGroup = false;
+
+                        for (LocalDateTime groupTime : timeGroups.keySet()) {
+                            if (Math.abs(ChronoUnit.MINUTES.between(groupTime, failure.getTimestamp())) <= 5) {
+                                timeGroups.get(groupTime).add(failure);
+                                addedToGroup = true;
+                                break;
+                            }
+                        }
+
+                        if (!addedToGroup) {
+                            List<OntFailureInfo> newGroup = new ArrayList<>();
+                            newGroup.add(failure);
+                            timeGroups.put(failure.getTimestamp(), newGroup);
+                        }
+                    }
+
+                    for (Map.Entry<LocalDateTime, List<OntFailureInfo>> entry : timeGroups.entrySet()) {
+                        LocalDateTime timestamp = entry.getKey();
+                        List<OntFailureInfo> group = entry.getValue();
+
+                        String status = group.size() >= 6 ? "Crítico" : "Alerta";
+                        String formattedTime = timestamp.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+
+                        String location = derivePonLocation(oltName, pon);
+
+                        Main.RompimentoData rompimento = new Main.RompimentoData(
+                                oltName,
+                                pon,
+                                String.valueOf(group.size()),
+                                location,
+                                status,
+                                formattedTime
+                        );
+
+                        breakageList.add(rompimento);
+                    }
+                }
+            }
+        }
+    }
+
+    private String derivePonLocation(String oltName, String pon) {
+        return oltName.replace("OLT_", "") + " - P" + pon.replace("/", "");
+    }
+
+    public ObservableList<Main.RompimentoData> getBreakageList() {
+        return breakageList;
+    }
+
+    public int[] getBreakageCounters() {
+        int totalOnts = 0;
+        int alertCount = 0;
+        int criticalCount = 0;
+
+        for (Main.RompimentoData data : breakageList) {
+            int impacted = Integer.parseInt(data.getImpacted());
+            totalOnts += impacted;
+
+            if ("Crítico".equals(data.getStatus())) {
+                criticalCount++;
+            } else if ("Alerta".equals(data.getStatus())) {
+                alertCount++;
+            }
+        }
+
+        return new int[] { totalOnts, alertCount, criticalCount };
     }
 
     public void sendCtrlC() {
