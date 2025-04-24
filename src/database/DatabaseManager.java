@@ -9,6 +9,8 @@ import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.List;
 import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.sql.Timestamp;
 
 
 public class DatabaseManager {
@@ -159,6 +161,30 @@ public class DatabaseManager {
         return tickets;
     }
 
+    public static void salvarRompimento(String olt, String pon, int qtd, String status, String local, LocalDateTime hora) {
+        String sql = "INSERT INTO rompimentos (olt_nome, pon, quantidade, status, localizacao, timestamp) VALUES (?, ?, ?, ?, ?, ?)";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, olt);
+            stmt.setString(2, pon);
+            stmt.setInt(3, qtd);
+            stmt.setString(4, status);
+            stmt.setString(5, local);
+            stmt.setTimestamp(6, Timestamp.valueOf(hora));
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
-
+    public static void logUsuario(String usuario, String acao, String olt) {
+        String sql = "INSERT INTO logs_usuario (usuario, acao, olt_nome) VALUES (?, ?, ?)";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, usuario);
+            stmt.setString(2, acao);
+            stmt.setString(3, olt);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 }

@@ -33,7 +33,7 @@ public class ChangePasswordScreen {
         }
 
         BorderPane mainLayout = new BorderPane();
-        mainLayout.setStyle("-fx-background-color: linear-gradient(to bottom right, #1e293b, #0f172a);");
+        mainLayout.setStyle("-fx-background-color: linear-gradient(to bottom right, #140F26, #19132D);");
 
         // Barra de título
         HBox titleBar = createTitleBar(stage);
@@ -89,7 +89,7 @@ public class ChangePasswordScreen {
         titleBar.getStyleClass().add("title-bar");
         titleBar.setPrefHeight(30);
         titleBar.setAlignment(Pos.CENTER_RIGHT);
-        titleBar.setStyle("-fx-background-color: #1e293b;");
+        titleBar.setStyle("-fx-background-color: linear-gradient(to bottom right, #140F26, #19132D);");
 
         Region spacerLeft = new Region();
         HBox.setHgrow(spacerLeft, Priority.ALWAYS);
@@ -170,9 +170,9 @@ public class ChangePasswordScreen {
         // Animação de foco para campo de usuário
         userField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (isNowFocused) {
-                userField.setStyle("-fx-border-color: #3b82f6; -fx-border-width: 0 0 2 0;");
+                userField.setStyle("-fx-border-color: #6b46c1; -fx-border-width: 0 0 2 0;");
             } else {
-                userField.setStyle("-fx-border-color: #475569; -fx-border-width: 0 0 1 0;");
+                userField.setStyle("-fx-border-color: #2d3748; -fx-border-width: 0 0 1 0;");
             }
         });
 
@@ -191,7 +191,7 @@ public class ChangePasswordScreen {
 
         Button toggleNewPassBtn = new Button("\uD83D\uDC41"); // Emoji de olho
         toggleNewPassBtn.getStyleClass().add("eye-button");
-        toggleNewPassBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #64748b;");
+        toggleNewPassBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #4a5568;");
 
         // Configurar o botão de alternar visibilidade
         toggleNewPassBtn.setOnAction(e -> {
@@ -215,17 +215,17 @@ public class ChangePasswordScreen {
         // Animação de foco para nova senha
         newPassHidden.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (isNowFocused) {
-                newPassHidden.setStyle("-fx-border-color: #3b82f6; -fx-border-width: 0 0 2 0;");
+                newPassHidden.setStyle("-fx-border-color: #6b46c1; -fx-border-width: 0 0 2 0;");
             } else {
-                newPassHidden.setStyle("-fx-border-color: #475569; -fx-border-width: 0 0 1 0;");
+                newPassHidden.setStyle("-fx-border-color: #2d3748; -fx-border-width: 0 0 1 0;");
             }
         });
 
         newPassVisible.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (isNowFocused) {
-                newPassVisible.setStyle("-fx-border-color: #3b82f6; -fx-border-width: 0 0 2 0;");
+                newPassVisible.setStyle("-fx-border-color: #6b46c1; -fx-border-width: 0 0 2 0;");
             } else {
-                newPassVisible.setStyle("-fx-border-color: #475569; -fx-border-width: 0 0 1 0;");
+                newPassVisible.setStyle("-fx-border-color: #2d3748; -fx-border-width: 0 0 1 0;");
             }
         });
 
@@ -250,7 +250,7 @@ public class ChangePasswordScreen {
 
         Button toggleConfirmPassBtn = new Button("\uD83D\uDC41");
         toggleConfirmPassBtn.getStyleClass().add("eye-button");
-        toggleConfirmPassBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #64748b;");
+        toggleConfirmPassBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #4a5568;");
 
         // Configurar o botão de alternar visibilidade da confirmação
         toggleConfirmPassBtn.setOnAction(e -> {
@@ -274,17 +274,17 @@ public class ChangePasswordScreen {
         // Animação de foco para confirmação de senha
         confirmPassHidden.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (isNowFocused) {
-                confirmPassHidden.setStyle("-fx-border-color: #3b82f6; -fx-border-width: 0 0 2 0;");
+                confirmPassHidden.setStyle("-fx-border-color: #6b46c1; -fx-border-width: 0 0 2 0;");
             } else {
-                confirmPassHidden.setStyle("-fx-border-color: #475569; -fx-border-width: 0 0 1 0;");
+                confirmPassHidden.setStyle("-fx-border-color: #2d3748; -fx-border-width: 0 0 1 0;");
             }
         });
 
         confirmPassVisible.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (isNowFocused) {
-                confirmPassVisible.setStyle("-fx-border-color: #3b82f6; -fx-border-width: 0 0 2 0;");
+                confirmPassVisible.setStyle("-fx-border-color: #6b46c1; -fx-border-width: 0 0 2 0;");
             } else {
-                confirmPassVisible.setStyle("-fx-border-color: #475569; -fx-border-width: 0 0 1 0;");
+                confirmPassVisible.setStyle("-fx-border-color: #2d3748; -fx-border-width: 0 0 1 0;");
             }
         });
 
@@ -389,7 +389,7 @@ public class ChangePasswordScreen {
                 voltarBtn.setDisable(false);
 
                 if (success) {
-                    status.setStyle("-fx-text-fill: #4ade80; -fx-font-weight: bold; -fx-font-size: 13px;");
+                    status.setStyle("-fx-text-fill: #68d391; -fx-font-weight: bold; -fx-font-size: 13px;");
                     status.setText("Senha alterada com sucesso!");
                     userField.clear();
                     newPassHidden.clear();
@@ -429,7 +429,7 @@ public class ChangePasswordScreen {
     // Método auxiliar para animação de erro
     private static void showErrorAnimation(Label status, String message) {
         status.setText(message);
-        status.setStyle("-fx-text-fill: #f87171; -fx-font-weight: bold; -fx-font-size: 13px;");
+        status.setStyle("-fx-text-fill: #fc8181; -fx-font-weight: bold; -fx-font-size: 13px;");
 
         // Animação de tremor para indicar erro
         TranslateTransition shake = new TranslateTransition(Duration.millis(50), status);

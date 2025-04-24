@@ -11,7 +11,6 @@ import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
-import javafx.geometry.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.stage.StageStyle;
@@ -25,7 +24,6 @@ import javafx.collections.ObservableList;
 import javafx.collections.FXCollections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.*;
 import java.util.List;
 import java.util.ArrayList;
 import java.io.File;
@@ -56,7 +54,6 @@ import javafx.scene.control.Label;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.animation.FadeTransition;
-import javafx.scene.text.Font;
 import models.Ticket;
 import models.Usuario;
 import database.DatabaseManager;
@@ -79,39 +76,86 @@ public class Main extends Application {
     private boolean isConnectedToOLT = false;
     private OLT connectedOLT;
     private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private static ObservableList<RompimentoData> rompimentosDetectados = FXCollections.observableArrayList();
 
 
     /* ATENÇÃO!!!!
-    - Abaixo tem +300h de código, chatgpt e muito café/energético. Tomar cuidado <3
+    - Abaixo tem +400h de código, chatgpt e muito café/energético. Tomar cuidado <3
      */
 
 
-    private static ObservableList<RompimentoData> rompimentosDetectados = FXCollections.observableArrayList();
+    private void runBreakageDetection() {
+        rompimentosDetectados.clear();
 
-    public static void adicionarRompimento(String olt, String pon, String impacted, String location, String status, String time) {
+        for (OLT olt : OLTList.getOLTs()) {
+            Platform.runLater(() -> {
+
+                // Log de início de verificação pra cada OLT.
+                System.out.println("Iniciando verificação de rompimentos em: " + olt.name);
+            });
+
+            try {
+                SSHManager sshManager = new SSHManager();
+               boolean connected = sshManager.connect(olt.ip, Secrets.SSH_USER, Secrets.SSH_PASS, new TextArea());
+
+                Thread.sleep(2000);
+
+                if (connected) {
+                    sshManager.scanForBreakages(olt.name);
+                    ObservableList<RompimentoData> breakages = sshManager.getBreakageList();
+
+                    if (!breakages.isEmpty()) {
+                        rompimentosDetectados.addAll(breakages);
+                        Platform.runLater(() -> {
+                            System.out.println("Detectados " + breakages.size() + " rompimentos em " + olt.name);
+                        });
+                    }
+
+                    sshManager.disconnect();
+                } else {
+                    Platform.runLater(() -> {
+                        System.err.println("Falha ao conectar à OLT: " + olt.name);
+                    });
+                }
+
+                Thread.sleep(5000);
+
+            } catch (Exception e) {
+                System.err.println("Erro ao escanear OLT " + olt.name + ": " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
         Platform.runLater(() -> {
-            rompimentosDetectados.add(new RompimentoData(olt, pon, impacted, location, status, time));
+            System.out.println("Verificação de rompimentos concluída. Total: " + rompimentosDetectados.size());
         });
     }
-
 
     @Override
     public void start(Stage primaryStage) {
         try {
             LoginScreen loginScreen = new LoginScreen();
-            Font.loadFont(getClass().getResourceAsStream("/fonts/maplemono-regular.ttf"), 12);
             this.usuario = loginScreen.showLogin(new Stage());
-
             if (this.usuario == null) {
                 Platform.exit();
                 return;
             }
 
 
-            // Inicializa os serviços de Monitoramento Rompimentos
-            breakageMonitor = Executors.newSingleThreadScheduledExecutor();
+
+            // --------------- Inicio do scan rompimentos
             scheduler = Executors.newSingleThreadScheduledExecutor();
-            // Inicializa os serviços de Monitoramento Rompimentos
+            scheduler.scheduleAtFixedRate(
+                    this::runBreakageDetection,
+                    0,
+                    30,
+                    TimeUnit.MINUTES
+            );
+
+            breakageMonitor = Executors.newSingleThreadScheduledExecutor();
+            // --------------- Inicio do scan rompimentos
+
+
 
 
             this.primaryStage = primaryStage;
@@ -123,33 +167,23 @@ public class Main extends Application {
             } catch (Exception e) {
                 System.err.println("Erro ao carregar o ícone: " + e.getMessage());
             }
-
-
             rootLayout = new VBox();
             rootLayout.setAlignment(Pos.TOP_CENTER);
             rootLayout.getStyleClass().add("root");
-
             rootLayout.getChildren().add(createTitleBar());
-
             mainContent = new BorderPane();
             VBox.setVgrow(mainContent, Priority.ALWAYS);
-
             VBox sideNav = createSideNavigation();
             mainContent.setLeft(sideNav);
-
             showSection("OLTs");
-
             rootLayout.getChildren().add(mainContent);
-
             Scene scene = new Scene(rootLayout, 1280, 720);
             scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
-
             rootLayout.setEffect(new DropShadow(15, Color.rgb(0, 0, 0, 0.5)));
             setupWindowDrag(rootLayout);
 
             primaryStage.setTitle("Gerenciador de OLTs");
             primaryStage.setScene(scene);
-
             primaryStage.setOpacity(0);
             primaryStage.show();
 
@@ -183,56 +217,13 @@ public class Main extends Application {
         }
     }
 
-
-    private void initializeBreakageMonitoring() {
-        runBreakageDetection();
-
-        scheduler.scheduleAtFixedRate(
-                this::runBreakageDetection,
-                30,
-                30,
-                TimeUnit.MINUTES
-        );
-    }
-
-    private void runBreakageDetection() {
-        rompimentosDetectados.clear();
-
-        for (OLT olt : OLTList.getOLTs()) {
-            Platform.runLater(() -> {
-            });
-
-            try {
-                SSHManager sshManager = new SSHManager();
-                sshManager.connect(olt.ip, Secrets.SSH_USER, Secrets.SSH_PASS, new TextArea());
-
-                Thread.sleep(2000);
-
-                if (sshManager.isConnected()) {
-                    sshManager.scanForBreakages(olt.name);
-                    rompimentosDetectados.addAll(sshManager.getBreakageList());
-                    sshManager.disconnect();
-                }
-
-                Thread.sleep(5000);
-
-            } catch (Exception e) {
-                System.err.println("Error scanning OLT " + olt.name + ": " + e.getMessage());
-            }
-        }
-
-        Platform.runLater(() -> {
-        });
-    }
-
-
     private VBox createSideNavigation() {
         VBox sideNav = new VBox(10);
         sideNav.getStyleClass().add("side-nav");
         sideNav.setPrefWidth(200);
         sideNav.setPadding(new Insets(20, 0, 20, 0));
 
-        Label menuTitle = new Label("Feito por Eduardo Tomaz\n v1.5.1.0");
+        Label menuTitle = new Label("Feito por Eduardo Tomaz\n v1.5.2.0");
         menuTitle.getStyleClass().add("menu-title");
         menuTitle.setPadding(new Insets(0, 0, 10, 15));
 
@@ -429,7 +420,6 @@ public class Main extends Application {
             cardsPane.setPrefWrapLength(newVal.doubleValue() - 250);
         });
 
-
         for (OLT olt : OLTList.getOLTs()) {
             VBox card = createOLTCard(olt);
             cardsPane.getChildren().add(card);
@@ -504,6 +494,13 @@ public class Main extends Application {
         });
         pField.setTextFormatter(pFormatter);
 
+        TextFormatter<String> fsFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[0-9/]{0,4}")) {
+                return change;
+            }
+            return null;
+        });
+        fsField.setTextFormatter(fsFormatter);
 
         formRow2.getChildren().addAll(fsField, pField);
 
@@ -807,7 +804,7 @@ public class Main extends Application {
         formArea.setMaxWidth(800);
         formArea.setPadding(new Insets(25));
 
-        Label infoLabel = new Label("Verifique todos as informações do SN.");
+        Label infoLabel = new Label("Verifique todas as informações do SN.");
         infoLabel.getStyleClass().add("info-label");
 
         ComboBox<OLT> oltComboBox = new ComboBox<>();
@@ -930,7 +927,7 @@ public class Main extends Application {
         pidField.getStyleClass().add("text-field");
 
         TextFormatter<String> pidFormatter = new TextFormatter<>(change -> {
-            if (change.getControlNewText().matches("[0-9]{0,6}")) {
+            if (change.getControlNewText().matches("[0-9 ]{0,6}")) {
                 return change;
             }
             return null;
@@ -1024,18 +1021,18 @@ public class Main extends Application {
                 .mapToInt(d -> Integer.parseInt(d.getImpacted()))
                 .sum();
         int criticos = (int) rompimentosDetectados.stream()
-                .filter(d -> d.getStatus().equals("Crítico"))
+                .filter(d -> "Crítico".equals(d.getStatus()))
                 .count();
         int alertas = (int) rompimentosDetectados.stream()
-                .filter(d -> d.getStatus().equals("Alerta"))
+                .filter(d -> "Alerta".equals(d.getStatus()))
                 .count();
 
         HBox statusRow = new HBox(15);
         statusRow.setAlignment(Pos.CENTER);
 
-        VBox statusBox1 = createStatusBox("ONTs Ativos", String.valueOf(totalOnts), "status-normal");
-        VBox statusBox2 = createStatusBox("Perda de Sinal", String.valueOf(alertas), "status-warning");
-        VBox statusBox3 = createStatusBox("Rompimentos Críticos", String.valueOf(criticos), "status-critical");
+        VBox statusBox1 = createBreakageStatusBox("ONTs Ativos", String.valueOf(totalOnts), "status-normal");
+        VBox statusBox2 = createBreakageStatusBox("Perda de Sinal", String.valueOf(alertas), "status-warning");
+        VBox statusBox3 = createBreakageStatusBox("Rompimentos Críticos", String.valueOf(criticos), "status-critical");
 
         statusRow.getChildren().addAll(statusBox1, statusBox2, statusBox3);
         HBox.setHgrow(statusBox1, Priority.ALWAYS);
@@ -1149,15 +1146,31 @@ public class Main extends Application {
         tableView.setItems(rompimentosDetectados);
 
         Pagination pagination = new Pagination();
-        pagination.setPageCount(calculatePageCount(rompimentosDetectados.size(), 10));
+        int itemsPerPage = 10;
+        pagination.setPageCount(calculatePageCount(rompimentosDetectados.size(), itemsPerPage));
         pagination.setMaxPageIndicatorCount(5);
         pagination.getStyleClass().add("pagination");
 
         rompimentosDetectados.addListener((ListChangeListener.Change<? extends RompimentoData> c) -> {
-            pagination.setPageCount(calculatePageCount(rompimentosDetectados.size(), 10));
+            pagination.setPageCount(calculatePageCount(rompimentosDetectados.size(), itemsPerPage));
+
+            Platform.runLater(() -> {
+                int newTotalOnts = rompimentosDetectados.stream()
+                        .mapToInt(d -> Integer.parseInt(d.getImpacted()))
+                        .sum();
+                int newCriticos = (int) rompimentosDetectados.stream()
+                        .filter(d -> "Crítico".equals(d.getStatus()))
+                        .count();
+                int newAlertas = (int) rompimentosDetectados.stream()
+                        .filter(d -> "Alerta".equals(d.getStatus()))
+                        .count();
+
+                ((Label)statusBox1.getChildren().get(1)).setText(String.valueOf(newTotalOnts));
+                ((Label)statusBox2.getChildren().get(1)).setText(String.valueOf(newAlertas));
+                ((Label)statusBox3.getChildren().get(1)).setText(String.valueOf(newCriticos));
+            });
         });
 
-        int itemsPerPage = 10;
         pagination.setPageFactory(pageIndex -> {
             int fromIndex = pageIndex * itemsPerPage;
             int toIndex = Math.min(fromIndex + itemsPerPage, rompimentosDetectados.size());
@@ -1210,13 +1223,26 @@ public class Main extends Application {
                 });
             });
 
+            task.setOnFailed(event -> {
+                Platform.runLater(() -> {
+                    Throwable exception = task.getException();
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Erro");
+                    alert.setHeaderText("Falha na detecção de rompimentos");
+                    alert.setContentText("Ocorreu um erro: " +
+                            (exception != null ? exception.getMessage() : "Desconhecido"));
+                    alert.showAndWait();
+
+                    tableView.setOpacity(1.0);
+                    refreshBtn.setDisable(false);
+                });
+            });
+
             new Thread(task).start();
         });
 
-
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
-        exportBtn.setStyle("-fx-background-color: linear-gradient(to right, #5a6caf, #6a7cbf);");
         exportBtn.setOnAction(e -> {
             if (rompimentosDetectados.isEmpty()) {
                 Alert alert = new Alert(Alert.AlertType.WARNING);
@@ -1273,7 +1299,6 @@ public class Main extends Application {
             });
         });
 
-
         actionRow.getChildren().addAll(refreshBtn, exportBtn);
 
         dashboardArea.getChildren().addAll(
@@ -1289,11 +1314,26 @@ public class Main extends Application {
         return content;
     }
 
+    private VBox createBreakageStatusBox(String title, String value, String styleClass) {
+        VBox box = new VBox(5);
+        box.setAlignment(Pos.CENTER);
+        box.setPadding(new Insets(15));
+        box.getStyleClass().addAll("status-box", styleClass);
+
+        Label titleLabel = new Label(title);
+        titleLabel.getStyleClass().add("status-title");
+
+        Label valueLabel = new Label(value);
+        valueLabel.getStyleClass().add("status-value");
+
+        box.getChildren().addAll(titleLabel, valueLabel);
+        return box;
+    }
+
     private int calculatePageCount(int itemsCount, int itemsPerPage) {
         return (itemsCount > 0) ? (int) Math.ceil((double) itemsCount / itemsPerPage) : 1;
     }
     // ------------ ROMPIMENTOS
-
 
     // ----------- ABA PRIVADA TICKET
     private Node createTechnicalTicketsScreen() {
@@ -1642,14 +1682,12 @@ public class Main extends Application {
         quickActions.setAlignment(Pos.CENTER);
         quickActions.setPadding(new Insets(10, 0, 0, 0));
 
-        Button ctrlCBtn = new Button("Ctrl+C");
-        ctrlCBtn.getStyleClass().add("action-btn");
         Button clearBtn = new Button("Limpar");
         clearBtn.getStyleClass().add("action-btn");
         Button helpBtn = new Button("Ajuda");
         helpBtn.getStyleClass().add("action-btn");
 
-        quickActions.getChildren().addAll(ctrlCBtn, clearBtn, helpBtn);
+        quickActions.getChildren().addAll(clearBtn, helpBtn);
 
         terminalBox.getChildren().addAll(terminalArea, commandArea, quickActions);
         content.getChildren().addAll(header, terminalBox);
@@ -1708,13 +1746,6 @@ public class Main extends Application {
                         commandField.clear();
                     }
                     break;
-            }
-        });
-
-
-        ctrlCBtn.setOnAction(e -> {
-            if (sshManager != null) {
-                sshManager.sendCtrlC();
             }
         });
 
@@ -1859,23 +1890,18 @@ public class Main extends Application {
         public String getOlt() {
             return olt.get();
         }
-
         public String getPon() {
             return pon.get();
         }
-
         public String getImpacted() {
             return impacted.get();
         }
-
         public String getLocation() {
             return location.get();
         }
-
         public String getStatus() {
             return status.get();
         }
-
         public String getTime() {
             return time.get();
         }
@@ -1884,23 +1910,18 @@ public class Main extends Application {
         public javafx.beans.property.StringProperty oltProperty() {
             return olt;
         }
-
         public javafx.beans.property.StringProperty ponProperty() {
             return pon;
         }
-
         public javafx.beans.property.StringProperty impactedProperty() {
             return impacted;
         }
-
         public javafx.beans.property.StringProperty locationProperty() {
             return location;
         }
-
         public javafx.beans.property.StringProperty statusProperty() {
             return status;
         }
-
         public javafx.beans.property.StringProperty timeProperty() {
             return time;
         }

@@ -18,7 +18,6 @@ import models.Usuario;
 import javafx.scene.input.KeyCode;
 import javafx.scene.Node;
 
-
 public class LoginScreen {
     private Usuario usuarioLogado;
     private double xOffset = 0;
@@ -26,7 +25,7 @@ public class LoginScreen {
 
     public Usuario showLogin(Stage stage) {
         BorderPane mainLayout = new BorderPane();
-        mainLayout.setStyle("-fx-background-color: linear-gradient(to bottom right, #1e293b, #0f172a);");
+        mainLayout.setStyle("-fx-background-color: linear-gradient(to bottom right, #140F26, #19132D);");
 
         HBox titleBar = createTitleBar(stage);
 
@@ -81,7 +80,7 @@ public class LoginScreen {
         titleBar.getStyleClass().add("title-bar");
         titleBar.setPrefHeight(30);
         titleBar.setAlignment(Pos.CENTER_RIGHT);
-        titleBar.setStyle("-fx-background-color: #1e293b;");
+        titleBar.setStyle("-fx-background-color: linear-gradient(to bottom right, #140F26, #19132D);");
 
         Region spacerLeft = new Region();
         HBox.setHgrow(spacerLeft, Priority.ALWAYS);
@@ -157,9 +156,9 @@ public class LoginScreen {
 
         userField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (isNowFocused) {
-                userField.setStyle("-fx-border-color: #3b82f6; -fx-border-width: 0 0 2 0;");
+                userField.setStyle("-fx-border-color: #6b46c1; -fx-border-width: 0 0 2 0;");
             } else {
-                userField.setStyle("-fx-border-color: #475569; -fx-border-width: 0 0 1 0;");
+                userField.setStyle("-fx-border-color: #2d3748; -fx-border-width: 0 0 1 0;");
             }
         });
 
@@ -170,9 +169,9 @@ public class LoginScreen {
 
         passField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (isNowFocused) {
-                passField.setStyle("-fx-border-color: #3b82f6; -fx-border-width: 0 0 2 0;");
+                passField.setStyle("-fx-border-color: #6b46c1; -fx-border-width: 0 0 2 0;");
             } else {
-                passField.setStyle("-fx-border-color: #475569; -fx-border-width: 0 0 1 0;");
+                passField.setStyle("-fx-border-color: #2d3748; -fx-border-width: 0 0 1 0;");
             }
         });
 
@@ -211,7 +210,7 @@ public class LoginScreen {
         alterarSenhaBtn.setMaxWidth(250);
 
         Label status = new Label();
-        status.setStyle("-fx-text-fill: #f87171; -fx-font-weight: bold; -fx-font-size: 12px;");
+        status.setStyle("-fx-text-fill: #fc8181; -fx-font-weight: bold; -fx-font-size: 12px;");
 
         loginBtn.setOnAction(e -> {
             String usuario = userField.getText().trim();
@@ -250,7 +249,7 @@ public class LoginScreen {
                     loginBtn.setDisable(false);
 
                     status.setText("Usuário ou senha inválidos.");
-                    status.setStyle("-fx-text-fill: #f87171; -fx-font-weight: bold; -fx-font-size: 12px;");
+                    status.setStyle("-fx-text-fill: #fc8181; -fx-font-weight: bold; -fx-font-size: 12px;");
 
                     TranslateTransition shake = new TranslateTransition(Duration.millis(50), status);
                     shake.setFromX(0);
