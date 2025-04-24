@@ -29,7 +29,7 @@
 
 ---
 
-## 💾 installation
+## 💾 installation on windows
 
 if you're a employee at **n-multifibra**, just reach out to **Eduardo Tomaz** — he'll provide you with all the ready-to-use `Secrets.java`, `SecretsDB.java` autoconfigured and a fully working version of the code — literally the project with all correct credentials and olts lists. <br>
 
@@ -64,6 +64,25 @@ includes all required `.jar` files for:
 - postgresql jdbc
 
 make sure they’re added to your module path.
+
+---
+
+## 🐧 installation on linux
+
+you got two easy ways to run it on linux:
+
+### 1. manual launcher  
+just double-click `run_oltapp.sh` or use the shortcut `OLTApp.desktop`.  
+(make sure the `.sh` file is executable)
+
+### 2. .deb installer  
+super simple — just run:
+
+```bash
+sudo dpkg -i oltapp_1.0_all.deb
+```
+
+that’s it. everything’s bundled and ready to go.
 
 ---
 
