@@ -331,7 +331,7 @@
 }
 
 .text-field:focused, .combo-box:focused {
-    -fx-background-color: #4a5568;
+    -fx-background-color: #9f7aea;
     -fx-border-color: #6b46c1;
     -fx-border-width: 1px;
     -fx-effect: innershadow(gaussian, #6b46c1, 5, 0, 0, 0);
@@ -344,7 +344,7 @@
 
 .combo-box-popup .list-view {
     -fx-background-color: #140F26;
-    -fx-border-color: #4a5568;
+    -fx-border-color: #9f7aea;
 }
 
 .combo-box-popup .list-cell {
@@ -353,7 +353,7 @@
 }
 
 .combo-box-popup .list-cell:hover {
-    -fx-background-color: #4a5568;
+    -fx-background-color: #9f7aea;
 }
 
 .text-area {
@@ -382,7 +382,7 @@
 }
 
 .scroll-pane > .scroll-bar:vertical > .thumb {
-    -fx-background-color: #4a5568;
+    -fx-background-color: #9f7aea;
     -fx-background-radius: 6px;
 }
 
@@ -395,7 +395,7 @@
 }
 
 .scroll-pane > .scroll-bar:horizontal > .thumb {
-    -fx-background-color: #4a5568;
+    -fx-background-color: #9f7aea;
     -fx-background-radius: 6px;
 }
 
@@ -424,7 +424,6 @@
     -fx-padding: 3 8;
 }
 
-/* Tabela dos rompimentos */
 .data-table {
     -fx-background-color: #19132D;
     -fx-table-cell-border-color: transparent;
@@ -577,7 +576,7 @@
 }
 
 .text-field:focused, .combo-box:focused, .password-field:focused {
-    -fx-background-color: #4a5568;
+    -fx-background-color: #9f7aea;
     -fx-border-color: #6b46c1;
     -fx-border-width: 1px;
     -fx-effect: dropshadow(gaussian, #6b46c1, 4, 0.2, 0, 0);
@@ -653,7 +652,7 @@
 }
 
 .secondary-button {
-    -fx-background-color: #4a5568;
+    -fx-background-color: #9f7aea;
     -fx-background-radius: 5px;
     -fx-padding: 12px 15px;
     -fx-text-fill: white;
@@ -956,7 +955,7 @@
 }
 
 .combo-box:focused, .combo-box:showing {
-    -fx-background-color: #4a5568;
+    -fx-background-color: #9f7aea;
     -fx-border-color: #6b46c1;
 }
 
@@ -1052,7 +1051,7 @@
 }
 
 .help-close-btn {
-    -fx-background-color: #4a5568;
+    -fx-background-color: #9f7aea;
     -fx-text-fill: white;
     -fx-font-weight: bold;
     -fx-padding: 7px 12px;
@@ -1452,14 +1451,33 @@
     -fx-effect: dropshadow(three-pass-box, #9575cd, 15, 0.5, 0, 0);
 }
 
-.status-normal {
-    -fx-background-color: linear-gradient(to bottom right, #5e35b1, #7e57c2);
+
+.floating-btn {
+    -fx-background-color: linear-gradient(to right, #6b46c1, #805ad5);
+    -fx-text-fill: white;
+    -fx-background-radius: 100;
+    -fx-cursor: hand;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 6, 0.1, 2, 2);
+    -fx-border-color: transparent;
 }
 
-.status-warning {
-    -fx-background-color: linear-gradient(to bottom right, #473072, #5a3d91);
+.floating-btn:hover {
+    -fx-background-color: linear-gradient(to right, #805ad5, #9f7aea);
 }
 
-.status-critical {
-    -fx-background-color: linear-gradient(to bottom right, #2F204C, #3b2861);
+.floating-btn:pressed {
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 3, 0, 0, 1);
+}
+
+.small-delete-btn {
+    -fx-background-color: #d9534f;
+    -fx-text-fill: white;
+    -fx-font-size: 11px;
+    -fx-background-radius: 5;
+    -fx-cursor: hand;
+}
+.small-delete-btn:hover {
+    -fx-background-color: #c9302c;
 }

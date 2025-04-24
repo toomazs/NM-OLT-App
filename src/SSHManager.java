@@ -8,12 +8,6 @@ import java.io.OutputStream;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.regex.*;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import database.DatabaseManager;
 
 
 public class SSHManager {
@@ -25,245 +19,11 @@ public class SSHManager {
     private boolean isRunning = false;
     private TextArea terminalArea;
     private static final int BUFFER_SIZE = 1024;
-
-    private final ObservableList<Main.RompimentoData> breakageList = FXCollections.observableArrayList();
-    private String currentOltName;
-    private Map<String, Map<String, List<OntFailureInfo>>> oltBreakageData = new HashMap<>();
     private StringBuilder commandOutput = new StringBuilder();
     private boolean capturingOutput = false;
 
 
-    // --------------- ROMPIMENTOS
-    public class OntFailureInfo {
-        private String ontId;
-        private String failureReason;
-        private LocalDateTime timestamp;
-
-        public OntFailureInfo(String ontId, String failureReason) {
-            this.ontId = ontId;
-            this.failureReason = failureReason;
-            this.timestamp = LocalDateTime.now();
-        }
-
-        public String getOntId() {
-            return ontId;
-        }
-
-        public String getFailureReason() {
-            return failureReason;
-        }
-
-        public LocalDateTime getTimestamp() {
-            return timestamp;
-        }
-    }
-
-    private void processOutput(String line) {
-        if (capturingOutput) {
-            commandOutput.append(line).append("\n");
-        }
-
-        if (terminalArea != null) {
-            Platform.runLater(() -> terminalArea.appendText(line + "\n"));
-        }
-    }
-
-    public void scanForBreakages(String oltName) {
-        this.currentOltName = oltName;
-        oltBreakageData.clear();
-
-        try {
-            Platform.runLater(() -> {
-                if (terminalArea != null) {
-                    terminalArea.appendText("\n🔍 Escaneando OLT " + oltName + " para detecção de rompimentos...\n");
-                }
-            });
-
-            for (int frame = 0; frame <= 0; frame++) {
-                for (int slot = 0; slot <= 20; slot++) {
-                    for (int port = 0; port <= 20; port++) {
-                        String ponId = frame + "/" + slot + "/" + port;
-                        commandOutput.setLength(0);
-                        capturingOutput = true;
-
-                        sendCommand("enable");
-                        Thread.sleep(500);
-                        sendCommand("config");
-                        Thread.sleep(500);
-                        String command = "display ont info summary " + ponId;
-                        sendCommand(command);
-                        Thread.sleep(3000);
-
-                        capturingOutput = false;
-                        String output = commandOutput.toString();
-
-                        if (output.contains("online") || output.contains("offline")) {
-                            parseBreakageOutput(output, ponId);
-                        }
-
-                        Thread.sleep(1000);
-                    }
-                }
-            }
-
-            analyzeBreakages();
-
-            Platform.runLater(() -> {
-                if (terminalArea != null) {
-                    terminalArea.appendText("\n✅ Escaneamento de rompimentos concluído para OLT " + oltName + "\n");
-                }
-            });
-
-        } catch (Exception e) {
-            Platform.runLater(() -> {
-                if (terminalArea != null) {
-                    terminalArea.appendText("\n❌ Erro ao escanear rompimentos: " + e.getMessage() + "\n");
-                }
-            });
-        }
-    }
-
-    private void parseBreakageOutput(String output, String pon) {
-        if (!oltBreakageData.containsKey(currentOltName)) {
-            oltBreakageData.put(currentOltName, new HashMap<>());
-        }
-
-        Map<String, List<OntFailureInfo>> oltData = oltBreakageData.get(currentOltName);
-        if (!oltData.containsKey(pon)) {
-            oltData.put(pon, new ArrayList<>());
-        }
-
-        List<OntFailureInfo> ponFailures = oltData.get(pon);
-        int onlineCount = 0;
-
-        Pattern pattern = Pattern.compile("(\\d+)\\s+(online|offline)\\s+.*?\\s+.*?\\s+(?:--|\\S+)\\s+(dying-gasp|LOSi|LOBi|LOFi|LOKi|LOS|--)");
-        Matcher matcher = pattern.matcher(output);
-
-        while (matcher.find()) {
-            String ontId = matcher.group(1);
-            String status = matcher.group(2);
-            String reason = matcher.group(3);
-
-            if ("online".equalsIgnoreCase(status)) {
-                onlineCount++;
-            } else if ("offline".equalsIgnoreCase(status)) {
-                if (reason != null && (
-                        reason.equals("dying-gasp") ||
-                                reason.equals("LOSi") ||
-                                reason.equals("LOBi") ||
-                                reason.equals("LOFi") ||
-                                reason.equals("LOKi") ||
-                                reason.equals("LOS"))) {
-                    ponFailures.add(new OntFailureInfo(ontId, reason));
-                }
-            }
-        }
-
-        Pattern totalPattern = Pattern.compile("In port\\s+" + pon.replace("/", "\\/") + ",\\s+the total of ONTs are:\\s+(\\d+),\\s+online:\\s+(\\d+)");
-        Matcher totalMatcher = totalPattern.matcher(output);
-
-        if (totalMatcher.find()) {
-            int totalOnts = Integer.parseInt(totalMatcher.group(1));
-            int onlineOnts = Integer.parseInt(totalMatcher.group(2));
-
-            if (totalOnts > 0 && onlineOnts == 0) {
-                Platform.runLater(() -> {
-                    if (terminalArea != null) {
-                        terminalArea.appendText("\n⚠️ Possível rompimento completo detectado na PON " + pon + " da OLT " + currentOltName + "\n");
-                    }
-                });
-            }
-        }
-    }
-
-    private void analyzeBreakages() {
-        breakageList.clear();
-        LocalDateTime now = LocalDateTime.now();
-
-        for (String oltName : oltBreakageData.keySet()) {
-            Map<String, List<OntFailureInfo>> oltData = oltBreakageData.get(oltName);
-
-            for (String pon : oltData.keySet()) {
-                List<OntFailureInfo> failures = oltData.get(pon);
-
-                if (!failures.isEmpty()) {
-                    Map<LocalDateTime, List<OntFailureInfo>> timeGroups = new HashMap<>();
-
-                    for (OntFailureInfo failure : failures) {
-                        boolean addedToGroup = false;
-
-                        for (LocalDateTime groupTime : new ArrayList<>(timeGroups.keySet())) {
-                            if (Math.abs(ChronoUnit.MINUTES.between(groupTime, failure.getTimestamp())) <= 5) {
-                                timeGroups.get(groupTime).add(failure);
-                                addedToGroup = true;
-                                break;
-                            }
-                        }
-
-                        if (!addedToGroup) {
-                            List<OntFailureInfo> newGroup = new ArrayList<>();
-                            newGroup.add(failure);
-                            timeGroups.put(failure.getTimestamp(), newGroup);
-                        }
-                    }
-
-                    for (Map.Entry<LocalDateTime, List<OntFailureInfo>> entry : timeGroups.entrySet()) {
-                        LocalDateTime timestamp = entry.getKey();
-                        List<OntFailureInfo> group = entry.getValue();
-
-                        if (ChronoUnit.HOURS.between(timestamp, now) <= 24) {
-                            String status = group.size() >= 6 ? "Crítico" : "Alerta";
-                            String formattedTime = timestamp.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
-
-                            String location = derivePonLocation(oltName, pon);
-
-                            Main.RompimentoData rompimento = new Main.RompimentoData(
-                                    oltName,
-                                    pon,
-                                    String.valueOf(group.size()),
-                                    location,
-                                    status,
-                                    formattedTime
-                            );
-
-                            breakageList.add(rompimento);
-
-                            String titulo = status.equals("Crítico")
-                                    ? "🔴 Rompimento Crítico Detectado"
-                                    : "🟠 Alerta de Possível Drop Rompido";
-
-                            String mensagem = "OLT " + oltName + " - PON " + pon + " às " + formattedTime;
-
-                            Notifier.notify(titulo, mensagem);
-
-
-                            DatabaseManager.salvarRompimento(
-                                    oltName,
-                                    pon,
-                                    group.size(),
-                                    status,
-                                    location,
-                                    timestamp
-                            );
-
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private String derivePonLocation(String oltName, String pon) {
-        return oltName.replace("OLT_", "") + " - P" + pon.replace("/", "");
-    }
-
-    public ObservableList<Main.RompimentoData> getBreakageList() {
-        return breakageList;
-    }
-    // --------------- ROMPIMENTOS
-
-
-    // --------------- CONNECT E ANTI-ERROS
+    // ---------------------- CONNECT & TRATAMENTO TERMINAL ---------------------- //
     public boolean connect(String host, String user, String password, TextArea terminalArea) {
         this.terminalArea = terminalArea;
 
@@ -357,10 +117,8 @@ public class SSHManager {
                     outputText = outputText.replaceAll("\\[37D \\[37D", "");
                     outputText = outputText.replaceAll("More: <space>", "");
                     outputText = outputText.replaceAll("-- More --", "");
-
                     outputText = outputText.replaceAll("\\[\\d+[A-Za-z]", "");
                     outputText = outputText.replaceAll("\\[\\d+;\\d+[A-Za-z]", "");
-
                     outputText = outputText.replaceAll("\r", "");
 
                     if (originalOutput.contains("{ <cr>||<K> }:")) {
@@ -426,10 +184,10 @@ public class SSHManager {
         output = output.replaceAll("\r", "");
         return output;
     }
-    // --------------- CONNECT E ANTI-ERROS
+    // ---------------------- CONNECT & TRATAMENTO TERMINAL ---------------------- //
 
 
-    // --------------- CONSULTA SINAL
+    // ---------------------- CONSULTA DE SINAL ---------------------- //
     public String queryOpticalSignal(String fs, String p) {
         try {
             commandOutput.setLength(0);
@@ -548,9 +306,10 @@ public class SSHManager {
 
         return result.toString();
     }
-    // --------------- CONSULTA SINAL
+    // ---------------------- CONSULTA DE SINAL ---------------------- //
 
 
+    // ---------------------- DISCONNECT ---------------------- //
     public void disconnect() {
         isRunning = false;
         if (executor != null) executor.shutdownNow();
@@ -560,8 +319,5 @@ public class SSHManager {
             Platform.runLater(() -> terminalArea.appendText("\n🔌 Desconectado\n"));
         }
     }
-
-    public boolean isConnected() {
-        return channel != null && channel.isConnected();
-    }
 }
+    // ---------------------- CONSULTA DE SINAL ---------------------- //

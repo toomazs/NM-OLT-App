@@ -3,10 +3,9 @@ package models;
 import javafx.beans.property.SimpleStringProperty;
 
 public class Ticket {
-    private final SimpleStringProperty oltNome, criadoPor, cargo, descricao, previsao, dataHora, status;
+    private final SimpleStringProperty criadoPor, cargo, descricao, previsao, dataHora, status;
 
-    public Ticket(String oltNome, String criadoPor, String cargo, String descricao, String previsao, String dataHora, String status) {
-        this.oltNome = new SimpleStringProperty(oltNome);
+    public Ticket(String criadoPor, String cargo, String descricao, String previsao, String dataHora, String status) {
         this.criadoPor = new SimpleStringProperty(criadoPor);
         this.cargo = new SimpleStringProperty(cargo);
         this.descricao = new SimpleStringProperty(descricao);
@@ -15,7 +14,6 @@ public class Ticket {
         this.status = new SimpleStringProperty(status);
     }
 
-    public String getOltNome() { return oltNome.get(); }
     public String getCriadoPor() { return criadoPor.get(); }
     public String getCargo() { return cargo.get(); }
     public String getDescricao() { return descricao.get(); }

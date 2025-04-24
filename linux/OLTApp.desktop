@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=OLTApp
+Comment=Gerenciador de OLTs
+Exec=bash "/mnt/data/run_oltapp.sh"
+Icon=/mnt/data/NM-OLT-App/NM-OLT-App/resources/oltapp-icon.png
+Terminal=false
+Type=Application
+Categories=Utility;

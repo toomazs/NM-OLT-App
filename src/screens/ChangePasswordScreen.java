@@ -4,7 +4,6 @@ import database.DatabaseManager;
 import javafx.animation.*;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.effect.DropShadow;
@@ -35,32 +34,26 @@ public class ChangePasswordScreen {
         BorderPane mainLayout = new BorderPane();
         mainLayout.setStyle("-fx-background-color: linear-gradient(to bottom right, #140F26, #19132D);");
 
-        // Barra de título
         HBox titleBar = createTitleBar(stage);
 
-        // Conteúdo principal - configurado para animação inicial
         VBox root = new VBox(20);
         root.setPadding(new Insets(30));
         root.setAlignment(Pos.CENTER);
-        root.setOpacity(0); // Começa invisível para a animação de entrada
+        root.setOpacity(0);
 
-        // Animação de entrada suave
         FadeTransition fadeIn = new FadeTransition(Duration.millis(400), root);
         fadeIn.setFromValue(0);
         fadeIn.setToValue(1);
         fadeIn.setDelay(Duration.millis(100));
 
-        // Adiciona o ícone no topo
         ImageView icon = createIcon();
 
-        // Título da tela
         Label headerLabel = new Label("Alteração de Senha");
         headerLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: white; -fx-font-weight: bold;");
 
         VBox headerBox = new VBox(10, icon, headerLabel);
         headerBox.setAlignment(Pos.CENTER);
 
-        // Campos do formulário com animações
         VBox formFields = createFormFields(stage);
 
         root.getChildren().addAll(headerBox, formFields);
@@ -70,17 +63,12 @@ public class ChangePasswordScreen {
 
         Scene scene = new Scene(mainLayout, 340, 480);
         scene.getStylesheets().add("file:resources/style.css");
-
-        // Adiciona efeito de sombra
         scene.getRoot().setEffect(new DropShadow(15, Color.rgb(0, 0, 0, 0.6)));
 
         stage.setScene(scene);
         stage.initStyle(StageStyle.UNDECORATED);
         stage.centerOnScreen();
-
-        // Inicia a animação quando a tela é exibida
         stage.setOnShown(e -> fadeIn.play());
-
         stage.showAndWait();
     }
 
@@ -119,7 +107,6 @@ public class ChangePasswordScreen {
 
         titleBar.getChildren().addAll(spacerLeft, titleLabel, spacerRight, minimizeBtn, closeBtn);
 
-        // Comportamento de arrastar a janela
         titleBar.setOnMousePressed(event -> {
             xOffset = event.getSceneX();
             yOffset = event.getSceneY();
@@ -212,7 +199,6 @@ public class ChangePasswordScreen {
             }
         });
 
-        // Animação de foco para nova senha
         newPassHidden.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (isNowFocused) {
                 newPassHidden.setStyle("-fx-border-color: #6b46c1; -fx-border-width: 0 0 2 0;");
@@ -229,16 +215,14 @@ public class ChangePasswordScreen {
             }
         });
 
-        // Layout para campo e botão de nova senha
         HBox newPassBox = new HBox(5);
         newPassBox.setAlignment(Pos.CENTER_LEFT);
         newPassBox.getChildren().addAll(newPassHidden, newPassVisible, toggleNewPassBtn);
         newPassBox.setMaxWidth(260);
 
-        // Criação do campo de confirmação de senha com botão de visualização
         PasswordField confirmPassHidden = new PasswordField();
         confirmPassHidden.setPromptText("Confirmação");
-        confirmPassHidden.setMaxWidth(300); // Reduzido para dar espaço ao botão
+        confirmPassHidden.setMaxWidth(300);
         confirmPassHidden.getStyleClass().add("modern-text-field");
 
         TextField confirmPassVisible = new TextField();
@@ -252,7 +236,6 @@ public class ChangePasswordScreen {
         toggleConfirmPassBtn.getStyleClass().add("eye-button");
         toggleConfirmPassBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #4a5568;");
 
-        // Configurar o botão de alternar visibilidade da confirmação
         toggleConfirmPassBtn.setOnAction(e -> {
             if (confirmPassHidden.isVisible()) {
                 confirmPassVisible.setText(confirmPassHidden.getText());
@@ -260,18 +243,17 @@ public class ChangePasswordScreen {
                 confirmPassHidden.setManaged(false);
                 confirmPassVisible.setVisible(true);
                 confirmPassVisible.setManaged(true);
-                toggleConfirmPassBtn.setText("\uD83D\uDC41\u200D\u2620"); // Olho riscado
+                toggleConfirmPassBtn.setText("\uD83D\uDC41\u200D\u2620");
             } else {
                 confirmPassHidden.setText(confirmPassVisible.getText());
                 confirmPassHidden.setVisible(true);
                 confirmPassHidden.setManaged(true);
                 confirmPassVisible.setVisible(false);
                 confirmPassVisible.setManaged(false);
-                toggleConfirmPassBtn.setText("\uD83D\uDC41"); // Olho normal
+                toggleConfirmPassBtn.setText("\uD83D\uDC41");
             }
         });
 
-        // Animação de foco para confirmação de senha
         confirmPassHidden.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (isNowFocused) {
                 confirmPassHidden.setStyle("-fx-border-color: #6b46c1; -fx-border-width: 0 0 2 0;");
@@ -288,25 +270,21 @@ public class ChangePasswordScreen {
             }
         });
 
-        // Layout para campo e botão de confirmação de senha
         HBox confirmPassBox = new HBox(5);
         confirmPassBox.setAlignment(Pos.CENTER_LEFT);
         confirmPassBox.getChildren().addAll(confirmPassHidden, confirmPassVisible, toggleConfirmPassBtn);
         confirmPassBox.setMaxWidth(260);
 
-        // Label para status com espaço adequado
         Label status = new Label();
         status.setStyle("-fx-text-fill: white; -fx-font-size: 13px;");
         status.setMaxWidth(260);
         status.setWrapText(true);
         status.setMinHeight(60);
 
-        // Botões com animações
         Button alterarBtn = new Button("Alterar Senha");
         alterarBtn.setPrefWidth(260);
         alterarBtn.getStyleClass().add("modern-button");
 
-        // Efeito hover para o botão alterar
         alterarBtn.setOnMouseEntered(e -> {
             ScaleTransition scale = new ScaleTransition(Duration.millis(150), alterarBtn);
             scale.setToX(1.03);
@@ -325,7 +303,6 @@ public class ChangePasswordScreen {
         voltarBtn.setPrefWidth(260);
         voltarBtn.getStyleClass().add("secondary-button");
 
-        // Efeito hover para o botão voltar
         voltarBtn.setOnMouseEntered(e -> {
             ScaleTransition scale = new ScaleTransition(Duration.millis(150), voltarBtn);
             scale.setToX(1.03);
@@ -340,7 +317,6 @@ public class ChangePasswordScreen {
             scale.play();
         });
 
-        // Indicador de progresso
         ProgressIndicator progressIndicator = new ProgressIndicator();
         progressIndicator.setMaxSize(20, 20);
         progressIndicator.setVisible(false);
@@ -349,7 +325,6 @@ public class ChangePasswordScreen {
         progressBox.setAlignment(Pos.CENTER);
         progressBox.getChildren().add(progressIndicator);
 
-        // Organiza os botões centralizados
         VBox buttonBox = new VBox(10);
         buttonBox.setAlignment(Pos.CENTER);
         buttonBox.getChildren().addAll(alterarBtn, voltarBtn, progressBox);
@@ -373,17 +348,14 @@ public class ChangePasswordScreen {
                 return;
             }
 
-            // Mostra o indicador de progresso e desabilita o botão
             progressIndicator.setVisible(true);
             alterarBtn.setDisable(true);
             voltarBtn.setDisable(true);
 
-            // Simula um pequeno atraso para mostrar o processamento
             PauseTransition pause = new PauseTransition(Duration.millis(800));
             pause.setOnFinished(event -> {
                 boolean success = DatabaseManager.changePassword(userField.getText(), currentPassword);
 
-                // Esconde o indicador de progresso e reabilita os botões
                 progressIndicator.setVisible(false);
                 alterarBtn.setDisable(false);
                 voltarBtn.setDisable(false);
@@ -397,7 +369,6 @@ public class ChangePasswordScreen {
                     confirmPassHidden.clear();
                     confirmPassVisible.clear();
 
-                    // Animação de sucesso
                     FadeTransition fadeStatus = new FadeTransition(Duration.millis(300), status);
                     fadeStatus.setFromValue(0.3);
                     fadeStatus.setToValue(1.0);
@@ -410,7 +381,6 @@ public class ChangePasswordScreen {
         });
 
         voltarBtn.setOnAction(e -> {
-            // Animação de saída
             BorderPane root = (BorderPane) stage.getScene().getRoot();
             FadeTransition fadeOut = new FadeTransition(Duration.millis(300), root);
             fadeOut.setFromValue(1.0);
@@ -426,12 +396,10 @@ public class ChangePasswordScreen {
         return formFields;
     }
 
-    // Método auxiliar para animação de erro
     private static void showErrorAnimation(Label status, String message) {
         status.setText(message);
         status.setStyle("-fx-text-fill: #fc8181; -fx-font-weight: bold; -fx-font-size: 13px;");
 
-        // Animação de tremor para indicar erro
         TranslateTransition shake = new TranslateTransition(Duration.millis(50), status);
         shake.setFromX(0);
         shake.setByX(5);

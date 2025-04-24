@@ -9,8 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.List;
 import java.util.ArrayList;
-import java.time.LocalDateTime;
-import java.sql.Timestamp;
 
 
 public class DatabaseManager {
@@ -22,7 +20,7 @@ public class DatabaseManager {
         return DriverManager.getConnection(URL, USER, PASSWORD);
     }
 
-    // implementacao usando hash
+    // HASH-IMPLEMENTATION SHA-256
     private static String hashPassword(String password) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -123,14 +121,13 @@ public class DatabaseManager {
         return null;
     }
 
-    public static void criarTicket(String nome, String cargo, String oltNome, String descricao, String previsao) {
-        String sql = "INSERT INTO tickets (criado_por, cargo, olt_nome, descricao, previsao) VALUES (?, ?, ?, ?, ?)";
+    public static void criarTicket(String nome, String cargo, String descricao, String previsao) {
+        String sql = "INSERT INTO tickets (criado_por, cargo, descricao, previsao) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, nome);
             stmt.setString(2, cargo);
-            stmt.setString(3, oltNome);
-            stmt.setString(4, descricao);
-            stmt.setString(5, previsao);
+            stmt.setString(3, descricao);
+            stmt.setString(4, previsao);
             stmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -146,7 +143,6 @@ public class DatabaseManager {
              ResultSet rs = stmt.executeQuery()) {
             while (rs.next()) {
                 tickets.add(new Ticket(
-                        rs.getString("olt_nome"),
                         rs.getString("criado_por"),
                         rs.getString("cargo"),
                         rs.getString("descricao"),
@@ -161,30 +157,38 @@ public class DatabaseManager {
         return tickets;
     }
 
-    public static void salvarRompimento(String olt, String pon, int qtd, String status, String local, LocalDateTime hora) {
-        String sql = "INSERT INTO rompimentos (olt_nome, pon, quantidade, status, localizacao, timestamp) VALUES (?, ?, ?, ?, ?, ?)";
+    public static void logUsuario(String usuario, String acao, String olt) {
+        String sql = "INSERT INTO logs_usuario (usuario, acao) VALUES (?, ?, ?)";
         try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, olt);
-            stmt.setString(2, pon);
-            stmt.setInt(3, qtd);
-            stmt.setString(4, status);
-            stmt.setString(5, local);
-            stmt.setTimestamp(6, Timestamp.valueOf(hora));
+            stmt.setString(1, usuario);
+            stmt.setString(2, acao);
             stmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
-    public static void logUsuario(String usuario, String acao, String olt) {
-        String sql = "INSERT INTO logs_usuario (usuario, acao, olt_nome) VALUES (?, ?, ?)";
-        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, usuario);
-            stmt.setString(2, acao);
-            stmt.setString(3, olt);
+    public static void excluirTicket(Ticket ticket) {
+        String sql = "DELETE FROM tickets WHERE criado_por = ? AND cargo = ? AND descricao = ? AND previsao = ? AND data_hora = ?";
+
+        try (
+                Connection conn = getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)
+        ) {
+            stmt.setString(1, ticket.getCriadoPor());
+            stmt.setString(2, ticket.getCargo());
+            stmt.setString(3, ticket.getDescricao());
+            stmt.setString(4, ticket.getPrevisao());
+
+            Timestamp dataHora = Timestamp.valueOf(ticket.getDataHora());
+            stmt.setTimestamp(5, dataHora);
+
             stmt.executeUpdate();
-        } catch (SQLException e) {
+            System.out.println("Ticket excluído com sucesso.");
+
+        } catch (SQLException | IllegalArgumentException e) {
             e.printStackTrace();
         }
     }
+
 }
