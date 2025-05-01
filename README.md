@@ -1,44 +1,46 @@
 
-# 🧠 OLT Manager — N-Multifibra
+# 🧠 olt manager — n-multifibra
 
-🔧 project by Eduardo Tomaz — internal tool for managing Huawei OLTs at *N-Multifibra*
+🔧 project by eduardo tomaz — internal tool for managing huawei olts at *n-multifibra*
 
-> a simple and intuitive Java tool to connect, diagnose and monitor Huawei OLTs — with SSH access, signal analysis, visual outage tracking and more!
+> a clean & powerful java tool to connect, diagnose and monitor huawei olts — with ssh access, signal analysis, visual outage tracking, and real-time user interaction 🎯
 
-📶 if you're an employee at **N-Multifibra**, just reach out to **Eduardo Tomaz** — he'll provide you with the ready-to-use project with all correct credentials and olt lists.
+📶 if you're an employee at **n-multifibra**, just reach out to **eduardo tomaz** — he’ll provide you with the ready-to-use version with correct credentials + olt list.
 
 ---
 
-## 🚀 what it does
+## 📦 what it does
 
-- SSH-RSA connection to huawei olt terminal (via jsch)
-- real-time signal analysis for each PON: captures Tx/Rx levels, calculates averages, and alerts for critical or borderline levels
-- PON summary: shows all ont details for the selected primary interface
-- search by serial (by-sn): type the ONT/ONU serial and get full info instantly
-- drop diagnosis: displays the last 10 disconnection events from each ONT/ONU
-- postgresql integration: for user login, roles, and permissions
-- clean and responsive UI with JavaFX, styled with CSS
+- ssh-rsa connection to huawei olt terminal (via jsch)
+- real-time signal analysis for each pon: shows tx/rx levels, averages and alerts
+- pon summary with all ont details
+- search ont by serial (by-sn)
+- drop diagnosis: last 10 disconnection events from each ont
+- postgresql integration for login and roles
+- real-time interaction between the users
+- different themes and highlighted terminal
 
 ---
 
 ## 📚 libs used
 
-- [jsch](http://www.jcraft.com/jsch/) — SSH access in Java  
-- [javafx](https://openjfx.io/) — for building the UI  
-- [openpdf](https://github.com/LibrePDF/OpenPDF) — generate nice-looking PDFs  
-- [launch4j](http://launch4j.sourceforge.net/) — wraps the app into a windows .exe  
-- [postgresql](https://jdbc.postgresql.org/) — handles login and role control  
+- [jsch](http://www.jcraft.com/jsch/) — ssh access  
+- [javafx](https://openjfx.io/) — for the ui  
+- [openpdf](https://github.com/LibrePDF/OpenPDF) — export to pdf  
+- [launch4j](http://launch4j.sourceforge.net/) — windows .exe packaging  
+- [postgresql](https://jdbc.postgresql.org/) — database access
+- [richtextfx](https://github.com/FXMisc/RichTextFX) — better terminal highlighted
+- [json in java](https://mvnrepository.com/artifact/org.json/json/20140107) — compile to .json files
 
 ---
 
-## 💾 installation on windows
+## 💾 installing on windows
 
-👉 *recommended*: just download the latest **SetupOLTApp1.5.2.1.exe** installer from the *releases section here on github* — everything is pre-packaged and ready to run!
+👉 easiest way: download the latest **SetupOLTApp1.5.3.0.exe** from the *releases section on github*  
 
-you don’t need to clone the repo or download JavaFX SDK unless you're going to modify the source code.
-
-✅ everything is already packed, including JavaFX and other libs  
-✅ just run the compiled OLTApp.exe and have fun
+✅ comes with everything: javafx, libraries, jdk  
+✅ after the setup completed, just run the **OLTApp.exe** and enjoy (will be disponible as shortcut in the desktop too)
+❌ no need to install javafx sdk or clone repo unless you’re editing code
 
 ---
 
@@ -51,38 +53,32 @@ git clone https://github.com/toomazs/NM-OLT-App.git
 cd NM-OLT-App
 ```
 
-2. make sure Java 22+ is installed:
+2. make sure java 22+ is installed:
 
 ```bash
 java -version
 ```
 
-3. open the project in your IDE (IntelliJ recommended)  
-JavaFX SDK is already included in `lib/javafx-sdk-24/lib`
+3. open it in intellij (recommended)  
+javafx sdk already included in `lib/javafx-sdk-24/lib`
 
-4. check `lib/` folder for dependencies  
-includes all required .jar files for:
-- javafx
-- openpdf
-- jsch
-- postgresql jdbc
-
-make sure they’re added to your module path.
+4. check `lib/` for all jars:  
+includes everything you need — javafx, openpdf, jsch, postgresql, json, richtextfx
 
 ---
 
-## 🛠 database setup (postgresql)
+## 🛠 database (postgresql)
 
-1. create the database:
+1. create the db:
 
 ```sql
-CREATE DATABASE nm_olt_db;
+create database nm_olt_db;
 ```
 
-2. create the users table:
+2. create users table:
 
 ```sql
-CREATE TABLE usuarios (
+create table usuarios (
   id serial primary key,
   nome text not null,
   usuario text unique not null,
@@ -91,22 +87,20 @@ CREATE TABLE usuarios (
 );
 ```
 
-3. insert some default users:
+3. insert default users:
 
 ```sql
-INSERT INTO usuarios (nome, usuario, senha, cargo)
-VALUES
+insert into usuarios (nome, usuario, senha, cargo)
+values
   ('intern user', 'intern', 'nm12345678', 'estagiario'),
   ('admin user', 'admin', 'nm12345678', 'supervisor');
 ```
 
 ---
 
-## 🔐 secrets setup
+## 🔐 secret files you need
 
-you’ll need two secret files for the app to work:
-
-### `SecretsDB.java` — database connection
+### `SecretsDB.java` — db connection
 
 ```java
 package database;
@@ -118,11 +112,11 @@ public class SecretsDB {
 }
 ```
 
-📁 save it inside: `src/database/`
+📁 put it in: `src/database/`
 
 ---
 
-### `Secrets.java` — ssh credentials + olt list
+### `Secrets.java` — ssh login + olt list
 
 ```java
 public class Secrets {
@@ -135,11 +129,11 @@ public class Secrets {
 }
 ```
 
-📁 save it inside: `src/` (next to `Main.java`)
+📁 put it in: `src/` (next to `Main.java`)
 
 ---
 
 ## 📞 support
 
-any issues? just reach out here or hit me up on instagram: [@tomazdudux](https://www.instagram.com/tomazdudux/)  
-always happy to help 😄
+any bugs or suggestions? hit me up here or dm me on insta: [@tomazdudux](https://www.instagram.com/tomazdudux/)  
+always down to help 😄
