@@ -1,0 +1,1171 @@
+/* style-cream.css - Tema Bege e Azul Marinho Adaptado */
+@import url('https://fonts.googleapis.com/css2?family=Cascadia+Code:ital,wght@0,200..700;1,200..700&family=Chivo:ital,wght@0,100..900;1,100..900&display=swap');
+
+* {
+    -fx-font-family: 'Chivo', sans-serif;
+    -fx-font-smoothing-type: gray;
+}
+
+.root {
+    -fx-background-color: #F5EEDC; /* Bege */
+    -fx-background-size: 400px;
+}
+
+.label {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+}
+
+.button {
+    -fx-background-color: #183B4E; /* Azul Marinho */
+    -fx-background-radius: 6px;
+    -fx-padding: 6px 12px;
+    -fx-cursor: hand;
+    -fx-font-weight: 700;
+    -fx-border-width: 1px;
+    -fx-border-color: #27548A; /* Azul Médio */
+    -fx-border-radius: 6px;
+    -fx-effect: innershadow(gaussian, rgba(0, 0, 0, 0.1), 1, 0, 0, 1);
+    -fx-text-fill: #FFFFFF; /* Branco */
+}
+
+.button:hover {
+    -fx-background-color: #27548A; /* Azul Médio */
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.2), 12, 0, 0, 0);
+    -fx-translate-y: -1px;
+    -fx-border-color: #0f2a3d; /* Azul Marinho mais escuro */
+}
+
+.button:pressed {
+    -fx-background-color: #0f2a3d; /* Azul Marinho mais escuro */
+    -fx-translate-y: 1px;
+    -fx-effect: innershadow(gaussian, rgba(0, 0, 0, 0.15), 5, 0, 0, 1);
+    -fx-border-color: #183B4E; /* Azul Marinho */
+}
+
+.title-bar {
+    -fx-background-color: linear-gradient(to right, #FFFFFF, #F5EEDC); /* Branco -> Bege */
+    -fx-min-height: 32px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 6, 0, 0, 2);
+    -fx-padding: 0 12px;
+    -fx-border-width: 0 0 1 0;
+    -fx-border-color: #DDA853; /* Tom de Bege mais escuro/Dourado */
+    -fx-alignment: center-left;
+}
+
+.window-controls {
+    -fx-spacing: 7px;
+    -fx-padding: 5px 10px;
+    -fx-alignment: center-right;
+    -fx-background-color: transparent;
+}
+
+.window-btn {
+    -fx-background-radius: 50%;
+    -fx-min-width: 14px; -fx-min-height: 14px;
+    -fx-max-width: 14px; -fx-max-height: 14px;
+    -fx-background-insets: 0;
+    -fx-border-width: 0;
+    -fx-border-radius: 50%;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 1, 0, 0, 1);
+    -fx-opacity: 0.85;
+}
+
+/* Cores distintas para botões de janela (usando tons de azul e bege/dourado) */
+.close-btn { -fx-background-color: #e53935; } /* Mantendo vermelho para destaque */
+.minimize-btn { -fx-background-color: #DDA853; } /* Tom de Bege/Dourado */
+.maximize-btn { -fx-background-color: #27548A; } /* Azul Médio */
+
+.close-btn:hover { -fx-background-color: #c62828; -fx-effect: dropshadow(gaussian, rgba(198, 40, 40, 0.6), 8, 0, 0, 0); -fx-opacity: 1.0; -fx-cursor: hand; }
+.minimize-btn:hover { -fx-background-color: #c79a4d; -fx-effect: dropshadow(gaussian, rgba(221, 168, 83, 0.6), 8, 0, 0, 0); -fx-opacity: 1.0; -fx-cursor: hand; }
+.maximize-btn:hover { -fx-background-color: #3a6aa0; -fx-effect: dropshadow(gaussian, rgba(39, 84, 138, 0.6), 8, 0, 0, 0); -fx-opacity: 1.0; -fx-cursor: hand; }
+
+.window-btn:pressed { -fx-scale-x: 0.92; -fx-scale-y: 0.92; -fx-effect: innershadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 0); -fx-opacity: 0.95; }
+
+.title {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-size: 22px;
+    -fx-font-weight: 700;
+    -fx-padding: 0;
+    -fx-effect: null;
+}
+
+.side-nav {
+    -fx-background-color: linear-gradient(to bottom, #FDFBF6, #F5EEDC); /* Bege mais claro -> Bege */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);
+    -fx-border-width: 0 1px 0 0;
+    -fx-border-color: #EAE2C6; /* Bege acinzentado para borda */
+}
+
+.menu-title {
+    -fx-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-padding: 20px 0 10px 16px;
+    -fx-text-transform: uppercase;
+    -fx-letter-spacing: 1.5px;
+    -fx-effect: null;
+}
+
+.nav-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-size: 14px;
+    -fx-alignment: center-left;
+    -fx-padding: 12px 16px;
+    -fx-cursor: hand;
+    -fx-border-width: 0 0 0 3px;
+    -fx-border-color: transparent;
+}
+
+.nav-button .icon {
+    -fx-fill: #27548A; /* Azul Médio */
+    -fx-font-size: 16px;
+}
+
+.nav-button:hover {
+    -fx-background-color: linear-gradient(to right, rgba(24, 59, 78, 0.05), rgba(24, 59, 78, 0.0)); /* Hover Azul Marinho leve */
+    -fx-border-color: #183B4E; /* Azul Marinho */
+    -fx-text-fill: #0f2a3d; /* Azul Marinho mais escuro */
+}
+
+.nav-button:hover .icon {
+    -fx-fill: #183B4E; /* Azul Marinho */
+}
+
+.nav-button:selected {
+    -fx-background-color: linear-gradient(to right, rgba(24, 59, 78, 0.1), rgba(24, 59, 78, 0.0)); /* Selected Azul Marinho leve */
+    -fx-border-color: #0f2a3d; /* Azul Marinho mais escuro */
+    -fx-font-weight: bold;
+    -fx-text-fill: #0f2a3d; /* Azul Marinho mais escuro */
+    -fx-effect: null;
+}
+
+.nav-button:selected .icon {
+    -fx-fill: #0f2a3d; /* Azul Marinho mais escuro */
+}
+
+.content-area {
+    -fx-background-color: #F5EEDC; /* Bege */
+    -fx-padding: 25px;
+}
+
+.content-area .text-input:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+.tab-pane:focused > .tab-header-area > .headers-region > .tab:selected .focus-indicator {
+    -fx-border-color: transparent;
+}
+
+
+.subtitle {
+    -fx-font-size: 18px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-padding: 0 0 16px 0;
+    -fx-effect: null;
+}
+
+.info-label {
+    -fx-font-size: 14px;
+    -fx-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-padding: 0 0 10px 0;
+}
+
+.olt-card {
+    -fx-background-color: linear-gradient(to bottom right, rgba(255, 255, 255, 0.7), rgba(245, 238, 220, 0.8)); /* Branco -> Bege semi-transparente */
+    -fx-background-radius: 12px;
+    -fx-border-radius: 12px;
+    -fx-border-color: #EAE2C6; /* Bege acinzentado */
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.1), 10, 0, 0, 5); /* Sombra Azul Marinho */
+    -fx-cursor: hand;
+    -fx-transition: all 0.3s ease;
+    -fx-padding: 12px;
+}
+
+.olt-card:hover {
+    -fx-background-color: linear-gradient(to bottom right, rgba(255, 255, 255, 0.9), rgba(245, 238, 220, 0.95)); /* Mais opaco no hover */
+    -fx-translate-y: -2px;
+    -fx-border-color: #183B4E; /* Azul Marinho */
+}
+
+.olt-card:hover .olt-name {
+    -fx-effect: null;
+}
+
+.olt-name {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-effect: null;
+}
+
+.olt-ip {
+    -fx-text-fill: #27548A; /* Azul Médio */
+    -fx-font-size: 13px;
+}
+
+.terminal-box {
+    -fx-background-color: #e0d8c6; /* Bege um pouco mais escuro */
+    -fx-background-radius: 8px;
+    -fx-padding: 12px;
+    -fx-border-radius: 8px;
+    -fx-border-color: #c4b29a; /* Bege mais escuro */
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.15), 10, 0, 0, 3);
+}
+
+/* Terminal Area */
+.terminal-area {
+    -fx-control-inner-background: #e0d8c6;
+    -fx-background-color: #e0d8c6;
+    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-size: 12px;
+    -fx-padding: 10px;
+    -fx-border-width: 0;
+    -fx-border-color: transparent;
+    -fx-highlight-fill: #183B4E; /* Azul Marinho */
+    -fx-highlight-text-fill: #FFFFFF; /* Branco */
+    -fx-background-insets: 0;
+}
+.terminal-area .text {
+    -fx-fill: #183B4E; /* Azul Marinho - COR DO TEXTO */
+}
+
+.terminal-area:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 0;
+}
+
+/* Prompt Label */
+.prompt-label {
+    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-fill: #0f2a3d; /* Azul Marinho mais escuro */
+    -fx-effect: null;
+}
+
+.command-field {
+    -fx-background-color: #FFFFFF; /* Fundo branco para contraste */
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-prompt-text-fill: #6f5f48; /* Placeholder bege escuro */
+    -fx-padding: 10px;
+    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-size: 14px;
+    -fx-background-radius: 4px;
+    -fx-border-width: 1px;
+    -fx-border-color: #c4b29a; /* Borda bege escura */
+    -fx-border-radius: 4px;
+}
+
+.command-field:focused {
+    -fx-border-color: #183B4E; /* Borda Azul Marinho */
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.2), 6, 0, 0, 0);
+}
+
+.form-area {
+    -fx-background-color: linear-gradient(to bottom, #FDFBF6, #F5EEDC); /* Bege mais claro -> Bege */
+    -fx-background-radius: 8px;
+    -fx-padding: 20px;
+    -fx-border-color: #c4b29a; /* Borda bege escura */
+    -fx-border-radius: 8px;
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.1), 8, 0, 0, 3);
+}
+
+.form-label {
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-padding: 0 0 5px 0;
+    -fx-effect: null;
+}
+
+.text-field, .combo-box {
+    -fx-background-color: #FFFFFF; /* Fundo branco */
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-prompt-text-fill: #6f5f48; /* Placeholder bege escuro */
+    -fx-padding: 10px;
+    -fx-background-radius: 5px;
+    -fx-border-width: 1px;
+    -fx-border-color: #c4b29a; /* Borda bege escura */
+    -fx-border-radius: 5px;
+    -fx-effect: innershadow(gaussian, rgba(0,0,0,0.05), 2, 0, 0, 1);
+}
+
+.text-field:focused, .combo-box:focused {
+    -fx-border-color: #183B4E; /* Borda Azul Marinho */
+    -fx-border-width: 1px;
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.15), 6, 0, 0, 0);
+    -fx-background-color: #FFFFFF;
+}
+
+.combo-box .list-cell {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-background-color: transparent;
+    -fx-padding: 3px 5px 3px 8px;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: #FFFFFF; /* Branco */
+    -fx-border-color: #c4b29a; /* Borda bege escura */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 12, 0, 0, 8);
+    -fx-padding: 2px;
+    -fx-background-radius: 5px;
+    -fx-border-radius: 5px;
+}
+
+.combo-box-popup .list-cell {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-background-color: transparent;
+    -fx-padding: 8px 12px;
+}
+
+.combo-box-popup .list-cell:hover {
+    -fx-background-color: #F5EEDC; /* Bege */
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-background-radius: 3px;
+}
+
+.combo-box-popup .list-cell:selected {
+    -fx-background-color: #183B4E; /* Azul Marinho */
+    -fx-text-fill: #FFFFFF; /* Branco */
+    -fx-background-radius: 3px;
+    -fx-effect: innershadow(gaussian, rgba(0,0,0,0.1), 1, 0, 0, 0);
+}
+
+.combo-box .arrow-button {
+    -fx-background-radius: 0 5px 5px 0;
+    -fx-padding: 0 8px;
+}
+
+.combo-box .arrow {
+    -fx-background-color: #183B4E; /* Azul Marinho */
+    -fx-background-insets: 0;
+    -fx-padding: 3px;
+    -fx-shape: "M0,0 L6,5 L12,0 Z";
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.3), 3, 0, 0, 0);
+}
+
+.combo-box:hover .arrow {
+    -fx-background-color: #27548A; /* Azul Médio */
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.5), 5, 0, 0, 0);
+    -fx-scale-x: 1.1;
+    -fx-scale-y: 1.1;
+}
+
+/* Code Area */
+.code-area {
+    -fx-background-color: #e0d8c6; /* Bege mais escuro */
+    -fx-background-radius: 8px;
+    -fx-padding: 10px;
+    -fx-font-family: "Cascadia Code";
+}
+
+.code-area .content {
+    -fx-background-color: #e0d8c6;
+}
+
+.code-area .text {
+    -fx-font-family: "Cascadia Code";
+    -fx-fill: #183B4E; /* Azul Marinho - COR DO TEXTO */
+}
+
+/* Destaques em tons de azul/dourado */
+.code-area .text.keyword { -fx-fill: #0f2a3d !important; -fx-font-weight: bold; } /* Azul Marinho Escuro */
+.code-area .text.string { -fx-fill: #8f7a5a !important; } /* Tom de Marrom/Dourado */
+.code-area .text.comment { -fx-fill: #9a9a9a !important; -fx-font-style: italic; } /* Cinza */
+.code-area .text.number { -fx-fill: #27548A !important; } /* Azul Médio */
+.code-area .text.function { -fx-fill: #183B4E !important; } /* Azul Marinho */
+.code-area .text.type { -fx-fill: #27548A !important; } /* Azul Médio */
+.code-area .text.variable { -fx-fill: #183B4E !important; } /* Azul Marinho */
+.code-area .text.ip-address { -fx-fill: #DDA853 !important; -fx-font-weight: bold; } /* Dourado/Bege escuro */
+
+.code-area .caret {
+    -fx-stroke: #183B4E; /* Azul Marinho */
+}
+
+.code-area .selection {
+    -fx-fill: rgba(24, 59, 78, 0.3); /* Azul Marinho transparente */
+}
+
+.code-area .text.selection {
+    -fx-fill: #0f2a3d; /* Azul Marinho Escuro */
+}
+
+.small-btn {
+    -fx-font-size: 12px;
+    -fx-padding: 5px 10px;
+    -fx-background-radius: 4px;
+     /* Herda cores do .button */
+}
+
+.data-table {
+    -fx-background-color: #FFFFFF; /* Fundo branco */
+    -fx-table-cell-border-color: transparent;
+    -fx-border-width: 1px;
+    -fx-border-color: #EAE2C6; /* Borda bege acinzentado */
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.08), 8, 0, 0, 3);
+}
+
+.data-table .column-header-background {
+    -fx-background-color: linear-gradient(to right, #FDFBF6, #F5EEDC); /* Bege claro -> Bege */
+    -fx-background-radius: 8px 8px 0 0;
+}
+
+.data-table .column-header {
+    -fx-background-color: transparent;
+    -fx-font-weight: bold;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-padding: 14px 10px;
+    -fx-border-width: 0 0 1 0;
+    -fx-border-color: #EAE2C6; /* Borda bege acinzentado */
+}
+
+.data-table .table-row-cell {
+    -fx-background-color: #FFFFFF; /* Fundo branco */
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-border-color: rgba(234, 226, 198, 0.5); /* Borda bege sutil */
+    -fx-border-width: 0 0 1 0;
+}
+
+.data-table .table-row-cell .text {
+    -fx-fill: #183B4E; /* Azul Marinho */
+}
+
+.data-table .table-row-cell:odd {
+    -fx-background-color: #FDFBF6; /* Bege mais claro */
+}
+
+.data-table .table-row-cell:hover {
+    -fx-background-color: rgba(245, 238, 220, 0.5); /* Bege semi-transparente */
+}
+
+.data-table .table-row-cell:selected {
+    -fx-background-color: rgba(24, 59, 78, 0.1); /* Azul Marinho levemente transparente */
+    -fx-border-color: #183B4E; /* Azul Marinho */
+}
+/* Cor do texto na célula selecionada */
+.data-table .table-row-cell:selected .text {
+    -fx-fill: #0f2a3d; /* Azul Marinho Escuro */
+}
+
+
+.dialog-pane {
+    -fx-background-color: #FDFBF6; /* Bege mais claro */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 15, 0, 0, 8);
+    -fx-border-color: #c4b29a; /* Borda bege escura */
+    -fx-border-width: 1px;
+    -fx-border-radius: 10px;
+}
+
+.dialog-pane .label {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+}
+
+.dialog-pane:header .header-panel {
+    -fx-background-color: linear-gradient(to right, #FFFFFF, #F5EEDC); /* Branco -> Bege */
+    -fx-padding: 16px;
+    -fx-background-radius: 10px 10px 0 0;
+    -fx-border-color: #DDA853; /* Borda dourada/bege escura */
+    -fx-border-width: 0 0 1px 0;
+}
+
+.dialog-pane:header .header-panel .label {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-effect: null;
+}
+
+.dialog-pane > .button-bar > .container {
+    -fx-background-color: #FDFBF6; /* Bege mais claro */
+    -fx-background-radius: 0 0 10px 10px;
+    -fx-padding: 10px;
+}
+
+.floating-btn {
+    -fx-background-color: #183B4E; /* Azul Marinho */
+    -fx-text-fill: #FFFFFF; /* Branco */
+    -fx-background-radius: 50%;
+    -fx-cursor: hand;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.3), 15, 0, 0, 5);
+    -fx-min-width: 54px; -fx-min-height: 54px;
+    -fx-padding: 0;
+    -fx-border-width: 1px;
+    -fx-border-color: #F5EEDC; /* Bege */
+    -fx-border-radius: 50%;
+}
+
+.floating-btn:hover {
+    -fx-background-color: #27548A; /* Azul Médio */
+    -fx-effect: dropshadow(gaussian, rgba(39, 84, 138, 0.4), 20, 0, 0, 8),
+                innershadow(gaussian, rgba(255,255,255,0.1), 1, 0, 0, 1);
+    -fx-scale-x: 1.08; -fx-scale-y: 1.08;
+    -fx-border-color: #FFFFFF; /* Branco */
+    -fx-rotate: 5;
+}
+
+.floating-btn:pressed {
+    -fx-scale-x: 0.92; -fx-scale-y: 0.92;
+    -fx-rotate: 0;
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.15), 10, 0, 0, 3);
+    -fx-background-color: #0f2a3d; /* Azul Marinho Escuro */
+}
+
+.small-delete-btn {
+    -fx-background-color: #c62828; /* Vermelho escuro (mantido para alerta) */
+    -fx-text-fill: white;
+    -fx-font-size: 12px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-padding: 4px 8px;
+}
+
+.small-delete-btn:hover {
+    -fx-background-color: linear-gradient(to bottom, #e53935, #c62828);
+    -fx-effect: dropshadow(three-pass-box, rgba(198, 40, 40, 0.4), 6, 0, 0, 2);
+}
+
+.small-delete-btn:pressed {
+    -fx-background-color: linear-gradient(to bottom, #b71c1c, #c62828);
+    -fx-translate-y: 1px;
+}
+
+.icon-glow {
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.2), 8, 0.4, 0, 0); /* Glow Azul Marinho */
+}
+
+.icon-glow:hover {
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.3), 12, 0.6, 0, 0);
+    -fx-scale-x: 1.05; -fx-scale-y: 1.05;
+}
+
+.user-info-box {
+    -fx-background-color: linear-gradient(to bottom right, #FFFFFF, #F5EEDC); /* Branco -> Bege */
+    -fx-background-radius: 6px;
+    -fx-padding: 8px 12px;
+    -fx-border-color: #EAE2C6; /* Bege acinzentado */
+    -fx-border-radius: 6px;
+    -fx-border-width: 1px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 6, 0, 0, 2);
+}
+
+.user-info-box:hover {
+    -fx-background-color: linear-gradient(to bottom right, #FFFFFF, #f8f4e9); /* Branco -> Bege mais claro */
+    -fx-border-color: #183B4E; /* Azul Marinho */
+    -fx-translate-x: 2px;
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.15), 8, 0, 0, 3);
+}
+
+.user-name {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-effect: null;
+}
+
+.user-role {
+    -fx-text-fill: #27548A; /* Azul Médio */
+    -fx-font-size: 11px;
+}
+
+.dropdown-arrow {
+    -fx-background-color: transparent;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-size: 14px;
+    -fx-padding: 0;
+    -fx-cursor: hand;
+    -fx-border-width: 0;
+    -fx-min-width: 20px; -fx-min-height: 20px;
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.15), 5, 0, 0, 0);
+}
+
+.dropdown-arrow:hover {
+    -fx-background-color: transparent;
+    -fx-scale-x: 1.1; -fx-scale-y: 1.1;
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.25), 8, 0, 0, 0);
+}
+
+.dropdown-arrow-active {
+    -fx-background-color: transparent;
+    -fx-font-weight: bold;
+    -fx-rotate: 180;
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.25), 8, 0, 0, 0);
+}
+
+.scroll-pane, .scroll-bar {
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+}
+
+.scroll-pane > .viewport { -fx-background-color: transparent; }
+
+.scroll-bar:vertical {
+    -fx-background-color: #F5EEDC; /* Bege */
+    -fx-background-radius: 6px;
+    -fx-padding: 0 1px;
+    -fx-pref-width: 12px;
+}
+
+.scroll-bar:vertical > .thumb {
+    -fx-background-color: linear-gradient(to bottom, #c4b29a, #a99a81); /* Bege escuro -> mais escuro */
+    -fx-background-radius: 6px;
+    -fx-opacity: 0.8;
+}
+
+.scroll-bar:vertical > .thumb:hover {
+    -fx-background-color: linear-gradient(to bottom, #DDA853, #c4b29a); /* Dourado -> Bege escuro */
+    -fx-opacity: 1.0;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0, 0.1), 4, 0, 0, 0);
+}
+
+.scroll-bar:horizontal {
+    -fx-background-color: #F5EEDC; /* Bege */
+    -fx-background-radius: 6px;
+    -fx-padding: 1px 0;
+    -fx-pref-height: 12px;
+}
+
+.scroll-bar:horizontal > .thumb {
+    -fx-background-color: linear-gradient(to right, #c4b29a, #a99a81); /* Bege escuro -> mais escuro */
+    -fx-background-radius: 6px;
+    -fx-opacity: 0.8;
+}
+
+.scroll-bar:horizontal > .thumb:hover {
+    -fx-background-color: linear-gradient(to right, #DDA853, #c4b29a); /* Dourado -> Bege escuro */
+    -fx-opacity: 1.0;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0, 0.1), 4, 0, 0, 0);
+}
+
+.scroll-content { -fx-background-color: transparent; -fx-padding: 0; -fx-background-insets: 0; }
+
+.scroll-bar > .increment-button, .scroll-bar > .decrement-button {
+    -fx-background-color: #F5EEDC; /* Bege */
+    -fx-padding: 3px;
+}
+
+.scroll-bar > .increment-button > .increment-arrow,
+.scroll-bar > .decrement-button > .decrement-arrow {
+    -fx-background-color: #a99a81; /* Bege mais escuro */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0, 0.1), 2, 0, 0, 0);
+}
+
+.scroll-bar > .increment-button:hover > .increment-arrow,
+.scroll-bar > .decrement-button:hover > .decrement-arrow {
+    -fx-background-color: #183B4E; /* Azul Marinho */
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.2), 4, 0, 0, 0);
+    -fx-scale-x: 1.1; -fx-scale-y: 1.1;
+}
+
+.glass-pane {
+    -fx-background-color: linear-gradient(to bottom, rgba(245, 238, 220, 0.9), rgba(255, 255, 255, 0.8)); /* Bege -> Branco semi-transparente */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 3);
+    -fx-border-width: 1px;
+    -fx-border-color: rgba(196, 178, 154, 0.4); /* Borda bege sutil */
+}
+
+.help-section {
+    -fx-font-size: 18px;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-weight: bold;
+    -fx-padding: 15px 0 10px 0;
+    -fx-effect: null;
+}
+
+.commands-box {
+    -fx-background-color: linear-gradient(to bottom, #FDFBF6, #F5EEDC); /* Bege claro -> Bege */
+    -fx-background-radius: 10px;
+    -fx-padding: 20px;
+    -fx-spacing: 10px;
+    -fx-border-radius: 10px;
+    -fx-border-width: 1px;
+    -fx-border-color: #c4b29a; /* Borda bege escura */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 8, 0, 0, 3);
+}
+
+.commands-box .label {
+    -fx-font-size: 14px;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-padding: 2px 0 2px 10px;
+    -fx-effect: null;
+}
+
+.command-highlight {
+    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0f2a3d; /* Azul Marinho Escuro */
+    -fx-effect: null;
+}
+
+.tab-pane {
+    -fx-background-color: transparent;
+    -fx-tab-min-width: 100px; -fx-tab-max-width: 200px;
+    -fx-tab-min-height: 35px;
+}
+
+.tab-pane .tab-header-area { -fx-padding: 5px 0 0 0; }
+
+.tab-pane .tab-header-background {
+    -fx-background-color: #F5EEDC; /* Bege */
+    -fx-effect: innershadow(gaussian, rgba(0,0,0,0.05), 3, 0, 0, 1);
+}
+
+.tab-pane .tab {
+    -fx-background-color: #FDFBF6; /* Bege claro */
+    -fx-background-radius: 8px 8px 0 0;
+    -fx-border-width: 1px 1px 0 1px;
+    -fx-border-color: #EAE2C6; /* Borda bege acinzentado */
+    -fx-border-radius: 8px 8px 0 0;
+    -fx-padding: 5px 15px;
+}
+
+.tab-pane .tab:selected {
+    -fx-background-color: #FFFFFF; /* Branco */
+    -fx-border-color: #183B4E #183B4E transparent #183B4E; /* Borda Azul Marinho */
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.1), 8, 0, 0, -3);
+}
+
+.tab-pane .tab .tab-label {
+    -fx-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+}
+
+.tab-pane .tab:selected .tab-label {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-effect: null;
+}
+
+.tab-pane .tab-content-area {
+    -fx-background-color: #F5EEDC; /* Bege */
+    -fx-border-width: 1px;
+    -fx-border-color: #c4b29a; /* Borda bege escura */
+    -fx-border-radius: 0 0 8px 8px;
+    -fx-padding: 15px;
+}
+
+.badge {
+    -fx-background-color: #27548A; /* Azul Médio */
+    -fx-background-radius: 12px;
+    -fx-padding: 2px 8px;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(39, 84, 138, 0.4), 5, 0, 0, 1);
+}
+
+.alert-badge {
+    -fx-background-color: #c62828; /* Vermelho escuro */
+    -fx-background-radius: 12px;
+    -fx-padding: 2px 8px;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(183, 28, 28, 0.7), 5, 0, 0, 1);
+}
+
+.notification {
+    -fx-background-color: linear-gradient(to bottom right, rgba(255, 255, 255, 0.95), rgba(245, 238, 220, 0.9)); /* Branco -> Bege semi-transparente */
+    -fx-background-radius: 8px;
+    -fx-padding: 12px;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1px;
+    -fx-border-color: #183B4E; /* Borda Azul Marinho */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 15, 0, 0, 8);
+}
+
+.notification-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-effect: null;
+}
+
+.notification-message {
+    -fx-font-size: 12px;
+    -fx-text-fill: #0f2a3d; /* Azul Marinho Escuro */
+    -fx-wrap-text: true;
+}
+
+.theme-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-size: 16px;
+    -fx-padding: 5px;
+    -fx-background-radius: 4px;
+    -fx-border-width: 0;
+    -fx-cursor: hand;
+}
+
+.version-text {
+    -fx-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-font-weight: 700;
+    -fx-font-size: 12px;
+}
+
+.credits-link {
+    -fx-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+}
+.credits-link:hover { -fx-text-fill: #183B4E; /* Azul Marinho */ }
+.credits-link:visited { -fx-text-fill: #6f5f48; }
+
+.credits-title {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-padding: 0 0 10px 0;
+}
+
+.credits-text {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-size: 14px;
+}
+
+/* Correção dos painéis de usuários (Creme) */
+.user-pane {
+    -fx-background-color: transparent;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+}
+
+.user-pane > .title {
+    -fx-background-color: transparent;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-border-color: transparent;
+    -fx-padding: 6px 5px; /* Padding reduzido */
+    -fx-font-weight: bold;
+    -fx-font-size: 11px; /* Tamanho reduzido */
+}
+
+.user-pane > .title:hover {
+    -fx-background-color: transparent;
+}
+
+.user-pane:expanded > .title {
+    -fx-background-color: transparent;
+}
+
+.user-pane > .content {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 2px;
+}
+
+.user-info-box {
+    -fx-background-color: linear-gradient(to bottom right, rgba(255, 255, 255, 0.7), rgba(245, 238, 220, 0.8)); /* Branco -> Bege semi-transparente */
+    -fx-background-radius: 6px;
+    -fx-padding: 8px 12px;
+    -fx-border-color: #EAE2C6; /* Bege acinzentado */
+    -fx-border-radius: 6px;
+    -fx-border-width: 1px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.1), 6, 0, 0, 2); /* Sombra Azul Marinho */
+}
+
+.user-info-box:hover {
+    -fx-background-color: linear-gradient(to bottom right, rgba(255, 255, 255, 0.9), rgba(245, 238, 220, 0.95)); /* Mais opaco no hover */
+    -fx-border-color: #183B4E; /* Azul Marinho */
+    -fx-translate-x: 2px;
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.15), 8, 0, 0, 3);
+}
+
+/* Reduzir tamanho da exibição do avatar */
+.user-info-box ImageView {
+    -fx-fit-width: 28px; /* Ligeiramente menor */
+    -fx-fit-height: 28px;
+}
+
+/* Reduzir tamanho dos textos nas abas de usuário */
+.user-name {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-size: 11px; /* Reduzido */
+    -fx-font-weight: bold;
+}
+
+.user-tag {
+    -fx-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-font-size: 10px; /* Reduzido */
+}
+
+.user-role {
+    -fx-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-font-size: 10.5px; /* Reduzido */
+    -fx-font-style: italic;
+}
+
+/* Correção para ScrollPane transparente (Creme) */
+.transparent-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+    -fx-fit-to-height: true;
+    -fx-fit-to-width: true;
+    -fx-min-height: 100vh;
+    -fx-pref-height: -1;
+}
+
+.transparent-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.transparent-scroll > .scroll-bar:vertical,
+.transparent-scroll > .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+
+.transparent-scroll > .scroll-bar:vertical .track,
+.transparent-scroll > .scroll-bar:horizontal .track {
+    -fx-background-color: #F5EEDC; /* Bege */
+    -fx-border-color: transparent;
+    -fx-background-radius: 4px;
+}
+
+.transparent-scroll > .scroll-bar:vertical .thumb,
+.transparent-scroll > .scroll-bar:horizontal .thumb {
+    -fx-background-color: #c4b29a; /* Bege escuro */
+    -fx-background-radius: 4px;
+}
+
+.transparent-scroll > .scroll-bar:vertical .thumb:hover,
+.transparent-scroll > .scroll-bar:horizontal .thumb:hover {
+    -fx-background-color: #DDA853; /* Dourado/Bege escuro */
+}
+
+.transparent-scroll > .corner {
+    -fx-background-color: transparent;
+}
+
+/* Estilos para a janela de mensagem direta (DM) (Creme) */
+.dm-chat-layout {
+    -fx-background-color: #F5EEDC; /* Bege */
+}
+
+.dm-messages-container {
+    -fx-background-color: #F5EEDC; /* Bege */
+}
+
+.bolha-enviada {
+    -fx-background-color: #183B4E; /* Azul Marinho */
+    -fx-text-fill: #FFFFFF; /* Branco */
+    -fx-padding: 8px 12px;
+    -fx-background-radius: 16px;
+}
+
+.bolha-recebida {
+    -fx-background-color: #FDFBF6; /* Bege mais claro */
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-padding: 8px 12px;
+    -fx-background-radius: 16px;
+}
+
+.message-sender-name {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+/* Remetente na bolha enviada precisa de cor clara */
+.bolha-enviada .message-sender-name {
+    -fx-text-fill: #FDFBF6;
+}
+
+
+.message-timestamp {
+    -fx-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-font-size: 10px;
+    -fx-alignment: center-right;
+}
+/* Timestamp na bolha enviada precisa de cor clara */
+.bolha-enviada .message-timestamp {
+     -fx-text-fill: #F5EEDC;
+}
+
+.dm-input-container {
+    -fx-background-color: transparent;
+    -fx-padding: 10px;
+    -fx-spacing: 8px;
+}
+
+.dm-input-field {
+    -fx-background-color: #FFFFFF; /* Branco */
+    -fx-border-color: #c4b29a; /* Borda bege escura */
+    -fx-border-width: 1px;
+    -fx-border-radius: 16px;
+    -fx-background-radius: 16px;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-prompt-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-padding: 8px 12px;
+}
+
+.dm-send-button {
+    -fx-background-color: #183B4E; /* Azul Marinho */
+    -fx-border-width: 0;
+    -fx-text-fill: #FFFFFF; /* Branco */
+    -fx-font-weight: bold;
+    -fx-background-radius: 20px;
+    -fx-padding: 8px 16px;
+    -fx-cursor: hand;
+}
+
+.dm-send-bttn:hover {
+    -fx-background-color: #27548A; /* Azul Médio */
+}
+
+/* Estilos para perfil de usuário no drawer lateral (Creme) */
+.user-profile-drawer {
+    -fx-background-color: #FDFBF6; /* Bege mais claro */
+    -fx-border-color: #EAE2C6; /* Bege acinzentado */
+    -fx-border-width: 0 0 0 1px;
+}
+
+.close-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-weight: bold;
+    -fx-padding: 4px 8px;
+    -fx-cursor: hand;
+}
+
+.close-button:hover {
+    -fx-background-color: #EAE2C6; /* Bege acinzentado */
+    -fx-background-radius: 4px;
+}
+
+/* Corrigido - nome, tag e role com tamanhos ajustados */
+.profile-user-name {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-weight: bold;
+    -fx-font-size: 18px; /* Tamanho ajustado */
+}
+
+.profile-user-tag {
+    -fx-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-font-size: 15px; /* Tamanho ajustado */
+    -fx-font-style: italic;
+}
+
+.profile-user-role {
+    -fx-text-fill: #27548A; /* Azul Médio */
+    -fx-font-size: 14px; /* Tamanho ajustado */
+    -fx-font-weight: bold;
+    -fx-font-style: italic;
+}
+
+/* Estes seletores também são ajustados para consistência */
+.user-name-profile {
+    -fx-text-fill: #183B4E;
+    -fx-font-weight: bold;
+    -fx-font-size: 18px; /* Ajustado */
+}
+
+.user-tag-profile {
+    -fx-text-fill: #6f5f48;
+    -fx-font-size: 15px; /* Ajustado */
+    -fx-font-style: italic;
+}
+
+.user-role-profile {
+    -fx-text-fill: #27548A;
+    -fx-font-size: 14px; /* Ajustado */
+    -fx-font-weight: bold;
+    -fx-font-style: italic;
+}
+
+
+.profile-user-status {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-size: 13px;
+    -fx-padding: 5px 0;
+}
+
+.profile-separator {
+    -fx-background-color: #EAE2C6; /* Bege acinzentado */
+}
+
+.profile-section-title {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+    -fx-padding: 5px 0;
+}
+
+.profile-message-field {
+    -fx-background-color: #FFFFFF; /* Branco */
+    -fx-border-color: #c4b29a; /* Borda bege escura */
+    -fx-border-width: 1px;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-prompt-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-padding: 8px;
+}
+
+/* Remove bordas brancas em TitledPane quando expandido (Creme) */
+.user-pane:expanded > .title > .arrow-button > .arrow,
+.user-pane > .title > .arrow-button > .arrow {
+    -fx-background-color: #183B4E; /* Azul Marinho (seta) */
+}
+
+/* Correções para sidebar (Creme) */
+.side-status {
+    -fx-min-height: 100%;
+    -fx-background-color: linear-gradient(to bottom, #FDFBF6, #F5EEDC); /* Bege mais claro -> Bege */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);
+    -fx-border-width: 0 0 0 1px;
+    -fx-border-color: #EAE2C6; /* Bege acinzentado */
+}
+
+/* Botões de Ação no Perfil (Creme - similar ao .button) */
+.action-button-profile {
+    -fx-background-color: #183B4E; /* Azul Marinho */
+    -fx-background-radius: 6px;
+    -fx-padding: 10px 14px;
+    -fx-cursor: hand;
+    -fx-font-weight: 700;
+    -fx-font-size: 12px;
+    -fx-border-width: 1px;
+    -fx-border-color: #27548A; /* Azul Médio */
+    -fx-border-radius: 6px;
+    -fx-effect: innershadow(gaussian, rgba(0, 0, 0, 0.1), 1, 0, 0, 1);
+    -fx-text-fill: #FFFFFF; /* Branco */
+}
+
+.action-button-profile:hover {
+    -fx-background-color: #27548A; /* Azul Médio */
+    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.2), 12, 0, 0, 0);
+    -fx-translate-y: -1px;
+    -fx-border-color: #0f2a3d; /* Azul Marinho mais escuro */
+}
+
+.action-button-profile:pressed {
+    -fx-background-color: #0f2a3d; /* Azul Marinho mais escuro */
+    -fx-translate-y: 1px;
+    -fx-effect: innershadow(gaussian, rgba(0, 0, 0, 0.15), 5, 0, 0, 1);
+    -fx-border-color: #183B4E; /* Azul Marinho */
+}
+
+/* Botão Voltar no Perfil (Creme) */
+.back-button {
+    -fx-font-size: 20px;
+    -fx-text-fill: #183B4E; /* Azul Marinho */
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-padding: 2px 10px;
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.2), 3, 0, 0, 0);
+}
+.back-button:hover {
+    -fx-text-fill: #27548A; /* Azul Médio */
+}

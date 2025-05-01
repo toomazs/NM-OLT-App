@@ -17,47 +17,42 @@ import javafx.util.Duration;
 import models.Usuario;
 import javafx.scene.input.KeyCode;
 import javafx.scene.Node;
+import utils.ConfigManager;
+import utils.ThemeManager;
+import javafx.application.Platform;
+import java.io.InputStream;
 
 public class LoginScreen {
     private Usuario usuarioLogado;
     private double xOffset = 0;
     private double yOffset = 0;
+    private ConfigManager configManager = ConfigManager.getInstance();
+    private ImageView titleBarIconView;
+    private ImageView mainIconView;
 
     public Usuario showLogin(Stage stage) {
         BorderPane mainLayout = new BorderPane();
-        mainLayout.setStyle("-fx-background-color: linear-gradient(to bottom right, #140F26, #19132D);");
+        mainLayout.getStyleClass().add("login-background");
 
-        HBox titleBar = createTitleBar(stage);
+        String currentThemeFile = configManager.getTheme();
+        String iconFileName = ThemeManager.getIconFileNameForTheme(currentThemeFile);
+
+        HBox titleBar = createTitleBar(stage, iconFileName);
 
         VBox content = new VBox(25);
         content.setPadding(new Insets(30));
         content.setAlignment(Pos.CENTER);
         content.setOpacity(0);
 
-        Image iconImage = null;
-        try {
-            iconImage = new Image(LoginScreen.class.getResourceAsStream("/oltapp-icon.png"));
-            stage.getIcons().add(iconImage);
-        } catch (Exception e) {
-            System.out.println("Ícone não encontrado: " + e.getMessage());
-        }
+        loadWindowIcon(stage, iconFileName);
 
-        VBox titleBox = createTitleBox(iconImage);
-
+        VBox titleBox = createTitleBox(iconFileName);
         VBox form = createLoginForm(stage);
-
         content.getChildren().addAll(titleBox, form);
-
         mainLayout.setTop(titleBar);
         mainLayout.setCenter(content);
 
         Scene scene = createScene(mainLayout);
-
-        try {
-            stage.getIcons().add(new Image(LoginScreen.class.getResourceAsStream("/oltapp-icon.png")));
-        } catch (Exception e) {
-            System.out.println("Ícone não encontrado: " + e.getMessage());
-        }
 
         stage.setScene(scene);
         stage.initStyle(StageStyle.UNDECORATED);
@@ -75,45 +70,83 @@ public class LoginScreen {
         return usuarioLogado;
     }
 
-    private HBox createTitleBar(Stage stage) {
+    private void loadWindowIcon(Stage stage, String iconFileName) {
+        try {
+            InputStream iconStream = getClass().getResourceAsStream(iconFileName);
+            if (iconStream == null) {
+                System.err.println("Stream nulo para ícone da janela: " + iconFileName + ". Tentando fallback.");
+                iconStream = getClass().getResourceAsStream("/oltapp-icon.png");
+            }
+            if (iconStream != null) {
+                stage.getIcons().add(new Image(iconStream));
+            } else {
+                System.err.println("Ícone de fallback da janela também não encontrado.");
+            }
+        } catch (Exception e) {
+            System.err.println("Erro ao carregar ícone da janela: " + iconFileName + " - " + e.getMessage());
+        }
+    }
+
+
+    private HBox createTitleBar(Stage stage, String iconFileName) {
         HBox titleBar = new HBox();
         titleBar.getStyleClass().add("title-bar");
         titleBar.setPrefHeight(30);
-        titleBar.setAlignment(Pos.CENTER_RIGHT);
-        titleBar.setStyle("-fx-background-color: linear-gradient(to bottom right, #140F26, #19132D);");
+        titleBar.setAlignment(Pos.CENTER_LEFT);
 
-        Region spacerLeft = new Region();
-        HBox.setHgrow(spacerLeft, Priority.ALWAYS);
+        try {
+            InputStream iconStream = getClass().getResourceAsStream(iconFileName);
+            if (iconStream == null) {
+                System.err.println("Stream nulo para ícone da barra de título: " + iconFileName + ". Tentando fallback.");
+                iconStream = getClass().getResourceAsStream("/oltapp-icon.png");
+            }
+            if (iconStream != null) {
+                titleBarIconView = new ImageView(new Image(iconStream));
+                titleBarIconView.setFitHeight(18);
+                titleBarIconView.setFitWidth(18);
+                titleBarIconView.setPreserveRatio(true);
+                HBox.setMargin(titleBarIconView, new Insets(0, 5, 0, 10));
+            } else {
+                System.err.println("Ícone de fallback da barra de título também não encontrado.");
+                titleBarIconView = new ImageView();
+            }
+        } catch (Exception e) {
+            System.err.println("Erro ao carregar ícone da barra de título: " + iconFileName + " - " + e.getMessage());
+            titleBarIconView = new ImageView();
+        }
 
-        Label titleLabel = new Label("ㅤㅤㅤㅤLogin");
-        titleLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 5 5 5 5;");
+        Label titleLabel = new Label("Login");
+        titleLabel.getStyleClass().add("olt-name");
 
-        Region spacerRight = new Region();
-        HBox.setHgrow(spacerRight, Priority.ALWAYS);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
 
         Button minimizeBtn = new Button("—");
-        minimizeBtn.getStyleClass().add("window-button");
-
-        Button closeBtn = new Button("✕");
-        closeBtn.getStyleClass().addAll("window-button", "window-close-button");
-
+        minimizeBtn.getStyleClass().addAll("window-btn", "minimize-btn");
         minimizeBtn.setOnAction(e -> stage.setIconified(true));
+
+
+        Region buttonSpacer = new Region();
+        buttonSpacer.setPrefWidth(5);
+
+        Button closeBtn = new Button("×");
+        closeBtn.getStyleClass().addAll("window-btn", "close-btn");
         closeBtn.setOnAction(e -> {
-            BorderPane root = (BorderPane) stage.getScene().getRoot();
-            FadeTransition fadeOut = new FadeTransition(Duration.millis(300), root);
-            fadeOut.setFromValue(1.0);
+            Node rootNode = stage.getScene().getRoot();
+            FadeTransition fadeOut = new FadeTransition(Duration.millis(200), rootNode);
+            fadeOut.setFromValue(rootNode.getOpacity());
             fadeOut.setToValue(0.0);
             fadeOut.setOnFinished(event -> stage.close());
             fadeOut.play();
         });
 
-        titleBar.getChildren().addAll(spacerLeft, titleLabel, spacerRight, minimizeBtn, closeBtn);
+        titleBar.getChildren().addAll(titleBarIconView, titleLabel, spacer, minimizeBtn, buttonSpacer, closeBtn);
+        HBox.setMargin(closeBtn, new Insets(0, 10, 0, 0));
 
         titleBar.setOnMousePressed(event -> {
             xOffset = event.getSceneX();
             yOffset = event.getSceneY();
         });
-
         titleBar.setOnMouseDragged(event -> {
             stage.setX(event.getScreenX() - xOffset);
             stage.setY(event.getScreenY() - yOffset);
@@ -122,31 +155,44 @@ public class LoginScreen {
         return titleBar;
     }
 
-    private VBox createTitleBox(Image iconImage) {
-        ImageView icon = iconImage != null ? new ImageView(iconImage) : new ImageView();
+    private VBox createTitleBox(String iconFileName) {
+        try {
+            InputStream iconStream = getClass().getResourceAsStream(iconFileName);
+            if (iconStream == null) {
+                System.err.println("Stream nulo para ícone principal: " + iconFileName + ". Tentando fallback.");
+                iconStream = getClass().getResourceAsStream("/oltapp-icon.png");
+            }
+            if (iconStream != null) {
+                mainIconView = new ImageView(new Image(iconStream));
+                mainIconView.setFitHeight(64);
+                mainIconView.setFitWidth(64);
+                mainIconView.setPreserveRatio(true);
 
-        if (iconImage != null) {
-            icon.setFitHeight(64);
-            icon.setFitWidth(64);
-
-            ScaleTransition pulse = new ScaleTransition(Duration.millis(2000), icon);
-            pulse.setFromX(1.0);
-            pulse.setFromY(1.0);
-            pulse.setToX(1.05);
-            pulse.setToY(1.05);
-            pulse.setCycleCount(Animation.INDEFINITE);
-            pulse.setAutoReverse(true);
-            pulse.play();
+                ScaleTransition pulse = new ScaleTransition(Duration.millis(2000), mainIconView);
+                pulse.setFromX(1.0); pulse.setFromY(1.0);
+                pulse.setToX(1.05); pulse.setToY(1.05);
+                pulse.setCycleCount(Animation.INDEFINITE);
+                pulse.setAutoReverse(true);
+                pulse.play();
+            } else {
+                System.err.println("Ícone de fallback principal também não encontrado.");
+                mainIconView = new ImageView();
+            }
+        } catch (Exception e) {
+            System.err.println("Erro ao carregar ícone principal: " + iconFileName + " - " + e.getMessage());
+            mainIconView = new ImageView();
         }
 
-        Label title = new Label("Gerenciador de OLTs");
-        title.setStyle("-fx-font-size: 22px; -fx-text-fill: white; -fx-font-weight: bold;");
 
-        VBox titleBox = new VBox(10, icon, title);
+        Label title = new Label("Gerenciador de OLTs");
+        title.getStyleClass().add("olt-name");
+
+        VBox titleBox = new VBox(10, mainIconView, title);
         titleBox.setAlignment(Pos.CENTER);
 
         return titleBox;
     }
+
 
     private VBox createLoginForm(Stage stage) {
         TextField userField = new TextField();
@@ -154,92 +200,76 @@ public class LoginScreen {
         userField.setMaxWidth(250);
         userField.getStyleClass().add("modern-text-field");
 
-        userField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
-            if (isNowFocused) {
-                userField.setStyle("-fx-border-color: #6b46c1; -fx-border-width: 0 0 2 0;");
-            } else {
-                userField.setStyle("-fx-border-color: #2d3748; -fx-border-width: 0 0 1 0;");
-            }
-        });
-
         PasswordField passField = new PasswordField();
         passField.setPromptText("Senha");
         passField.setMaxWidth(250);
         passField.getStyleClass().add("modern-text-field");
 
-        passField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
-            if (isNowFocused) {
-                passField.setStyle("-fx-border-color: #6b46c1; -fx-border-width: 0 0 2 0;");
-            } else {
-                passField.setStyle("-fx-border-color: #2d3748; -fx-border-width: 0 0 1 0;");
-            }
-        });
+        String lastUser = configManager.getLastUser();
+        if (lastUser != null && !lastUser.isEmpty()) {
+            userField.setText(lastUser);
+            Platform.runLater(passField::requestFocus);
+        }
+
 
         Button loginBtn = new Button("Entrar");
         loginBtn.getStyleClass().add("modern-button");
+        loginBtn.setId("login-button");
         loginBtn.setMaxWidth(250);
+        loginBtn.setDefaultButton(true);
 
-        loginBtn.setOnMouseEntered(e -> {
-            ScaleTransition scale = new ScaleTransition(Duration.millis(150), loginBtn);
-            scale.setToX(1.03);
-            scale.setToY(1.03);
-            scale.play();
-        });
-
-        loginBtn.setOnMouseExited(e -> {
-            ScaleTransition scale = new ScaleTransition(Duration.millis(150), loginBtn);
-            scale.setToX(1.0);
-            scale.setToY(1.0);
-            scale.play();
-        });
-
-        passField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                loginBtn.fire();
-            }
-        });
-
-        userField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                loginBtn.fire();
-            }
-        });
+        loginBtn.setOnMouseEntered(e -> loginBtn.setScaleX(1.03));
+        loginBtn.setOnMouseExited(e -> loginBtn.setScaleX(1.0));
+        loginBtn.setOnMousePressed(e -> loginBtn.setScaleX(0.98));
+        loginBtn.setOnMouseReleased(e -> loginBtn.setScaleX(1.03));
 
         Button alterarSenhaBtn = new Button("Alterar Senha");
         alterarSenhaBtn.getStyleClass().add("link-button");
         alterarSenhaBtn.setMaxWidth(250);
 
         Label status = new Label();
-        status.setStyle("-fx-text-fill: #fc8181; -fx-font-weight: bold; -fx-font-size: 12px;");
+        status.getStyleClass().add("status-label");
+        status.setWrapText(true);
+        status.setMaxWidth(250);
+        status.setMinHeight(30);
 
         loginBtn.setOnAction(e -> {
             String usuario = userField.getText().trim();
             String senha = passField.getText().trim();
 
+            if (usuario.isEmpty() || senha.isEmpty()) {
+                showStatusMessage(status, "Usuário e senha são obrigatórios.", true);
+                return;
+            }
+
+            configManager.setLastUser(usuario);
+
             loginBtn.setDisable(true);
+            alterarSenhaBtn.setDisable(true);
 
             ProgressIndicator progressIndicator = new ProgressIndicator();
             progressIndicator.setMaxSize(20, 20);
-            progressIndicator.setStyle("-fx-progress-color: white;");
 
             String originalText = loginBtn.getText();
-
-            HBox loadingBox = new HBox(5);
+            Label loadingLabel = new Label("Verificando...");
+            loadingLabel.getStyleClass().add("loading-label");
+            HBox loadingBox = new HBox(5, progressIndicator, loadingLabel);
             loadingBox.setAlignment(Pos.CENTER);
-            loadingBox.getChildren().addAll(progressIndicator, new Label("Verificando..."));
-
             loginBtn.setGraphic(loadingBox);
             loginBtn.setText("");
 
-            PauseTransition pause = new PauseTransition(Duration.millis(800));
+            PauseTransition pause = new PauseTransition(Duration.millis(600));
             pause.setOnFinished(event -> {
                 Usuario usuarioObj = DatabaseManager.login(usuario, senha);
+
                 if (usuarioObj != null) {
                     usuarioLogado = usuarioObj;
+                    DatabaseManager.logUsuario(usuarioObj.getNome(), "Fez login no sistema");
+                    DatabaseManager.atualizarStatus(usuarioObj.getUsuario(), "online");
 
-                    BorderPane root = (BorderPane) stage.getScene().getRoot();
-                    FadeTransition fadeOut = new FadeTransition(Duration.millis(300), root);
-                    fadeOut.setFromValue(1.0);
+                    Node rootNode = stage.getScene().getRoot();
+                    FadeTransition fadeOut = new FadeTransition(Duration.millis(300), rootNode);
+                    fadeOut.setFromValue(rootNode.getOpacity());
                     fadeOut.setToValue(0.0);
                     fadeOut.setOnFinished(finishEvent -> stage.close());
                     fadeOut.play();
@@ -247,16 +277,10 @@ public class LoginScreen {
                     loginBtn.setGraphic(null);
                     loginBtn.setText(originalText);
                     loginBtn.setDisable(false);
+                    alterarSenhaBtn.setDisable(false);
 
-                    status.setText("Usuário ou senha inválidos.");
-                    status.setStyle("-fx-text-fill: #fc8181; -fx-font-weight: bold; -fx-font-size: 12px;");
 
-                    TranslateTransition shake = new TranslateTransition(Duration.millis(50), status);
-                    shake.setFromX(0);
-                    shake.setByX(5);
-                    shake.setCycleCount(6);
-                    shake.setAutoReverse(true);
-                    shake.play();
+                    showStatusMessage(status, "Usuário ou senha inválidos.", true);
                 }
             });
             pause.play();
@@ -266,6 +290,18 @@ public class LoginScreen {
             ChangePasswordScreen.show(stage);
         });
 
+        userField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                passField.requestFocus();
+            }
+        });
+        passField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                loginBtn.fire();
+            }
+        });
+
+
         VBox form = new VBox(15, userField, passField, loginBtn, alterarSenhaBtn, status);
         form.setAlignment(Pos.CENTER);
 
@@ -273,28 +309,25 @@ public class LoginScreen {
     }
 
     private Scene createScene(BorderPane mainLayout) {
-        Scene scene = new Scene(mainLayout, 380, 480);
-        scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
-
+        Scene scene = new Scene(mainLayout, 380, 475);
+        ThemeManager.applyThemeToNewScene(scene);
         return scene;
     }
 
-    public class ShakeTransition extends Transition {
-        private final Node node;
-        private final double initialX;
-        private static final int SHAKE_COUNT = 3;
-
-        public ShakeTransition(Node node) {
-            this.node = node;
-            this.initialX = node.getTranslateX();
-            setCycleDuration(Duration.millis(100 * SHAKE_COUNT));
-            setInterpolator(Interpolator.EASE_BOTH);
-        }
-
-        @Override
-        protected void interpolate(double frac) {
-            double offset = 10 * Math.sin(SHAKE_COUNT * Math.PI * frac);
-            node.setTranslateX(initialX + offset);
+    private void showStatusMessage(Label statusLabel, String message, boolean isError) {
+        statusLabel.setText(message);
+        statusLabel.getStyleClass().removeAll("error-label", "success-label");
+        if (isError) {
+            statusLabel.getStyleClass().add("error-label");
+            TranslateTransition shake = new TranslateTransition(Duration.millis(60), statusLabel);
+            shake.setFromX(0);
+            shake.setByX(6);
+            shake.setCycleCount(4);
+            shake.setAutoReverse(true);
+            shake.play();
+        } else {
+            statusLabel.getStyleClass().add("success-label");
         }
     }
+
 }

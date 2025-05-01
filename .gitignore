@@ -5,12 +5,13 @@ src/database/SecretsDB.java
 # Ignorar .jar especifico
 OLTApp.jar
 
-# Ignorar arquivos .exe especificos
-Setup-NMOLTApp1.5.2.1.exe
-Setup-OLTApp1.5.2.1.exe
+# Ignorar pastas especificas
+exports/
 
 # Ignorar arquivos .log
 *.log
+logs/
+
 
 # Ignorar arquivos .bat
 *.bat

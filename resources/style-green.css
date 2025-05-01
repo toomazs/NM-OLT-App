@@ -1,0 +1,1158 @@
+/* style-green.css - Tema Verde Escuro */
+@import url('https://fonts.googleapis.com/css2?family=Cascadia+Code:ital,wght@0,200..700;1,200..700&family=Chivo:ital,wght@0,100..900;1,100..900&display=swap');
+
+* {
+    -fx-font-family: 'Chivo', sans-serif;
+    -fx-font-smoothing-type: gray;
+}
+
+.root {
+    -fx-background-color: #0a1f0a; /* Verde muito escuro */
+    -fx-background-size: 400px;
+}
+
+.label {
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+}
+
+.button {
+    -fx-background-color: linear-gradient(to bottom right, #2e7d32, #1b5e20); /* Verde escuro -> mais escuro */
+    -fx-background-radius: 6px;
+    -fx-padding: 6px 12px;
+    -fx-cursor: hand;
+    -fx-font-weight: 700;
+    -fx-border-width: 1px;
+    -fx-border-color: #4caf50; /* Verde médio (borda) */
+    -fx-border-radius: 6px;
+    -fx-effect: innershadow(gaussian, #103a10, 1, 0, 0, 1); /* Sombra interna verde escura */
+    -fx-text-fill: #ffffff; /* Branco */
+}
+
+.button:hover {
+    -fx-background-color: linear-gradient(to bottom right, #388e3c, #2e7d32); /* Verde médio -> escuro (hover) */
+    -fx-effect: dropshadow(three-pass-box, rgba(102, 187, 106, 0.4), 12, 0, 0, 0); /* Sombra verde clara */
+    -fx-translate-y: -1px;
+    -fx-border-color: #81c784; /* Verde claro (borda hover) */
+}
+
+.button:pressed {
+    -fx-background-color: linear-gradient(to bottom right, #1b5e20, #103a10); /* Verde mais escuro -> muito escuro (pressionado) */
+    -fx-translate-y: 1px;
+    -fx-effect: innershadow(gaussian, #0a280a, 5, 0, 0, 1); /* Sombra interna mais escura */
+    -fx-border-color: #2e7d32; /* Verde escuro (borda pressionado) */
+}
+
+.title-bar {
+    -fx-background-color: linear-gradient(to right, #0a1f0a, #102a10); /* Verde muito escuro -> um pouco mais claro */
+    -fx-min-height: 32px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 6, 0, 0, 2);
+    -fx-padding: 0 12px;
+    -fx-border-width: 0 0 1 0;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-alignment: center-left;
+}
+
+.window-controls {
+    -fx-spacing: 7px;
+    -fx-padding: 5px 10px;
+    -fx-alignment: center-right;
+    -fx-background-color: transparent;
+}
+
+.window-btn {
+    -fx-background-radius: 50%;
+    -fx-min-width: 14px; -fx-min-height: 14px;
+    -fx-max-width: 14px; -fx-max-height: 14px;
+    -fx-background-insets: 0;
+    -fx-border-width: 0;
+    -fx-border-radius: 50%;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 1, 0, 0, 1);
+    -fx-opacity: 0.85;
+}
+
+/* Cores distintas para botões de janela */
+.close-btn { -fx-background-color: linear-gradient(to bottom right, #ff5a7e, #d94166); } /* Mantido vermelho */
+.minimize-btn { -fx-background-color: linear-gradient(to bottom right, #ffca28, #ffb300); } /* Amarelo */
+.maximize-btn { -fx-background-color: linear-gradient(to bottom right, #66bb6a, #4caf50); } /* Verde (atual) */
+
+.close-btn:hover { -fx-background-color: linear-gradient(to bottom right, #ff6b8b, #e54d70); -fx-effect: dropshadow(gaussian, rgba(255,90,126,0.6), 8, 0, 0, 0); -fx-opacity: 1.0; -fx-cursor: hand; }
+.minimize-btn:hover { -fx-background-color: linear-gradient(to bottom right, #ffd54f, #ffc107); -fx-effect: dropshadow(gaussian, rgba(255,202,40,0.6), 8, 0, 0, 0); -fx-opacity: 1.0; -fx-cursor: hand; }
+.maximize-btn:hover { -fx-background-color: linear-gradient(to bottom right, #81c784, #66bb6a); -fx-effect: dropshadow(gaussian, rgba(102,187,106,0.6), 8, 0, 0, 0); -fx-opacity: 1.0; -fx-cursor: hand; }
+
+.window-btn:pressed { -fx-scale-x: 0.92; -fx-scale-y: 0.92; -fx-effect: innershadow(gaussian, rgba(0,0,0,0.3), 3, 0, 0, 0); -fx-opacity: 0.95; }
+
+.title {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-size: 22px;
+    -fx-font-weight: 700;
+    -fx-padding: 0;
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.5), 10, 0, 0, 0); /* Sombra verde clara */
+}
+
+.side-nav {
+    -fx-background-color: linear-gradient(to bottom, #102a10, #0a1f0a); /* Verde escuro -> muito escuro */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 0);
+    -fx-border-width: 0 1px 0 0;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+}
+
+.menu-title {
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-padding: 20px 0 10px 16px;
+    -fx-text-transform: uppercase;
+    -fx-letter-spacing: 1.5px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 1, 0, 0, 1);
+}
+
+.nav-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-font-size: 14px;
+    -fx-alignment: center-left;
+    -fx-padding: 12px 16px;
+    -fx-cursor: hand;
+    -fx-border-width: 0 0 0 3px;
+    -fx-border-color: transparent;
+}
+
+.nav-button .icon {
+    -fx-fill: #4caf50; /* Verde médio */
+    -fx-font-size: 16px;
+}
+
+.nav-button:hover {
+    -fx-background-color: linear-gradient(to right, rgba(102, 187, 106, 0.15), rgba(102, 187, 106, 0.0));
+    -fx-border-color: #4caf50; /* Verde médio (borda hover) */
+    -fx-text-fill: #ffffff; /* Branco */
+}
+
+.nav-button:hover .icon {
+    -fx-fill: #a5d6a7; /* Verde claro */
+}
+
+.nav-button:selected {
+    -fx-background-color: linear-gradient(to right, rgba(102, 187, 106, 0.25), rgba(102, 187, 106, 0.0));
+    -fx-border-color: #a5d6a7; /* Verde claro (borda selecionado) */
+    -fx-font-weight: bold;
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-effect: dropshadow(three-pass-box, rgba(102, 187, 106, 0.3), 10, 0, 0, 0);
+}
+
+.nav-button:selected .icon {
+    -fx-fill: #a5d6a7; /* Verde claro */
+}
+
+.content-area {
+    -fx-background-color: #0a1f0a; /* Verde muito escuro */
+    -fx-padding: 25px;
+}
+
+.content-area .text-input:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+.tab-pane:focused > .tab-header-area > .headers-region > .tab:selected .focus-indicator {
+    -fx-border-color: transparent;
+}
+
+
+.subtitle {
+    -fx-font-size: 18px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-padding: 0 0 16px 0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 1, 0, 0, 1);
+}
+
+.info-label {
+    -fx-font-size: 14px;
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-padding: 0 0 10px 0;
+}
+
+.olt-card {
+    -fx-background-color: linear-gradient(to bottom right, rgba(27, 94, 32, 0.9), rgba(16, 58, 16, 0.8)); /* Verde escuro semi-transparente */
+    -fx-background-radius: 12px;
+    -fx-border-radius: 12px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 10, 0, 0, 5);
+    -fx-cursor: hand;
+    -fx-transition: all 0.3s ease;
+    -fx-padding: 12px;
+}
+
+.olt-card:hover {
+    -fx-background-color: linear-gradient(to bottom right, rgba(46, 125, 50, 0.9), rgba(27, 94, 32, 0.8)); /* Verde mais claro semi-transparente */
+    -fx-translate-y: -2px;
+    -fx-border-color: #4caf50; /* Verde médio (borda hover) */
+}
+
+.olt-card:hover .olt-name {
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.5), 10, 0, 0, 0);
+}
+
+.olt-name {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 1, 0, 0, 1);
+}
+
+.olt-ip {
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-font-size: 13px;
+}
+
+.terminal-box {
+    -fx-background-color: #102a10; /* Verde escuro (um pouco mais claro) */
+    -fx-background-radius: 8px;
+    -fx-padding: 12px;
+    -fx-border-radius: 8px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 10, 0, 0, 3);
+}
+
+/* Terminal Area - Usando -fx-fill para RichTextFX */
+.terminal-area {
+    -fx-control-inner-background: #102a10;
+    -fx-background-color: #102a10;
+    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-size: 12px;
+    -fx-padding: 10px;
+    -fx-border-width: 0;
+    -fx-border-color: transparent;
+    -fx-highlight-fill: #2e7d32; /* Verde escuro (destaque) */
+    -fx-highlight-text-fill: #ffffff; /* Branco (texto destaque) */
+    -fx-background-insets: 0;
+}
+.terminal-area .text {
+    -fx-fill: #a5d6a7; /* Verde claro - COR DO TEXTO AQUI */
+}
+
+.terminal-area:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 0;
+}
+
+/* Prompt Label - Usando -fx-fill */
+.prompt-label {
+    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-fill: #a5d6a7; /* Verde claro */
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.4), 5, 0, 0, 0);
+}
+
+.command-field {
+    -fx-background-color: #102a10; /* Verde escuro (um pouco mais claro) */
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-prompt-text-fill: #a5d6a7; /* Placeholder */
+    -fx-padding: 10px;
+    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-size: 14px;
+    -fx-background-radius: 4px;
+    -fx-border-width: 1px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-border-radius: 4px;
+}
+
+.command-field:focused {
+    -fx-border-color: #4caf50; /* Verde médio (borda foco) */
+    -fx-effect: dropshadow(three-pass-box, rgba(102, 187, 106, 0.3), 6, 0, 0, 0);
+}
+
+.form-area {
+    -fx-background-color: linear-gradient(to bottom, #102a10, #0a1f0a); /* Verde escuro -> muito escuro */
+    -fx-background-radius: 8px;
+    -fx-padding: 20px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-border-radius: 8px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 8, 0, 0, 3);
+}
+
+.form-label {
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-padding: 0 0 5px 0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 1, 0, 0, 1);
+}
+
+.text-field, .combo-box {
+    -fx-background-color: linear-gradient(to bottom, #102a10, #0a1f0a);
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-prompt-text-fill: #a5d6a7; /* Placeholder */
+    -fx-padding: 10px;
+    -fx-background-radius: 5px;
+    -fx-border-width: 1px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-border-radius: 5px;
+    -fx-effect: innershadow(gaussian, rgba(0,0,0,0.2), 2, 0, 0, 1);
+}
+
+.text-field:focused, .combo-box:focused {
+    -fx-border-color: #4caf50; /* Verde médio (borda foco) */
+    -fx-border-width: 1px;
+    -fx-effect: dropshadow(three-pass-box, rgba(102, 187, 106, 0.2), 6, 0, 0, 0);
+    -fx-background-color: linear-gradient(to bottom, #1b5e20, #102a10);
+}
+
+.combo-box .list-cell {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-background-color: transparent;
+    -fx-padding: 3px 5px 3px 8px;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: #102a10; /* Verde escuro */
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 12, 0, 0, 8);
+    -fx-padding: 2px;
+    -fx-background-radius: 5px;
+    -fx-border-radius: 5px;
+}
+
+.combo-box-popup .list-cell {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-background-color: transparent;
+    -fx-padding: 8px 12px;
+}
+
+.combo-box-popup .list-cell:hover {
+    -fx-background-color: #2e7d32; /* Verde escuro (hover) */
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-background-radius: 3px;
+}
+
+.combo-box-popup .list-cell:selected {
+    -fx-background-color: #4caf50; /* Verde médio (selecionado) */
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-background-radius: 3px;
+    -fx-effect: innershadow(gaussian, rgba(255,255,255,0.1), 1, 0, 0, 0);
+}
+
+.combo-box .arrow-button {
+    -fx-background-radius: 0 5px 5px 0;
+    -fx-padding: 0 8px;
+}
+
+.combo-box .arrow {
+    -fx-background-color: #a5d6a7; /* Verde claro */
+    -fx-background-insets: 0;
+    -fx-padding: 3px;
+    -fx-shape: "M0,0 L6,5 L12,0 Z";
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.3), 3, 0, 0, 0);
+}
+
+.combo-box:hover .arrow {
+    -fx-background-color: #c8e6c9; /* Verde mais claro */
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.5), 5, 0, 0, 0);
+    -fx-scale-x: 1.1;
+    -fx-scale-y: 1.1;
+}
+
+/* Code Area - Usando -fx-fill para RichTextFX */
+.code-area {
+    -fx-background-color: #102a10; /* Verde escuro */
+    -fx-background-radius: 8px;
+    -fx-padding: 10px;
+    -fx-font-family: "Cascadia Code";
+}
+
+.code-area .content {
+    -fx-background-color: #102a10; /* Verde escuro */
+}
+
+.code-area .text {
+    -fx-font-family: "Cascadia Code";
+    -fx-fill: #c8e6c9; /* Verde acinzentado claro - COR DO TEXTO */
+}
+
+.code-area .text.ip-address {
+    -fx-fill: #72cc76 !important; /* Amarelo/Laranja (ou outra cor de destaque) */
+    -fx-font-weight: 630;
+    -fx-font-family: "Cascadia Code";
+}
+
+.code-area .caret {
+    -fx-stroke: #a5d6a7; /* Verde claro */
+}
+
+.code-area .selection {
+    -fx-fill: #2e7d32; /* Verde escuro (destaque) */
+}
+
+.code-area .text.selection {
+    -fx-fill: #ffffff; /* Branco (texto destaque) */
+}
+
+.small-btn {
+    -fx-font-size: 12px;
+    -fx-padding: 5px 10px;
+    -fx-background-radius: 4px;
+}
+
+.data-table {
+    -fx-background-color: #102a10; /* Verde escuro */
+    -fx-table-cell-border-color: transparent;
+    -fx-border-width: 1px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 8, 0, 0, 3);
+}
+
+.data-table .column-header-background {
+    -fx-background-color: linear-gradient(to right, #1b5e20, #102a10); /* Verde mais escuro -> escuro */
+    -fx-background-radius: 8px 8px 0 0;
+}
+
+.data-table .column-header {
+    -fx-background-color: transparent;
+    -fx-font-weight: bold;
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-padding: 14px 10px;
+    -fx-border-width: 0 0 1 0;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+}
+
+.data-table .table-row-cell {
+    -fx-background-color: #102a10; /* Verde escuro */
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-border-color: rgba(27, 94, 32, 0.3); /* Borda verde sutil */
+    -fx-border-width: 0 0 1 0;
+}
+
+.data-table .table-row-cell .text {
+    -fx-fill: #ffffff; /* Branco */
+}
+
+.data-table .table-row-cell:odd {
+    -fx-background-color: #0a1f0a; /* Verde muito escuro (linhas ímpares) */
+}
+
+.data-table .table-row-cell:hover {
+    -fx-background-color: rgba(27, 94, 32, 0.4); /* Verde semi-transparente */
+}
+
+.data-table .table-row-cell:selected {
+    -fx-background-color: rgba(102, 187, 106, 0.2); /* Verde claro semi-transparente */
+    -fx-border-color: #4caf50; /* Verde médio (borda selecionado) */
+}
+
+.dialog-pane {
+    -fx-background-color: #0a1f0a; /* Verde muito escuro */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 15, 0, 0, 8);
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-border-width: 1px;
+    -fx-border-radius: 10px;
+}
+
+.dialog-pane .label {
+    -fx-text-fill: #ffffff; /* Branco */
+}
+
+.dialog-pane:header .header-panel {
+    -fx-background-color: linear-gradient(to right, #1b5e20, #102a10); /* Verde mais escuro -> escuro */
+    -fx-padding: 16px;
+    -fx-background-radius: 10px 10px 0 0;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-border-width: 0 0 1px 0;
+}
+
+.dialog-pane:header .header-panel .label {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 1, 0, 0, 1);
+}
+
+.dialog-pane > .button-bar > .container {
+    -fx-background-color: #0a1f0a; /* Verde muito escuro */
+    -fx-background-radius: 0 0 10px 10px;
+    -fx-padding: 10px;
+}
+
+.floating-btn {
+    -fx-background-color: linear-gradient(to bottom right, #4caf50, #2e7d32); /* Verde médio -> escuro */
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-background-radius: 50%;
+    -fx-cursor: hand;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(102, 187, 106, 0.4), 15, 0, 0, 5);
+    -fx-min-width: 54px; -fx-min-height: 54px;
+    -fx-padding: 0;
+    -fx-border-width: 1px;
+    -fx-border-color: #81c784; /* Verde claro (borda) */
+    -fx-border-radius: 50%;
+}
+
+.floating-btn:hover {
+    -fx-background-color: linear-gradient(to bottom right, #66bb6a, #388e3c); /* Verde mais claro (hover) */
+    -fx-effect: dropshadow(gaussian, rgba(102, 187, 106, 0.6), 20, 0, 0, 8),
+                innershadow(gaussian, rgba(255,255,255,0.1), 1, 0, 0, 1);
+    -fx-scale-x: 1.08; -fx-scale-y: 1.08;
+    -fx-border-color: #a5d6a7; /* Verde claro (borda hover) */
+    -fx-rotate: 5;
+}
+
+.floating-btn:pressed {
+    -fx-scale-x: 0.92; -fx-scale-y: 0.92;
+    -fx-rotate: 0;
+    -fx-effect: dropshadow(gaussian, rgba(102, 187, 106, 0.2), 10, 0, 0, 3);
+    -fx-background-color: linear-gradient(to bottom right, #1b5e20, #103a10); /* Verde mais escuro -> muito escuro */
+}
+
+.small-delete-btn {
+    -fx-background-color: linear-gradient(to bottom, #d94166, #b82c50); /* Vermelho escuro (mantido) */
+    -fx-text-fill: white;
+    -fx-font-size: 12px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-padding: 4px 8px;
+}
+
+.small-delete-btn:hover {
+    -fx-background-color: linear-gradient(to bottom, #ff5a7e, #d94166); /* Vermelho original */
+    -fx-effect: dropshadow(three-pass-box, rgba(217, 65, 102, 0.4), 6, 0, 0, 2);
+}
+
+.small-delete-btn:pressed {
+    -fx-background-color: linear-gradient(to bottom, #b82c50, #9e1f3e); /* Vermelho mais escuro */
+    -fx-translate-y: 1px;
+}
+
+.icon-glow {
+    -fx-effect: dropshadow(three-pass-box, rgba(129, 199, 132, 0.4), 8, 0.4, 0, 0);
+}
+
+.icon-glow:hover {
+    -fx-effect: dropshadow(three-pass-box, rgba(129, 199, 132, 0.6), 12, 0.6, 0, 0);
+    -fx-scale-x: 1.05; -fx-scale-y: 1.05;
+}
+
+.user-info-box {
+    -fx-background-color: linear-gradient(to bottom right, rgba(27, 94, 32, 0.9), rgba(16, 58, 16, 0.8));
+    -fx-background-radius: 6px;
+    -fx-padding: 8px 12px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-border-radius: 6px;
+    -fx-border-width: 1px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 6, 0, 0, 2);
+}
+
+.user-info-box:hover {
+    -fx-background-color: linear-gradient(to bottom right, rgba(46, 125, 50, 0.9), rgba(27, 94, 32, 0.8));
+    -fx-border-color: #4caf50; /* Verde médio (borda hover) */
+    -fx-translate-x: 2px;
+    -fx-effect: dropshadow(three-pass-box, rgba(102, 187, 106, 0.2), 8, 0, 0, 3);
+}
+
+.user-name {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 1, 0, 0, 1);
+}
+
+.user-role {
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-font-size: 11px;
+}
+
+.dropdown-arrow {
+    -fx-background-color: transparent;
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-font-size: 14px;
+    -fx-padding: 0;
+    -fx-cursor: hand;
+    -fx-border-width: 0;
+    -fx-min-width: 20px; -fx-min-height: 20px;
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.3), 5, 0, 0, 0);
+}
+
+.dropdown-arrow:hover {
+    -fx-background-color: transparent;
+    -fx-scale-x: 1.1; -fx-scale-y: 1.1;
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.5), 8, 0, 0, 0);
+}
+
+.dropdown-arrow-active {
+    -fx-background-color: transparent;
+    -fx-font-weight: bold;
+    -fx-rotate: 180;
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.5), 8, 0, 0, 0);
+}
+
+.scroll-pane, .scroll-bar {
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+}
+
+.scroll-pane > .viewport { -fx-background-color: transparent; }
+
+.scroll-bar:vertical {
+    -fx-background-color: #0a1f0a; /* Verde muito escuro */
+    -fx-background-radius: 6px;
+    -fx-padding: 0 1px;
+    -fx-pref-width: 12px;
+}
+
+.scroll-bar:vertical > .thumb {
+    -fx-background-color: linear-gradient(to bottom, #4caf50, #2e7d32); /* Verde médio -> escuro */
+    -fx-background-radius: 6px;
+    -fx-opacity: 0.8;
+}
+
+.scroll-bar:vertical > .thumb:hover {
+    -fx-background-color: linear-gradient(to bottom, #66bb6a, #388e3c); /* Verde mais claro (hover) */
+    -fx-opacity: 1.0;
+    -fx-effect: dropshadow(three-pass-box, rgba(102, 187, 106, 0.2), 4, 0, 0, 0);
+}
+
+.scroll-bar:horizontal {
+    -fx-background-color: #0a1f0a; /* Verde muito escuro */
+    -fx-background-radius: 6px;
+    -fx-padding: 1px 0;
+    -fx-pref-height: 12px;
+}
+
+.scroll-bar:horizontal > .thumb {
+    -fx-background-color: linear-gradient(to right, #4caf50, #2e7d32); /* Verde médio -> escuro */
+    -fx-background-radius: 6px;
+    -fx-opacity: 0.8;
+}
+
+.scroll-bar:horizontal > .thumb:hover {
+    -fx-background-color: linear-gradient(to right, #66bb6a, #388e3c); /* Verde mais claro (hover) */
+    -fx-opacity: 1.0;
+    -fx-effect: dropshadow(three-pass-box, rgba(102, 187, 106, 0.2), 4, 0, 0, 0);
+}
+
+.scroll-content { -fx-background-color: transparent; -fx-padding: 0; -fx-background-insets: 0; }
+
+.scroll-bar > .increment-button, .scroll-bar > .decrement-button {
+    -fx-background-color: #0a1f0a; /* Verde muito escuro */
+    -fx-padding: 3px;
+}
+
+.scroll-bar > .increment-button > .increment-arrow,
+.scroll-bar > .decrement-button > .decrement-arrow {
+    -fx-background-color: #4caf50; /* Verde médio */
+    -fx-effect: dropshadow(gaussian, rgba(102, 187, 106, 0.3), 2, 0, 0, 0);
+}
+
+.scroll-bar > .increment-button:hover > .increment-arrow,
+.scroll-bar > .decrement-button:hover > .decrement-arrow {
+    -fx-background-color: #a5d6a7; /* Verde claro */
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.5), 4, 0, 0, 0);
+    -fx-scale-x: 1.1; -fx-scale-y: 1.1;
+}
+
+.glass-pane {
+    -fx-background-color: linear-gradient(to bottom, #102a10, #0a1f0a); /* Verde escuro -> muito escuro */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 3);
+    -fx-border-width: 1px;
+    -fx-border-color: rgba(27, 94, 32, 0.4); /* Borda verde sutil */
+}
+
+.help-section {
+    -fx-font-size: 18px;
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-font-weight: bold;
+    -fx-padding: 15px 0 10px 0;
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.5), 5, 0, 0, 0);
+}
+
+.commands-box {
+    -fx-background-color: linear-gradient(to bottom, #102a10, #0a1f0a); /* Verde escuro -> muito escuro */
+    -fx-background-radius: 10px;
+    -fx-padding: 20px;
+    -fx-spacing: 10px;
+    -fx-border-radius: 10px;
+    -fx-border-width: 1px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 8, 0, 0, 3);
+}
+
+.commands-box .label {
+    -fx-font-size: 14px;
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-padding: 2px 0 2px 10px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 1, 0, 0, 1);
+}
+
+.command-highlight {
+    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-weight: bold;
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.5), 3, 0, 0, 0);
+}
+
+.tab-pane {
+    -fx-background-color: transparent;
+    -fx-tab-min-width: 100px; -fx-tab-max-width: 200px;
+    -fx-tab-min-height: 35px;
+}
+
+.tab-pane .tab-header-area { -fx-padding: 5px 0 0 0; }
+
+.tab-pane .tab-header-background {
+    -fx-background-color: #0a1f0a; /* Verde muito escuro */
+    -fx-effect: innershadow(gaussian, rgba(0,0,0,0.3), 3, 0, 0, 1);
+}
+
+.tab-pane .tab {
+    -fx-background-color: #102a10; /* Verde escuro */
+    -fx-background-radius: 8px 8px 0 0;
+    -fx-border-width: 1px 1px 0 1px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-border-radius: 8px 8px 0 0;
+    -fx-padding: 5px 15px;
+}
+
+.tab-pane .tab:selected {
+    -fx-background-color: linear-gradient(to bottom, #2e7d32, #1b5e20); /* Verde escuro -> mais escuro (selecionado) */
+    -fx-border-color: #4caf50 #4caf50 transparent #4caf50; /* Borda verde média */
+    -fx-effect: dropshadow(gaussian, rgba(102, 187, 106, 0.3), 8, 0, 0, -3);
+}
+
+.tab-pane .tab .tab-label {
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+}
+
+.tab-pane .tab:selected .tab-label {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.1), 1, 0, 0, 0);
+}
+
+.tab-pane .tab-content-area {
+    -fx-background-color: #0a1f0a; /* Verde muito escuro */
+    -fx-border-width: 1px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro (borda) */
+    -fx-border-radius: 0 0 8px 8px;
+    -fx-padding: 15px;
+}
+
+.badge {
+    -fx-background-color: #4caf50; /* Verde médio */
+    -fx-background-radius: 12px;
+    -fx-padding: 2px 8px;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(102, 187, 106, 0.4), 5, 0, 0, 1);
+}
+
+.alert-badge {
+    -fx-background-color: #d9344d; /* Vermelho (mantido) */
+    -fx-background-radius: 12px;
+    -fx-padding: 2px 8px;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(217, 52, 77, 0.7), 5, 0, 0, 1);
+}
+
+.notification {
+    -fx-background-color: linear-gradient(to bottom right, rgba(27, 94, 32, 0.95), rgba(16, 58, 16, 0.9)); /* Verde escuro semi-transparente */
+    -fx-background-radius: 8px;
+    -fx-padding: 12px;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1px;
+    -fx-border-color: #4caf50; /* Verde médio (borda) */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 15, 0, 0, 8);
+}
+
+.notification-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-effect: dropshadow(gaussian, rgba(129, 199, 132, 0.5), 3, 0, 0, 0);
+}
+
+.notification-message {
+    -fx-font-size: 12px;
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-wrap-text: true;
+}
+
+.theme-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-size: 16px;
+    -fx-padding: 5px;
+    -fx-background-radius: 4px;
+    -fx-border-width: 0;
+    -fx-cursor: hand;
+}
+
+.version-text {
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-font-weight: 700;
+    -fx-font-size: 12px;
+}
+
+.credits-link {
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+}
+.credits-link:hover { -fx-text-fill: #ffffff; /* Branco */ }
+.credits-link:visited { -fx-text-fill: #a5d6a7; /* Verde claro */ }
+
+.credits-title {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-padding: 0 0 10px 0;
+}
+
+.credits-text {
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-font-size: 14px;
+}
+
+/* === Estilos Adaptados para Green === */
+
+/* Correção dos painéis de usuários */
+.user-pane {
+    -fx-background-color: transparent;
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+}
+
+.user-pane > .title {
+    -fx-background-color: transparent;
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-border-color: transparent;
+    -fx-padding: 6px 5px; /* Padding reduzido (mantido) */
+    -fx-font-weight: bold;
+    -fx-font-size: 11px; /* Tamanho reduzido (mantido) */
+}
+
+.user-pane > .title:hover {
+    -fx-background-color: transparent;
+}
+
+.user-pane > .content {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 2px;
+}
+
+.user-info-box {
+    -fx-background-color: linear-gradient(to bottom right, rgba(27, 94, 32, 0.9), rgba(16, 58, 16, 0.8)); /* Verde escuro semi-transparente */
+    -fx-background-radius: 6px;
+    -fx-padding: 8px 12px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro */
+    -fx-border-radius: 6px;
+    -fx-border-width: 1px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 6, 0, 0, 2);
+}
+
+.user-info-box:hover {
+    -fx-background-color: linear-gradient(to bottom right, rgba(46, 125, 50, 0.9), rgba(27, 94, 32, 0.8)); /* Verde mais claro semi-transparente */
+    -fx-border-color: #4caf50; /* Verde médio */
+    -fx-translate-x: 2px;
+    -fx-effect: dropshadow(three-pass-box, rgba(102, 187, 106, 0.2), 8, 0, 0, 3); /* Sombra verde */
+}
+
+/* Reduzir tamanho dos textos nas abas de usuário (mantido) */
+.user-name {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+.user-tag {
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-font-size: 10px;
+}
+
+.user-role {
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-font-size: 10.5px;
+    -fx-font-style: italic;
+}
+
+/* Correção para ScrollPane transparente */
+.transparent-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+    -fx-fit-to-height: true; /* Mantido */
+    -fx-fit-to-width: true; /* Mantido */
+    -fx-min-height: 100vh; /* Mantido */
+    -fx-pref-height: -1; /* Mantido */
+}
+
+.transparent-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.transparent-scroll > .scroll-bar:vertical,
+.transparent-scroll > .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+
+.transparent-scroll > .scroll-bar:vertical .track,
+.transparent-scroll > .scroll-bar:horizontal .track {
+    -fx-background-color: #102a10; /* Verde escuro */
+    -fx-border-color: transparent;
+    -fx-background-radius: 4px;
+}
+
+.transparent-scroll > .scroll-bar:vertical .thumb,
+.transparent-scroll > .scroll-bar:horizontal .thumb {
+    -fx-background-color: #4caf50; /* Verde médio */
+    -fx-background-radius: 4px;
+}
+
+.transparent-scroll > .scroll-bar:vertical .thumb:hover,
+.transparent-scroll > .scroll-bar:horizontal .thumb:hover {
+    -fx-background-color: #66bb6a; /* Verde mais claro */
+}
+
+.transparent-scroll > .corner {
+    -fx-background-color: transparent;
+}
+
+/* Estilos para a janela de mensagem direta (DM) */
+.dm-chat-layout {
+    -fx-background-color: #0a1f0a; /* Background */
+}
+
+.dm-messages-container {
+    -fx-background-color: #0a1f0a; /* Background */
+}
+
+.bolha-enviada {
+    -fx-background-color: #2e7d32; /* Verde escuro */
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-padding: 8px 12px;
+    -fx-background-radius: 16px;
+}
+
+.bolha-recebida {
+    -fx-background-color: #102a10; /* Verde escuro (um pouco mais claro) */
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-padding: 8px 12px;
+    -fx-background-radius: 16px;
+}
+
+.message-sender-name {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+
+.message-timestamp {
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-font-size: 10px;
+    -fx-alignment: center-right;
+}
+
+.dm-input-container {
+    -fx-background-color: transparent;
+    -fx-padding: 10px;
+    -fx-spacing: 8px;
+}
+
+.dm-input-field {
+    -fx-background-color: #102a10; /* Verde escuro (um pouco mais claro) */
+    -fx-border-color: #1b5e20; /* Verde mais escuro */
+    -fx-border-width: 1px;
+    -fx-border-radius: 16px;
+    -fx-background-radius: 16px;
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-prompt-text-fill: #a5d6a7; /* Verde claro */
+    -fx-padding: 8px 12px;
+}
+
+.dm-send-button {
+    -fx-background-color: #4caf50; /* Verde médio */
+    -fx-border-width: 0;
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-weight: bold;
+    -fx-background-radius: 20px;
+    -fx-padding: 8px 16px;
+    -fx-cursor: hand;
+}
+
+.dm-send-bttn:hover {
+    -fx-background-color: #66bb6a; /* Verde mais claro */
+}
+
+/* Estilos para perfil de usuário no drawer lateral */
+.user-profile-drawer {
+    -fx-background-color: #0a1f0a; /* Background */
+    -fx-border-color: #1b5e20; /* Verde mais escuro */
+    -fx-border-width: 0 0 0 1px;
+}
+
+.close-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-font-weight: bold;
+    -fx-padding: 4px 8px;
+    -fx-cursor: hand;
+}
+
+.close-button:hover {
+    -fx-background-color: #2e7d32; /* Verde escuro */
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-background-radius: 4px;
+}
+
+/* Profile Text (usando tamanhos originais do profile) */
+.profile-user-name {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-weight: bold;
+    -fx-font-size: 18px;
+}
+
+.profile-user-tag {
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-font-size: 15px;
+    -fx-font-style: italic;
+}
+
+.profile-user-role {
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.profile-user-status {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-size: 13px;
+    -fx-padding: 5px 0;
+}
+
+.profile-separator {
+    -fx-background-color: #102a10; /* Verde escuro */
+}
+
+.profile-section-title {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+    -fx-padding: 5px 0;
+}
+
+.profile-message-field {
+    -fx-background-color: #102a10; /* Verde escuro */
+    -fx-border-color: #1b5e20; /* Verde mais escuro */
+    -fx-border-width: 1px;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-prompt-text-fill: #a5d6a7; /* Verde claro */
+    -fx-padding: 8px;
+}
+
+/* Estilo para usuários online/offline */
+/* .user-pane > .title já definido acima com tamanho reduzido */
+
+.user-pane:expanded > .title {
+    -fx-background-color: transparent;
+}
+
+/* Remove bordas brancas em TitledPane quando expandido */
+.user-pane:expanded > .title > .arrow-button > .arrow {
+    -fx-background-color: #c8e6c9; /* Verde acinzentado claro */
+}
+
+.user-pane > .title > .arrow-button > .arrow {
+    -fx-background-color: #c8e6c9; /* Verde acinzentado claro */
+}
+
+/* Correções para sidebar que não estende até o final */
+.side-status {
+    -fx-min-height: 100%;
+    -fx-background-color: linear-gradient(to bottom, #102a10, #0a1f0a); /* Verde escuro -> muito escuro */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 0);
+    -fx-border-width: 0 0 0 1px;
+    -fx-border-color: #1b5e20; /* Verde mais escuro */
+}
+
+/* Reduzir tamanho da exibição do avatar (mantido) */
+.user-info-box ImageView {
+    -fx-fit-width: 28px;
+    -fx-fit-height: 28px;
+}
+
+/* Profile Text Maior (mantido) */
+.user-name-profile {
+    -fx-text-fill: #ffffff; /* Branco */
+    -fx-font-weight: bold;
+    -fx-font-size: 18px;
+}
+
+.user-tag-profile {
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-font-size: 15px;
+    -fx-font-style: italic;
+}
+
+.user-role-profile {
+    -fx-text-fill: #a5d6a7; /* Verde claro */
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-font-style: italic;
+}
+
+/* Botão de Ação do Perfil */
+.action-button-profile {
+    -fx-background-color: linear-gradient(to bottom right, #2e7d32, #1b5e20); /* Verde escuro -> mais escuro */
+    -fx-background-radius: 6px;
+    -fx-padding: 10px 14px;
+    -fx-cursor: hand;
+    -fx-font-weight: 700;
+    -fx-font-size: 12px;
+    -fx-border-width: 1px;
+    -fx-border-color: #4caf50; /* Verde médio */
+    -fx-border-radius: 6px;
+    -fx-effect: innershadow(gaussian, #103a10, 1, 0, 0, 1); /* Sombra interna verde escura */
+    -fx-text-fill: #ffffff; /* Branco */
+}
+
+.action-button-profile:hover {
+    -fx-background-color: linear-gradient(to bottom right, #388e3c, #2e7d32); /* Verde médio -> escuro (hover) */
+    -fx-effect: dropshadow(three-pass-box, rgba(102, 187, 106, 0.4), 12, 0, 0, 0); /* Sombra verde clara */
+    -fx-translate-y: -1px;
+    -fx-border-color: #81c784; /* Verde claro */
+}
+
+.action-button-profile:pressed {
+    -fx-background-color: linear-gradient(to bottom right, #1b5e20, #103a10); /* Verde mais escuro -> muito escuro */
+    -fx-translate-y: 1px;
+    -fx-effect: innershadow(gaussian, #0a280a, 5, 0, 0, 1); /* Sombra interna mais escura */
+    -fx-border-color: #2e7d32; /* Verde escuro */
+}
+
+.back-button {
+    -fx-font-size: 20px;
+    -fx-text-fill: #c8e6c9; /* Verde acinzentado claro */
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-padding: 2px 10px;
+    -fx-effect: dropshadow(gaussian, rgba(200, 230, 201, 0.2), 3, 0, 0, 0);
+}
+.back-button:hover {
+    -fx-text-fill: #ffffff; /* Branco */
+}
