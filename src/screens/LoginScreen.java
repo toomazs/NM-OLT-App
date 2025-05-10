@@ -21,6 +21,8 @@ import utils.ConfigManager;
 import utils.ThemeManager;
 import javafx.application.Platform;
 import java.io.InputStream;
+import database.LoginResultStatus;
+import java.util.Optional;
 
 public class LoginScreen {
     private Usuario usuarioLogado;
@@ -211,7 +213,6 @@ public class LoginScreen {
             Platform.runLater(passField::requestFocus);
         }
 
-
         Button loginBtn = new Button("Entrar");
         loginBtn.getStyleClass().add("modern-button");
         loginBtn.setId("login-button");
@@ -246,10 +247,11 @@ public class LoginScreen {
 
             loginBtn.setDisable(true);
             alterarSenhaBtn.setDisable(true);
+            userField.setDisable(true);
+            passField.setDisable(true);
 
             ProgressIndicator progressIndicator = new ProgressIndicator();
             progressIndicator.setMaxSize(20, 20);
-
             String originalText = loginBtn.getText();
             Label loadingLabel = new Label("Verificando...");
             loadingLabel.getStyleClass().add("loading-label");
@@ -257,33 +259,59 @@ public class LoginScreen {
             loadingBox.setAlignment(Pos.CENTER);
             loginBtn.setGraphic(loadingBox);
             loginBtn.setText("");
+            status.setText("");
 
-            PauseTransition pause = new PauseTransition(Duration.millis(600));
-            pause.setOnFinished(event -> {
-                Usuario usuarioObj = DatabaseManager.login(usuario, senha);
+            Thread loginThread = new Thread(() -> {
+                LoginResultStatus loginStatus = DatabaseManager.attemptLogin(usuario, senha);
 
-                if (usuarioObj != null) {
-                    usuarioLogado = usuarioObj;
-                    DatabaseManager.logUsuario(usuarioObj.getNome(), "Fez login no sistema");
-                    DatabaseManager.atualizarStatus(usuarioObj.getUsuario(), "online");
-
-                    Node rootNode = stage.getScene().getRoot();
-                    FadeTransition fadeOut = new FadeTransition(Duration.millis(300), rootNode);
-                    fadeOut.setFromValue(rootNode.getOpacity());
-                    fadeOut.setToValue(0.0);
-                    fadeOut.setOnFinished(finishEvent -> stage.close());
-                    fadeOut.play();
-                } else {
+                Platform.runLater(() -> {
                     loginBtn.setGraphic(null);
                     loginBtn.setText(originalText);
                     loginBtn.setDisable(false);
                     alterarSenhaBtn.setDisable(false);
+                    userField.setDisable(false);
+                    passField.setDisable(false);
 
+                    switch (loginStatus) {
+                        case SUCCESS:
+                            Optional<Usuario> userOpt = DatabaseManager.getUsuarioByUsername(usuario);
+                            if (userOpt.isPresent()) {
+                                usuarioLogado = userOpt.get();
+                                DatabaseManager.logUsuario(usuarioLogado.getNome(), "Fez login no sistema");
 
-                    showStatusMessage(status, "Usuário ou senha inválidos.", true);
-                }
+                                Node rootNode = stage.getScene().getRoot();
+                                FadeTransition fadeOut = new FadeTransition(Duration.millis(300), rootNode);
+                                fadeOut.setFromValue(rootNode.getOpacity());
+                                fadeOut.setToValue(0.0);
+                                fadeOut.setOnFinished(finishEvent -> stage.close());
+                                fadeOut.play();
+                            } else {
+                                showStatusMessage(status, "❌ Erro ao carregar dados do usuário após login.", true);
+                            }
+                            break;
+
+                        case ALREADY_LOGGED_IN:
+                            showStatusMessage(status, "❌ Este usuário já está logado em outra máquina.", true);
+                            passField.clear();
+                            passField.requestFocus();
+                            break;
+
+                        case INVALID_CREDENTIALS:
+                            showStatusMessage(status, "❌ Usuário ou senha inválidos.", true);
+                            passField.clear();
+                            passField.requestFocus();
+                            break;
+
+                        case DATABASE_ERROR:
+                        default:
+                            showStatusMessage(status, "❌ Erro de conexão com o banco de dados.", true);
+                            break;
+                    }
+                });
             });
-            pause.play();
+            loginThread.setDaemon(true);
+            loginThread.start();
+
         });
 
         alterarSenhaBtn.setOnAction(e -> {

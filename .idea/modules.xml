@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/OLTApp.iml" filepath="$PROJECT_DIR$/OLTApp.iml" />
+      <module fileurl="file://$PROJECT_DIR$/update/OLTApp.iml" filepath="$PROJECT_DIR$/update/OLTApp.iml" />
     </modules>
   </component>
 </project>
