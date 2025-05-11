@@ -2,8 +2,6 @@
 src/Secrets.java
 src/database/SecretsDB.java
 
-# Ignorar .jar especifico
-OLTApp.jar
 
 # Ignorar pastas especificas
 exports/
