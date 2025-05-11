@@ -81,14 +81,27 @@ import java.awt.Graphics2D;
 import java.awt.MediaTracker;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
-import java.io.FileNotFoundException;
-import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicReference;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.StackPane;
+import org.kordamp.ikonli.javafx.FontIcon;
+import java.util.Optional;
 import java.nio.file.Paths;
-import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+import utils.WindowsUtils;
+import java.util.Set;
+import java.util.HashSet;
 
 
 public class Main extends Application {
+    private static final String APP_ID = "YourCompanyName.GerenciadorOLTs";
     private double xOffset = 0;
     private double yOffset = 0;
     private Usuario usuario;
@@ -112,11 +125,6 @@ public class Main extends Application {
     private Node statusSidebar;
     private ScrollPane userProfileDrawer;
     private VBox conversationsScreenRoot = null;
-    private ExecutorService backgroundExecutor = Executors.newCachedThreadPool(runnable -> {
-        Thread t = Executors.defaultThreadFactory().newThread(runnable);
-        t.setDaemon(true);
-        return t;
-    });
     private final Map<String, Node> userNodeMap = new HashMap<>();
     private final Map<String, String> userStatusMap = new HashMap<>();
     private final Map<String, String> userLocationMap = new HashMap<>();
@@ -130,12 +138,27 @@ public class Main extends Application {
     private PrintStream fileLogger;
     private static final String DEBUG_LOG_FILE = "debug.log";
     private static final String LOG_DIRECTORY = "logs";
+    private final int MESSAGES_PER_PAGE = 50;
+    private int currentMessageOffset = 0;
+    private int totalMessages = 0;
+    private boolean isLoadingMessages = false;
+    private Set<Integer> notifiedMessageIds = new HashSet<>(); // Adicionado para rastrear mensagens notificadas
+    private Usuario currentChatPartner = null;
+    private ExecutorService backgroundExecutor = Executors.newCachedThreadPool(runnable -> {
+        Thread t = Executors.defaultThreadFactory().newThread(runnable);
+        t.setDaemon(true);
+        return t;
+    });
+
 
 
 
     // ---------------------- START ---------------------- //
     @Override
     public void start(Stage primaryStage) {
+
+        WindowsUtils.setAppUserModelId(APP_ID);
+
         setupFileLogging();
 
         if (configManager != null) {
@@ -192,7 +215,10 @@ public class Main extends Application {
             rootLayout.setAlignment(Pos.TOP_CENTER);
             rootLayout.getStyleClass().add("root");
 
-            rootLayout.getChildren().add(createTitleBar());
+            // rootLayout.getChildren().add(createTitleBar()); // Add title bar here
+            HBox titleBar = createTitleBar(); // Create title bar
+            rootLayout.getChildren().add(titleBar); // Add title bar to rootLayout
+
             mainContent = new BorderPane();
 
             VBox.setVgrow(mainContent, Priority.ALWAYS);
@@ -227,10 +253,43 @@ public class Main extends Application {
 
             scheduler.scheduleAtFixedRate(this::performEfficientSidebarUpdate, 5, 10, TimeUnit.SECONDS);
 
+            scheduler.scheduleAtFixedRate(() -> {
+                if (usuarioLogado == null || "não_perturbe".equalsIgnoreCase(usuarioLogado.getStatus())) return;
+
+                List<DatabaseManager.ConversationInfo> conversas = DatabaseManager.getConversas(usuarioLogado.getUsuario());
+
+                for (DatabaseManager.ConversationInfo conversa : conversas) {
+                    Mensagem ultimaMsg = conversa.getUltimaMensagem();
+
+                    if (ultimaMsg != null && !ultimaMsg.isLida() &&
+                            !ultimaMsg.getRemetente().equals(usuarioLogado.getUsuario())) {
+
+                        // Verifica se esta mensagem já gerou uma notificação nesta sessão
+                        if (!notifiedMessageIds.contains(ultimaMsg.getId())) {
+                            Platform.runLater(() -> {
+                                if (trayIcon != null) {
+                                    Usuario remetente = conversa.getOutroUsuario();
+                                    updateTrayIconWithAvatar(remetente);
+
+                                    trayIcon.displayMessage(
+                                            "Nova mensagem de " + remetente.getNome(),
+                                            ultimaMsg.getConteudo(),
+                                            TrayIcon.MessageType.INFO
+                                    );
+                                }
+                            });
+                            // Adiciona a ID da mensagem ao conjunto de notificadas
+                            notifiedMessageIds.add(ultimaMsg.getId());
+                        }
+
+                        break; // Breaks after finding the first unread message in the list
+                    }
+                }
+            }, 5, 8, TimeUnit.SECONDS);
+
             terminalTabs = new TabPane();
             terminalTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
             terminalTabs.setTabMinWidth(150);
-
 
             Tab oltsTab = new Tab("Lista de OLTs");
             oltsTab.setClosable(false);
@@ -257,9 +316,9 @@ public class Main extends Application {
                 content.setPrefSize(500, 450);
                 content.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.3)));
 
-                HBox titleBar = new HBox();
-                titleBar.setAlignment(Pos.CENTER_LEFT);
-                titleBar.setPadding(new Insets(5, 10, 5, 15));
+                HBox ticketTitleBar = new HBox(); // Use a different name for ticket title bar
+                ticketTitleBar.setAlignment(Pos.CENTER_LEFT);
+                ticketTitleBar.setPadding(new Insets(5, 10, 5, 15));
 
                 Label title = new Label("Novo Ticket Interno");
                 title.getStyleClass().add("olt-name");
@@ -272,7 +331,7 @@ public class Main extends Application {
                 closeBtn.setOnAction(ev -> ticketStage.close());
                 addEnhancedButtonHoverEffects(closeBtn);
 
-                titleBar.getChildren().addAll(title, spacer, closeBtn);
+                ticketTitleBar.getChildren().addAll(title, spacer, closeBtn);
 
                 Label descLabel = new Label("Descrição do Problema:");
                 descLabel.getStyleClass().add("form-label");
@@ -312,11 +371,10 @@ public class Main extends Application {
                 });
 
                 btnRow.getChildren().addAll(okBtn);
-                content.getChildren().addAll(titleBar, descLabel, descricaoArea, prioridadeLabel, prioridadeBox, infoLabel, btnRow);
+                content.getChildren().addAll(ticketTitleBar, descLabel, descricaoArea, prioridadeLabel, prioridadeBox, infoLabel, btnRow); // Added ticketTitleBar
 
                 Scene scene = new Scene(content);
                 ThemeManager.applyThemeToNewScene(scene);
-
 
                 ticketStage.setScene(scene);
                 ticketStage.show();
@@ -330,10 +388,9 @@ public class Main extends Application {
 
             Scene scene = new Scene(rootStack, 1360, 720);
             ThemeManager.applyTheme(scene, configManager.getTheme());
+
             primaryStage.setScene(scene);
             primaryStage.setTitle("Gerenciador de OLTs");
-
-
             primaryStage.setOnCloseRequest(event -> {
                 System.out.println("Window close requested.");
                 event.consume();
@@ -384,7 +441,7 @@ public class Main extends Application {
             );
             fadeIn.play();
 
-            setupWindowDrag(rootLayout.getChildren().get(0));
+            // setupWindowDrag(rootLayout.getChildren().get(0)); // Drag handled by titleBar
 
             scene.setOnKeyPressed(event -> {
                 if (event.isControlDown() && event.getCode() == KeyCode.F) {
@@ -406,6 +463,7 @@ public class Main extends Application {
                 }
             });
 
+
             performEfficientSidebarUpdate();
 
 
@@ -416,7 +474,6 @@ public class Main extends Application {
             Platform.exit();
         }
     }
-    // ---------------------- START ---------------------- //
 
     private void setupFileLogging() {
         try {
@@ -437,13 +494,15 @@ public class Main extends Application {
         }
     }
 
-
     private void closeFileLogging() {
         if (fileLogger != null && fileLogger != System.out && fileLogger != System.err) {
             fileLogger.println("--- Aplicativo Encerrado: " + LocalDateTime.now() + " ---");
             fileLogger.close();
         }
     }
+    // ---------------------- START ---------------------- //
+
+
 
 
 
@@ -452,14 +511,16 @@ public class Main extends Application {
     private VBox createSideNavigation() {
         VBox sideNav = new VBox(10);
         sideNav.getStyleClass().add("side-nav");
+        // sideNav.setPrefWidth(200); // Use minWidth instead of prefWidth for responsiveness
         sideNav.setPrefWidth(200);
+        sideNav.setMaxWidth(250); // Optional: set a max width
         sideNav.setPadding(new Insets(20, 0, 20, 0));
 
         HBox versionBox = new HBox();
         versionBox.setAlignment(Pos.CENTER_LEFT);
         versionBox.setPadding(new Insets(0, 0, 10, 15));
 
-        Label versionLabel = new Label("v1.5.3.0 • ");
+        Label versionLabel = new Label("v1.5.4.0 • ");
         versionLabel.getStyleClass().add("version-text");
 
         Label creditsLink = new Label("créditos");
@@ -790,7 +851,9 @@ public class Main extends Application {
         Node currentContent = mainContent.getCenter();
         Node newContent = null;
 
-        if (contentCache.containsKey(section)) {
+        if (section.equals("Chamados")) {
+            newContent = createTechnicalTicketsScreen();
+        } else if (contentCache.containsKey(section)) {
             newContent = contentCache.get(section);
         } else {
             switch (section) {
@@ -819,10 +882,13 @@ public class Main extends Application {
                     newContent = new VBox();
                     break;
             }
-            if (newContent != null && !section.startsWith("DM-")) {
+            if (newContent != null && !section.startsWith("DM-") && !section.equals("Chamados")) {
                 contentCache.put(section, newContent);
-                DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), "Em Conversa");
+                DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), section);
+            } else if (section.equals("Chamados")) {
+                DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), "Chamados");
             }
+
         }
 
         final Node finalNewContent = newContent;
@@ -877,6 +943,7 @@ public class Main extends Application {
             Node novaSidebar = createStatusSidebar();
             if (novaSidebar instanceof Region) {
                 ((Region) novaSidebar).setMaxHeight(Double.MAX_VALUE);
+                VBox.setVgrow((ScrollPane)novaSidebar, Priority.ALWAYS); // Ensure scrollpane grows
             }
             mainContent.setRight(novaSidebar);
             statusSidebar = novaSidebar;
@@ -979,53 +1046,68 @@ public class Main extends Application {
             }
         });
 
-        perfilBox.getChildren().addAll(profileAvatarView, nomeLabel, usuarioLabel, cargoLabel, trocarFotoBtn, statusLabel, statusCombo);
+        perfilBox.getChildren().addAll(
+                profileAvatarView,
+                nomeLabel,
+                usuarioLabel,
+                cargoLabel,
+                trocarFotoBtn,
+                new Separator(javafx.geometry.Orientation.HORIZONTAL),
+                statusLabel,
+                statusCombo);
         return perfilBox;
     }
 
     private Node createStatusSidebar() {
         VBox sidebarVBox = new VBox(10);
         sidebarVBox.setPadding(new Insets(10));
+        // sidebarVBox.setPrefWidth(220); // Use minWidth instead of prefWidth
         sidebarVBox.setPrefWidth(220);
-        sidebarVBox.setMaxWidth(220);
+        sidebarVBox.setMaxWidth(250); // Optional: set max width
         sidebarVBox.getStyleClass().add("side-status");
+        VBox.setVgrow(sidebarVBox, Priority.ALWAYS); // Allow sidebarVBox to grow
 
         onlineUserBox = new VBox(5);
         onlineUserBox.setPadding(new Insets(5, 0, 5, 0));
+        VBox.setVgrow(onlineUserBox, Priority.ALWAYS); // Allow onlineUserBox to grow
 
         offlineUserBox = new VBox(5);
         offlineUserBox.setPadding(new Insets(5, 0, 5, 0));
+        // Don't set Vgrow for offlineUserBox so it doesn't take up space when collapsed
 
         ScrollPane offlineScrollPane = new ScrollPane(offlineUserBox);
         offlineScrollPane.setFitToWidth(true);
         offlineScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         offlineScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         offlineScrollPane.getStyleClass().add("transparent-scroll");
-        offlineScrollPane.setMaxHeight(Double.MAX_VALUE);
+        offlineScrollPane.setMaxHeight(Double.MAX_VALUE); // Allow scrollpane to take max height
 
         onlinePane = new TitledPane("Online (0)", onlineUserBox);
         onlinePane.setExpanded(true);
         onlinePane.getStyleClass().add("user-pane");
         onlinePane.setAnimated(false);
+        VBox.setVgrow(onlinePane, Priority.ALWAYS); // Allow onlinePane to grow
 
         offlinePane = new TitledPane("Offline (0)", offlineScrollPane);
         offlinePane.setExpanded(false);
         offlinePane.getStyleClass().add("user-pane");
         offlinePane.setAnimated(false);
+        // Don't set Vgrow for offlinePane
 
         sidebarVBox.getChildren().addAll(onlinePane, offlinePane);
 
         ScrollPane mainScrollPane = new ScrollPane(sidebarVBox);
         mainScrollPane.setFitToWidth(true);
-        mainScrollPane.setFitToHeight(true);
+        mainScrollPane.setFitToHeight(true); // Fit to height of its content
         mainScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         mainScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         mainScrollPane.getStyleClass().add("transparent-scroll");
-        mainScrollPane.setMaxHeight(Double.MAX_VALUE);
-        VBox.setVgrow(mainScrollPane, Priority.ALWAYS);
+        mainScrollPane.setMaxHeight(Double.MAX_VALUE); // Allow main scrollpane to take max height
+        VBox.setVgrow(mainScrollPane, Priority.ALWAYS); // Make sure the main scrollpane grows within the parent
 
         return mainScrollPane;
     }
+
 
     private HBox criarUserBox(Usuario u) {
         HBox userBox = new HBox(8);
@@ -1034,6 +1116,7 @@ public class Main extends Application {
         userBox.getStyleClass().addAll("user-info-box", "user-hbox");
         userBox.setUserData(u.getUsuario());
         userBox.setOnMouseClicked(event -> abrirPerfilUsuario(u));
+        userBox.setMaxWidth(Double.MAX_VALUE); // Allow HBox to take max width
 
         ImageView avatar = carregarAvatar(u.getFotoPerfil(), 32, 32);
         Circle clip = new Circle(16, 16, 16);
@@ -1057,7 +1140,7 @@ public class Main extends Application {
         nomeLabel.getStyleClass().add("user-name");
 
         String location = u.getAbaAtual();
-        boolean isOnlineOrAusente = "online".equalsIgnoreCase(u.getStatus()) || "ausente".equalsIgnoreCase(u.getStatus());
+        boolean isOnlineOrAusente = "online".equalsIgnoreCase(u.getStatus()) || "ausente".equalsIgnoreCase(u.getStatus()) || "não_perturbe".equalsIgnoreCase(u.getStatus()); // Include não_perturbe
         String displayStatus = (isOnlineOrAusente && location != null && !location.isBlank()) ? location : "";
         Label statusLabel = new Label(displayStatus);
 
@@ -1067,6 +1150,7 @@ public class Main extends Application {
         statusLabel.setManaged(!displayStatus.isEmpty());
 
         nameBox.getChildren().addAll(nomeLabel, statusLabel);
+        HBox.setHgrow(nameBox, Priority.ALWAYS); // Allow nameBox to grow
 
         userBox.getChildren().addAll(avatarStack, nameBox);
 
@@ -1074,56 +1158,129 @@ public class Main extends Application {
     }
 
     private void abrirPerfilUsuario(Usuario u) {
+        // Busca os dados mais recentes do usuário para garantir que a foto e status estão atualizados
         Usuario usuarioMaisRecente = DatabaseManager.getUsuarioByUsername(u.getUsuario()).orElse(u);
-        final Usuario usuarioParaExibir = usuarioMaisRecente;
+        final Usuario usuarioParaExibir = usuarioMaisRecente; // Usa final para lambda
 
+        // Lógica para fechar ou substituir o drawer existente
         if (userProfileDrawer != null && mainContent.getRight() == userProfileDrawer) {
             String userInDrawer = (userProfileDrawer.getContent() instanceof VBox) ? (String) ((VBox) userProfileDrawer.getContent()).getUserData() : null;
             if (userInDrawer != null && userInDrawer.equals(usuarioParaExibir.getUsuario())) {
+                // Se o drawer já está aberto para este usuário, fecha ele
                 mainContent.setRight(statusSidebar);
                 userProfileDrawer = null;
-                return;
+                return; // Sai do método
             } else {
+                // Se é de outro usuário, fecha o drawer atual antes de abrir o novo
                 mainContent.setRight(statusSidebar);
                 userProfileDrawer = null;
             }
         }
 
+        // Cria o painel do perfil
         VBox profilePane = new VBox(15);
         profilePane.setPadding(new Insets(20));
-        profilePane.setPrefWidth(220);
+        profilePane.setPrefWidth(220); // Largura do drawer
         profilePane.getStyleClass().add("user-profile-drawer");
-        profilePane.setUserData(usuarioParaExibir.getUsuario());
+        profilePane.setUserData(usuarioParaExibir.getUsuario()); // Guarda o usuário exibido
+        profilePane.setAlignment(Pos.TOP_CENTER); // Align content to top-center
+        VBox.setVgrow(profilePane, Priority.ALWAYS); // Allow profilePane to grow
 
+        // Botão de fechar
         Button closeButton = new Button("✕");
-        closeButton.getStyleClass().addAll("window-btn", "close-btn");
+        closeButton.getStyleClass().addAll("window-btn", "close-btn", "profile-close-button"); // Adiciona classe específica
         closeButton.setOnAction(e -> {
-            mainContent.setRight(statusSidebar);
+            mainContent.setRight(statusSidebar); // Volta para a sidebar de status
             userProfileDrawer = null;
         });
-
         HBox topBar = new HBox(closeButton);
         topBar.setAlignment(Pos.TOP_RIGHT);
 
+        // Avatar do usuário
         ImageView avatar = carregarAvatar(usuarioParaExibir.getFotoPerfil(), 120, 120);
-        avatar.setClip(new Circle(60, 60, 60));
+        avatar.setClip(new Circle(60, 60, 60)); // Clip circular
 
+        // Círculo de status sobreposto ao avatar
         Circle statusCircle = new Circle(10);
-        statusCircle.setStroke(Color.web("#1e1e2e"));
+        statusCircle.setStroke(Color.web("#1e1e2e")); // Cor da borda baseada no tema?
         statusCircle.setStrokeWidth(2);
         statusCircle.setFill(getStatusColor(usuarioParaExibir.getStatus()));
-
-
         StackPane avatarStack = new StackPane(avatar, statusCircle);
         StackPane.setAlignment(statusCircle, Pos.BOTTOM_RIGHT);
         StackPane.setMargin(statusCircle, new Insets(0, 5, 5, 0));
+        StackPane.setAlignment(avatarStack, Pos.CENTER); // Center the avatar stack
 
-        Label nomeLabel = new Label("\n" + usuarioParaExibir.getNome());
+        // --- Lógica para Trocar Foto (Apenas se for o usuário logado) ---
+        if (usuarioLogado != null && usuarioLogado.getUsuario().equals(usuarioParaExibir.getUsuario())) {
+            avatar.setCursor(Cursor.HAND);
+            Tooltip.install(avatar, new Tooltip("Clique para alterar sua foto"));
+
+            avatar.setOnMouseClicked(event -> {
+                FileChooser fileChooser = new FileChooser();
+                fileChooser.setTitle("Selecione sua nova foto de perfil");
+                fileChooser.getExtensionFilters().addAll(
+                        new FileChooser.ExtensionFilter("Imagens", "*.png", "*.jpg", "*.jpeg", "*.gif")
+                );
+
+                File file = fileChooser.showOpenDialog(primaryStage); // Usa primaryStage
+                if (file != null) {
+                    try {
+                        // Opcional: Verificação de tamanho
+                        if (file.length() > 5 * 1024 * 1024) { // Limite de 5MB
+                            Alert sizeError = new Alert(Alert.AlertType.ERROR, "Arquivo muito grande (limite: 5MB).");
+                            sizeError.initOwner(primaryStage);
+                            sizeError.showAndWait();
+                            return;
+                        }
+
+                        byte[] imageBytes = Files.readAllBytes(file.toPath());
+                        DatabaseManager.atualizarFotoPerfil(usuarioLogado.getUsuario(), imageBytes);
+
+                        // Atualiza o objeto local 'usuarioLogado' com a nova foto
+                        usuarioLogado = new Usuario(
+                                usuarioLogado.getNome(),
+                                usuarioLogado.getUsuario(),
+                                usuarioLogado.getCargo(),
+                                usuarioLogado.getStatus(),
+                                imageBytes, // Nova foto
+                                usuarioLogado.getAbaAtual()
+                        );
+
+                        // Atualiza a ImageView no drawer imediatamente
+                        try {
+                            Image newProfileImage = new Image(new ByteArrayInputStream(imageBytes));
+                            if (newProfileImage.isError()) throw new IOException("Erro ao carregar bytes da imagem.");
+                            avatar.setImage(newProfileImage);
+                            // Reaplicar clip pode ser necessário se o tamanho da ImageView mudar
+                            avatar.setClip(new Circle(avatar.getFitWidth() / 2.0, avatar.getFitHeight() / 2.0, Math.min(avatar.getFitWidth(), avatar.getFitHeight()) / 2.0));
+                        } catch (Exception imgEx) {
+                            System.err.println("Erro ao atualizar ImageView no drawer: " + imgEx.getMessage());
+                            fileLogger.println("ERRO (abrirPerfilUsuario): Falha ao atualizar ImageView: " + imgEx.getMessage());
+                            // Mostrar imagem de erro?
+                        }
+
+
+                        performEfficientSidebarUpdate(); // Atualiza a lista principal de usuários
+                        showToast("✅ Foto atualizada com sucesso!");
+
+                    } catch (IOException ex) {
+                        ex.printStackTrace(fileLogger);
+                        Alert erro = new Alert(Alert.AlertType.ERROR, "Erro ao ler ou enviar a imagem: " + ex.getMessage());
+                        erro.initOwner(primaryStage);
+                        erro.showAndWait();
+                    }
+                }
+            });
+        } else {
+            avatar.setCursor(Cursor.DEFAULT);
+        }
+
+
+        // Informações do usuário
+        Label nomeLabel = new Label(usuarioParaExibir.getNome()); // Removido \n
         nomeLabel.getStyleClass().add("profile-user-name");
-
         Label usuarioLabel = new Label("@" + usuarioParaExibir.getUsuario());
         usuarioLabel.getStyleClass().add("profile-user-tag");
-
         Label cargoLabel = new Label(usuarioParaExibir.getCargo());
         cargoLabel.getStyleClass().add("profile-user-role");
 
@@ -1181,15 +1338,19 @@ public class Main extends Application {
                 btnEnviar
         );
 
+        // Configura o ScrollPane
         ScrollPane scrollPane = new ScrollPane(profilePane);
         scrollPane.setFitToWidth(true);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scrollPane.getStyleClass().add("transparent-scroll");
+        scrollPane.getStyleClass().add("transparent-scroll"); // Usa estilo transparente
+        VBox.setVgrow(scrollPane, Priority.ALWAYS); // Allow the scrollpane to grow within the right side
 
+        // Atualiza o drawer e mostra
         userProfileDrawer = scrollPane;
         mainContent.setRight(userProfileDrawer);
     }
+
 
     private void atualizarTelaConversas() {
 
@@ -1261,24 +1422,12 @@ public class Main extends Application {
                             Mensagem ultimaMsg = conversa.getUltimaMensagem();
 
                             if (!usuarioLogado.getStatus().equalsIgnoreCase("não_perturbe") && !ultimaMsg.isLida() && trayIcon != null) {
-                                Platform.runLater(() -> {
-                                    Usuario remetente = DatabaseManager.getUsuarioByUsername(ultimaMsg.getRemetente()).orElse(null);
-
-                                    if (remetente != null) {
-                                        updateTrayIconWithAvatar(remetente);
-                                        trayIcon.displayMessage(
-                                                "Nova mensagem de " + remetente.getNome(),
-                                                ultimaMsg.getConteudo(),
-                                                TrayIcon.MessageType.INFO
-                                        );
-                                    } else {
-                                        trayIcon.displayMessage(
-                                                "Nova mensagem",
-                                                ultimaMsg.getConteudo(),
-                                                TrayIcon.MessageType.INFO
-                                        );
-                                    }
-                                });
+                                // A notificação agora é tratada no scheduler principal para evitar repetição.
+                                // Apenas a lógica de atualização do ícone na bandeja pode ser feita aqui, se desejado.
+                                // Porém, a lógica de notificação repetida foi movida para o scheduler.
+                                // Se quisermos que a tela de conversas *também* possa triggar a primeira notificação,
+                                // precisaríamos replicar a lógica do Set aqui ou refatorar.
+                                // Por enquanto, a notificação repetida foi corrigida no scheduler.
                             }
                         }
                         HBox conversationItem = createConversationItem(conversa);
@@ -1384,6 +1533,7 @@ public class Main extends Application {
             conversationsScreenRoot.setPadding(new Insets(15));
             conversationsScreenRoot.getStyleClass().add("content-area");
             conversationsScreenRoot.setId("conversationsScreen");
+            VBox.setVgrow(conversationsScreenRoot, Priority.ALWAYS); // Allow conversationsScreenRoot to grow
 
             Label titleLabel = new Label("Minhas Conversas");
             titleLabel.getStyleClass().add("screen-title");
@@ -1391,12 +1541,14 @@ public class Main extends Application {
             VBox contentListBox = new VBox(5);
             contentListBox.setId("contentListBox");
             contentListBox.setPadding(new Insets(5, 0, 5, 0));
+            VBox.setVgrow(contentListBox, Priority.ALWAYS); // Allow contentListBox to grow
 
             ScrollPane scrollPane = new ScrollPane(contentListBox);
             scrollPane.setFitToWidth(true);
             scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
             scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
             scrollPane.getStyleClass().add("transparent-scroll");
+            scrollPane.setMaxHeight(Double.MAX_VALUE); // Allow scrollpane to take max height
             VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
             conversationsScreenRoot.getChildren().addAll(titleLabel, scrollPane);
@@ -1411,6 +1563,7 @@ public class Main extends Application {
         userBox.setCursor(Cursor.HAND);
         userBox.getStyleClass().addAll("user-info-box", "user-hbox", "recommended-user-item");
         userBox.setUserData(u.getUsuario());
+        userBox.setMaxWidth(Double.MAX_VALUE); // Allow HBox to take max width
 
         ImageView avatar = carregarAvatar(u.getFotoPerfil(), 32, 32);
         Circle clip = new Circle(16, 16, 16);
@@ -1434,6 +1587,7 @@ public class Main extends Application {
         cargoLabel.getStyleClass().add("user-role");
 
         nameBox.getChildren().addAll(nomeLabel, cargoLabel);
+        HBox.setHgrow(nameBox, Priority.ALWAYS); // Allow nameBox to grow
 
         userBox.getChildren().addAll(avatarStack, nameBox);
 
@@ -1449,6 +1603,7 @@ public class Main extends Application {
         item.setPadding(new Insets(8));
         item.getStyleClass().add("conversation-item");
         item.setCursor(Cursor.HAND);
+        item.setMaxWidth(Double.MAX_VALUE); // Allow HBox to take max width
 
         ImageView avatar = carregarAvatar(conversa.getOutroUsuario().getFotoPerfil(), 48, 48);
 
@@ -1495,6 +1650,7 @@ public class Main extends Application {
         timeLabel.setMinWidth(Region.USE_PREF_SIZE);
 
         headerBox.getChildren().addAll(nameLabel, timeLabel);
+        HBox.setHgrow(headerBox, Priority.ALWAYS); // Allow headerBox to grow
 
         HBox previewBox = new HBox();
         previewBox.setAlignment(Pos.CENTER_LEFT);
@@ -1531,40 +1687,43 @@ public class Main extends Application {
             badge.getChildren().addAll(badgeCircle, countLabel);
 
             Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
             previewBox.getChildren().addAll(spacer, badge);
             HBox.setMargin(badge, new Insets(0, 0, 0, 5));
         }
+        HBox.setHgrow(previewBox, Priority.ALWAYS); // Allow previewBox to grow
 
         infoBox.getChildren().addAll(headerBox, previewBox);
 
         item.getChildren().addAll(avatar, infoBox);
 
         item.setOnMouseClicked(event -> {
-            boolean updated = DatabaseManager.marcarMensagensComoLidas(
+            List<Integer> readMessageIds = DatabaseManager.marcarMensagensComoLidas(
                     usuarioLogado.getUsuario(),
                     conversa.getOutroUsuario().getUsuario()
             );
             mostrarDMNaMesmaAba(conversa.getOutroUsuario());
-
-            if (updated) {
-                Platform.runLater(this::atualizarTelaConversas);
-            }
         });
 
         return item;
     }
-
     private void mostrarDMNaMesmaAba(Usuario destinatario) {
+        currentChatPartner = destinatario;
+        currentMessageOffset = 0;
+        totalMessages = 0;
+        isLoadingMessages = false;
+
         BorderPane chatLayout = new BorderPane();
-        chatLayout.getStyleClass().add("content-area");
+        chatLayout.getStyleClass().add("content-area-dms");
         chatLayout.setId("dmChatLayout-" + destinatario.getUsuario());
+        VBox.setVgrow(chatLayout, Priority.ALWAYS); // Allow chatLayout to grow
 
         HBox header = new HBox(10);
         Button backBtn = new Button("←");
         backBtn.getStyleClass().add("back-button");
         backBtn.setOnAction(e -> showSection("Conversas"));
 
-        Label titulo = new Label("DM com " + destinatario.getNome());
+        Label titulo = new Label("Mensagem Privada com " + destinatario.getNome());
         titulo.getStyleClass().add("screen-title");
 
         header.getChildren().addAll(backBtn, titulo);
@@ -1575,97 +1734,87 @@ public class Main extends Application {
         VBox mensagensBox = new VBox(8);
         mensagensBox.setPadding(new Insets(10));
         mensagensBox.getStyleClass().add("dm-messages-container");
+        VBox.setVgrow(mensagensBox, Priority.ALWAYS); // Allow mensagensBox to grow
 
         ScrollPane scrollPane = new ScrollPane(mensagensBox);
         scrollPane.setFitToWidth(true);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.getStyleClass().add("transparent-scroll");
+        scrollPane.setMaxHeight(Double.MAX_VALUE); // Allow scrollpane to take max height
         chatLayout.setCenter(scrollPane);
 
-        List<Mensagem> mensagens = DatabaseManager.getMensagensPrivadas(
-                usuarioLogado.getUsuario(), destinatario.getUsuario()
-        );
-        boolean updated = DatabaseManager.marcarMensagensComoLidas(usuarioLogado.getUsuario(), destinatario.getUsuario());
-        if (updated) {
-            Platform.runLater(this::atualizarTelaConversas);
+        Map<Integer, Mensagem> mensagensMap = new HashMap<>();
+        AtomicReference<Mensagem> respondendoA = new AtomicReference<>(null);
+        VBox bottomContainer = new VBox();
+        bottomContainer.getProperties().put("respondendoA", respondendoA);
+        bottomContainer.getProperties().put("mensagensMap", mensagensMap);
+
+        VBox replyArea = new VBox(5);
+        replyArea.getStyleClass().add("reply-area");
+        replyArea.setManaged(false);
+        replyArea.setVisible(false);
+
+        HBox replyHeader = new HBox(5);
+        replyHeader.setAlignment(Pos.CENTER_LEFT);
+
+        Label replyingToLabel = new Label();
+        replyingToLabel.getStyleClass().add("replying-to-label");
+
+        Button cancelReplyBtn = new Button("×");
+        cancelReplyBtn.getStyleClass().addAll("cancel-reply-button"); // Use all styles from CSS
+        cancelReplyBtn.setOnAction(e -> {
+            respondendoA.set(null);
+            replyArea.setManaged(false);
+            replyArea.setVisible(false);
+        });
+
+
+        if (classExists("org.kordamp.ikonli.javafx.FontIcon")) {
+            // Ensure FontIcon is correctly used
+            replyHeader.getChildren().addAll(new FontIcon("fas-reply"), replyingToLabel, new Region(), cancelReplyBtn);
+        } else {
+            Label iconPlaceholder = new Label("[Reply Icon]");
+            replyHeader.getChildren().addAll(iconPlaceholder, replyingToLabel, new Region(), cancelReplyBtn);
+            System.err.println("FontIcon class not found. Please ensure Ikonli is in your project dependencies.");
         }
 
-        for (Mensagem m : mensagens) {
-            HBox messageContainer = new HBox(8);
-            boolean isSenderMe = m.getRemetente().equals(usuarioLogado.getUsuario());
-            Usuario remetente = DatabaseManager.getUsuarioByUsername(m.getRemetente())
-                    .orElse(new Usuario("?", "?", "?", "offline", null, "?"));
+        HBox.setHgrow(replyHeader.getChildren().get(replyHeader.getChildren().size() - 2), Priority.ALWAYS);
 
-            ImageView avatar = carregarAvatar(remetente.getFotoPerfil(), 32, 32);
-            VBox messageBox = new VBox(2);
-            Label nameLabel = new Label(remetente.getNome());
-            nameLabel.getStyleClass().add("message-sender-name");
+        Label replyPreviewLabel = new Label();
+        replyPreviewLabel.getStyleClass().add("reply-preview-label");
+        replyPreviewLabel.setWrapText(true);
 
-            Label bubble = new Label(m.getConteudo());
-            bubble.setWrapText(true);
-            bubble.setMaxWidth(300);
-            bubble.getStyleClass().add(isSenderMe ? "bolha-enviada" : "bolha-recebida");
+        replyArea.getChildren().addAll(replyHeader, replyPreviewLabel);
 
-            Label timeLabel = new Label(m.getFormattedTimestamp("HH:mm", ZoneId.systemDefault()));
-            timeLabel.getStyleClass().add("message-timestamp");
-
-            messageBox.getChildren().addAll(nameLabel, bubble, timeLabel);
-
-            if (isSenderMe) {
-                messageContainer.setAlignment(Pos.CENTER_RIGHT);
-                messageContainer.getChildren().addAll(messageBox, avatar);
-            } else {
-                messageContainer.setAlignment(Pos.CENTER_LEFT);
-                messageContainer.getChildren().addAll(avatar, messageBox);
-            }
-            mensagensBox.getChildren().add(messageContainer);
-        }
-
-        TextField input = new TextField();
+        TextArea input = new TextArea();
         input.setPromptText("Digite sua mensagem...");
         input.getStyleClass().add("dm-input-field");
+        input.setPrefRowCount(1);
+        input.setWrapText(true);
         HBox.setHgrow(input, Priority.ALWAYS);
 
         Button enviar = new Button("→");
         enviar.getStyleClass().add("dm-send-button");
+        enviar.setDisable(true);
 
-        enviar.setOnAction(e -> {
-            String msg = input.getText();
-            if (!msg.isBlank()) {
-                boolean sent = DatabaseManager.enviarMensagem(usuarioLogado.getUsuario(), destinatario.getUsuario(), msg);
-                if (sent) {
-                    HBox newMessageContainer = new HBox(8);
-                    newMessageContainer.setAlignment(Pos.CENTER_RIGHT);
-                    ImageView myAvatar = carregarAvatar(usuarioLogado.getFotoPerfil(), 32, 32);
-                    VBox newMessageBox = new VBox(2);
-
-                    Label myNameLabel = new Label(usuarioLogado.getNome());
-                    myNameLabel.getStyleClass().add("message-sender-name");
-
-                    Label newBubble = new Label(msg);
-                    newBubble.setWrapText(true);
-                    newBubble.setMaxWidth(300);
-
-                    newBubble.getStyleClass().add("bolha-enviada");
-                    Label newTimeLabel = new Label(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
-                    newTimeLabel.getStyleClass().add("message-timestamp");
-
-                    newMessageBox.getChildren().addAll(myNameLabel, newBubble, newTimeLabel);
-                    newMessageContainer.getChildren().addAll(newMessageBox, myAvatar);
-                    mensagensBox.getChildren().add(newMessageContainer);
-                    input.clear();
-                    Platform.runLater(() -> scrollPane.setVvalue(1.0));
-
-                } else {
-                    showToast("❌ Erro ao enviar mensagem.");
-                }
-            }
+        input.textProperty().addListener((obs, oldText, newText) -> {
+            enviar.setDisable(newText.trim().isEmpty());
+            int newLineCount = newText.split("\n").length;
+            input.setPrefRowCount(Math.min(5, Math.max(1, newLineCount)));
         });
+
+        enviar.setOnAction(e -> enviarMensagem(input, mensagensBox, scrollPane, destinatario, respondendoA, replyArea, mensagensMap));
 
         input.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ENTER) {
-                enviar.fire();
+                if (event.isShiftDown()) {
+                } else {
+                    event.consume();
+                    if (!input.getText().trim().isEmpty()) {
+                        enviar.fire();
+                    }
+                }
             }
         });
 
@@ -1673,16 +1822,480 @@ public class Main extends Application {
         inputArea.setPadding(new Insets(10));
         inputArea.getStyleClass().add("dm-input-container");
         inputArea.setAlignment(Pos.CENTER);
-        chatLayout.setBottom(inputArea);
+
+        bottomContainer.getChildren().addAll(replyArea, inputArea);
+        chatLayout.setBottom(bottomContainer);
+        VBox.setVgrow(bottomContainer, Priority.NEVER); // Don't allow bottomContainer to grow
+
+        scrollPane.vvalueProperty().addListener((obs, oldVvalue, newVvalue) -> {
+            if (newVvalue.doubleValue() < 0.1 && !isLoadingMessages && (currentMessageOffset < totalMessages)) {
+                loadMoreMessages(mensagensBox, scrollPane, destinatario, mensagensMap, input, replyArea, respondendoA);
+            }
+        });
+
+        loadInitialMessages(mensagensBox, scrollPane, destinatario, mensagensMap, input, replyArea, respondendoA);
 
         Platform.runLater(() -> {
             mainContent.setCenter(chatLayout);
-            scrollPane.setVvalue(1.0);
             currentSection = "DM-" + destinatario.getUsuario();
             DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), "Em Conversa");
+            input.requestFocus();
         });
     }
 
+    private void loadInitialMessages(VBox mensagensBox, ScrollPane scrollPane, Usuario destinatario,
+                                     Map<Integer, Mensagem> mensagensMap, TextArea input, VBox replyArea, AtomicReference<Mensagem> respondendoA) {
+        Label loadingLabel = new Label("Carregando mensagens...");
+        loadingLabel.getStyleClass().add("empty-state");
+        Platform.runLater(() -> {
+            mensagensBox.getChildren().setAll(loadingLabel);
+        });
+
+        backgroundExecutor.submit(() -> {
+            try {
+                totalMessages = DatabaseManager.getTotalMensagensPrivadas(usuarioLogado.getUsuario(), destinatario.getUsuario());
+
+                List<Mensagem> mensagens = DatabaseManager.getMensagensPrivadasPaginado(
+                        usuarioLogado.getUsuario(), destinatario.getUsuario(), MESSAGES_PER_PAGE, 0
+                );
+
+                Platform.runLater(() -> {
+                    mensagensBox.getChildren().clear();
+                    mensagensMap.clear();
+
+                    for (Mensagem m : mensagens) {
+                        mensagensBox.getChildren().add(createMessageNode(m, mensagensMap, mensagensBox, scrollPane, input, replyArea, respondendoA));
+                        mensagensMap.put(m.getId(), m);
+                    }
+
+                    List<Integer> initialMessageIds = new ArrayList<>();
+                    for(Mensagem m : mensagens) {
+                        if (!m.getRemetente().equals(usuarioLogado.getUsuario())) {
+                            initialMessageIds.add(m.getId());
+                        }
+                    }
+                    notifiedMessageIds.removeAll(initialMessageIds);
+
+                    List<Integer> readMessageIds = DatabaseManager.marcarMensagensComoLidas( // <--- E AQUI RECEBE A LISTA E ATUALIZA O SET LOCAL
+                            usuarioLogado.getUsuario(),
+                            destinatario.getUsuario()
+                    );
+                    notifiedMessageIds.removeAll(readMessageIds);
+
+                    Node currentSidebarContent = mainContent.getCenter(); // Verifica o centro, não a direita
+                    if (currentSidebarContent != null && currentSidebarContent.getId() != null && currentSidebarContent.getId().equals("conversationsScreen")) {
+                        Platform.runLater(this::atualizarTelaConversas);
+                    }
+
+
+                    Platform.runLater(() -> {
+                        scrollPane.setVvalue(1.0);
+                        mensagensBox.getProperties().put("chatRecipient", destinatario.getUsuario());
+                    });
+
+
+                    currentMessageOffset = mensagens.size();
+                });
+            } catch (Exception e) {
+                System.err.println("Erro durante o carregamento inicial de mensagens: " + e.getMessage());
+                e.printStackTrace();
+                Platform.runLater(() -> {
+                    mensagensBox.getChildren().setAll(new Label("Erro ao carregar mensagens."));
+                });
+            } finally {
+                isLoadingMessages = false;
+            }
+        });
+    }
+
+    private void loadMoreMessages(VBox mensagensBox, ScrollPane scrollPane, Usuario destinatario,
+                                  Map<Integer, Mensagem> mensagensMap, TextArea input, VBox replyArea, AtomicReference<Mensagem> respondendoA) {
+        if (currentMessageOffset >= totalMessages || isLoadingMessages) {
+            return;
+        }
+
+        isLoadingMessages = true;
+        Label loadingMoreLabel = new Label("Carregando mensagens antigas...");
+        loadingMoreLabel.getStyleClass().add("empty-state");
+        Platform.runLater(() -> mensagensBox.getChildren().add(0, loadingMoreLabel));
+
+        backgroundExecutor.submit(() -> {
+            try {
+                List<Mensagem> oldMessages = DatabaseManager.getMensagensPrivadasPaginado(
+                        usuarioLogado.getUsuario(), destinatario.getUsuario(), MESSAGES_PER_PAGE, currentMessageOffset
+                );
+
+                Platform.runLater(() -> {
+                    mensagensBox.getChildren().remove(0);
+                    double currentScrollY = scrollPane.getBoundsInLocal().getMinY() + scrollPane.getVvalue() * (mensagensBox.getHeight() - scrollPane.getViewportBounds().getHeight());
+                    double contentHeightBefore = mensagensBox.getHeight();
+
+                    for (int i = oldMessages.size() - 1; i >= 0; i--) {
+                        Mensagem m = oldMessages.get(i);
+                        mensagensBox.getChildren().add(0, createMessageNode(m, mensagensMap, mensagensBox, scrollPane, input, replyArea, respondendoA));
+                        mensagensMap.put(m.getId(), m);
+                    }
+
+                    currentMessageOffset += oldMessages.size();
+                    mensagensBox.requestLayout();
+                    mensagensBox.layout();
+
+                    double contentHeightAfter = mensagensBox.getHeight();
+                    double heightDifference = contentHeightAfter - contentHeightBefore;
+                    double newScrollY = currentScrollY + heightDifference;
+                    double newVvalue = newScrollY / (mensagensBox.getHeight() > 0 ? mensagensBox.getHeight() : 1.0);
+
+                    Platform.runLater(() -> {
+                        scrollPane.setVvalue(Math.max(0.0, Math.min(1.0, newVvalue)));
+                    });
+
+                    isLoadingMessages = false;
+                });
+            } catch (Exception e) {
+                System.err.println("Erro durante o carregamento de mais mensagens: " + e.getMessage());
+                e.printStackTrace();
+                Platform.runLater(() -> {
+                    mensagensBox.getChildren().remove(0);
+                });
+            } finally {
+                isLoadingMessages = false;
+            }
+        });
+    }
+
+    private HBox createMessageNode(Mensagem m, Map<Integer, Mensagem> mensagensMap, VBox mensagensBox, ScrollPane scrollPane,
+                                   TextArea input, VBox replyArea, AtomicReference<Mensagem> respondendoA) {
+        HBox messageContainer = new HBox(8);
+        messageContainer.setId("msg-" + m.getId());
+        messageContainer.setMaxWidth(Double.MAX_VALUE); // Allow messageContainer to take max width
+        boolean isSenderMe = m.getRemetente().equals(usuarioLogado.getUsuario());
+        Usuario remetente = DatabaseManager.getUsuarioByUsername(m.getRemetente())
+                .orElse(new Usuario("?", "?", "?", "offline", null, "?"));
+
+        ImageView avatar = null;
+        if (remetente.getFotoPerfil() != null && remetente.getFotoPerfil().length > 0) {
+            avatar = carregarAvatar(remetente.getFotoPerfil(), 32, 32);
+        } else {
+            try (InputStream is = getClass().getResourceAsStream("/imagens/default-avatar.png")) {
+                if (is != null) {
+                    byte[] defaultAvatarBytes = is.readAllBytes();
+                    avatar = carregarAvatar(defaultAvatarBytes, 32, 32);
+                } else {
+                    System.err.println("❌ Imagem padrão não encontrada em /imagens/default-avatar.png");
+                    avatar = new ImageView();
+                    avatar.setFitWidth(32);
+                    avatar.setFitHeight(32);
+                }
+            } catch (IOException e) {
+                System.err.println("Erro ao carregar imagem padrão: " + e.getMessage());
+                avatar = new ImageView();
+                avatar.setFitWidth(32);
+                avatar.setFitHeight(32);
+            }
+        }
+
+        VBox messageBox = new VBox(2);
+        Label nameLabel = new Label(remetente.getNome());
+        nameLabel.getStyleClass().add("message-sender-name");
+
+        Integer refMsgId = DatabaseManager.getMensagemRespondidaId(m.getId());
+        if (refMsgId != null) {
+            Mensagem refMsg = mensagensMap.get(refMsgId);
+            if (refMsg == null) {
+                Optional<Mensagem> optionalRefMsg = DatabaseManager.getMensagemPorId(refMsgId);
+                if (optionalRefMsg.isPresent()) {
+                    refMsg = optionalRefMsg.get();
+                }
+            }
+
+            if (refMsg != null) {
+                Usuario refRemetente = DatabaseManager.getUsuarioByUsername(refMsg.getRemetente())
+                        .orElse(new Usuario("?", "?", "?", "offline", null, "?"));
+
+                VBox replyContainer = new VBox(2);
+                replyContainer.getStyleClass().add("reply-reference");
+
+                Label replyName = new Label(refRemetente.getNome());
+                replyName.getStyleClass().add("reply-name");
+
+                String previewContent = refMsg.getConteudo();
+                if (previewContent.length() > 50) {
+                    previewContent = previewContent.substring(0, 50) + "...";
+                }
+                Label replyPreview = new Label(previewContent);
+                replyPreview.getStyleClass().add("reply-preview");
+
+                replyContainer.getChildren().addAll(replyName, replyPreview);
+                replyContainer.setOnMouseClicked(e -> {
+                    Mensagem originalMsgToScroll = mensagensMap.get(refMsgId);
+                    if (originalMsgToScroll == null) {
+                        DatabaseManager.getMensagemPorId(refMsgId).ifPresent(msg -> {
+                            scrollToMessage(msg.getId(), mensagensBox, scrollPane);
+                        });
+                    } else {
+                        scrollToMessage(originalMsgToScroll.getId(), mensagensBox, scrollPane);
+                    }
+                });
+
+                messageBox.getChildren().add(replyContainer);
+            } else {
+                VBox replyContainer = new VBox(2);
+                replyContainer.getStyleClass().add("reply-reference-unavailable");
+                Label unavailableLabel = new Label("Mensagem original não disponível");
+                unavailableLabel.getStyleClass().add("reply-preview-unavailable");
+                replyContainer.getChildren().add(unavailableLabel);
+                messageBox.getChildren().add(replyContainer);
+            }
+        }
+
+        TextFlow textFlow = new TextFlow();
+        textFlow.setMaxWidth(400);
+        textFlow.getStyleClass().add(isSenderMe ? "bolha-enviada" : "bolha-recebida");
+
+        String[] lines = m.getConteudo().split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            Text textPart = new Text(lines[i]);
+            textFlow.getChildren().add(textPart);
+
+            if (i < lines.length - 1) {
+                textFlow.getChildren().add(new Text("\n"));
+            }
+        }
+        if (!textFlow.getChildren().isEmpty() && !m.getConteudo().endsWith("\n")) {
+            Node lastNode = textFlow.getChildren().get(textFlow.getChildren().size() - 1);
+            if (lastNode instanceof Text && ((Text)lastNode).getText().equals("\n")) {
+                textFlow.getChildren().remove(lastNode);
+            }
+        }
+
+        StackPane messageBubbleContainer = new StackPane();
+        messageBubbleContainer.getStyleClass().add("message-bubble-container");
+        messageBubbleContainer.getChildren().add(textFlow);
+
+        HBox actionButtons = new HBox(5);
+        actionButtons.getStyleClass().add("message-action-buttons");
+        actionButtons.setOpacity(0);
+
+        if (classExists("org.kordamp.ikonli.javafx.FontIcon")) {
+            Button copyBtn = new Button();
+            copyBtn.setGraphic(new FontIcon("fas-copy"));
+            copyBtn.getStyleClass().add("action-button");
+            copyBtn.setTooltip(new Tooltip("Copiar mensagem"));
+            copyBtn.setOnAction(e -> {
+                final Clipboard clipboard = Clipboard.getSystemClipboard();
+                final ClipboardContent content = new ClipboardContent();
+                content.putString(m.getConteudo());
+                clipboard.setContent(content);
+                showToast("✓ Mensagem copiada!");
+            });
+
+            Button replyBtn = new Button();
+            replyBtn.setGraphic(new FontIcon("fas-reply"));
+            replyBtn.getStyleClass().add("action-button");
+            replyBtn.setTooltip(new Tooltip("Responder"));
+            replyBtn.setOnAction(e -> prepararResposta(m, input, replyArea, respondendoA));
+
+            actionButtons.getChildren().addAll(copyBtn, replyBtn);
+        } else {
+            Button copyBtn = new Button("Copiar");
+            copyBtn.getStyleClass().add("action-button");
+            copyBtn.setOnAction(e -> {
+                final Clipboard clipboard = Clipboard.getSystemClipboard();
+                final ClipboardContent content = new ClipboardContent();
+                content.putString(m.getConteudo());
+                clipboard.setContent(content);
+                showToast("✓ Mensagem copiada!");
+            });
+
+            Button replyBtn = new Button("Responder");
+            replyBtn.getStyleClass().add("action-button");
+            replyBtn.setOnAction(e -> prepararResposta(m, input, replyArea, respondendoA));
+
+            actionButtons.getChildren().addAll(copyBtn, replyBtn);
+            System.err.println("FontIcon class not found for message action buttons. Using text buttons.");
+        }
+
+        HBox bubbleWithActions = new HBox(5);
+        if (isSenderMe) {
+            bubbleWithActions.getChildren().addAll(actionButtons, messageBubbleContainer);
+            bubbleWithActions.setAlignment(Pos.CENTER_RIGHT);
+        } else {
+            bubbleWithActions.getChildren().addAll(messageBubbleContainer, actionButtons);
+            bubbleWithActions.setAlignment(Pos.CENTER_LEFT);
+        }
+        HBox.setHgrow(bubbleWithActions, Priority.ALWAYS); // Allow bubbleWithActions to grow
+
+        bubbleWithActions.setOnMouseEntered(e -> actionButtons.setOpacity(1));
+        bubbleWithActions.setOnMouseExited(e -> actionButtons.setOpacity(0));
+
+        Label timeLabel = new Label(m.getFormattedTimestamp("HH:mm", ZoneId.systemDefault()));
+        timeLabel.getStyleClass().add("message-timestamp");
+
+        messageBox.getChildren().addAll(bubbleWithActions, timeLabel);
+        VBox.setVgrow(messageBox, Priority.NEVER); // Prevent messageBox from growing vertically
+
+        if (isSenderMe) {
+            messageContainer.setAlignment(Pos.CENTER_RIGHT);
+            if (avatar != null) messageContainer.getChildren().addAll(messageBox, avatar); else messageContainer.getChildren().add(messageBox);
+        } else {
+            messageContainer.setAlignment(Pos.CENTER_LEFT);
+            if (avatar != null) messageContainer.getChildren().addAll(avatar, messageBox); else messageContainer.getChildren().add(messageBox);
+        }
+
+        return messageContainer;
+    }
+
+    private void scrollToMessage(int messageId, VBox mensagensBox, ScrollPane scrollPane) {
+        Node targetNode = mensagensBox.lookup("#msg-" + messageId);
+        if (targetNode != null) {
+            double scrollY = targetNode.getBoundsInParent().getMinY();
+            double contentHeight = mensagensBox.getHeight();
+            double viewportHeight = scrollPane.getViewportBounds().getHeight();
+            double targetVvalue = scrollY / contentHeight;
+
+            Platform.runLater(() -> {
+                scrollPane.setVvalue(Math.max(0.0, Math.min(1.0, targetVvalue)));
+                targetNode.getStyleClass().add("highlighted-message");
+                PauseTransition pause = new PauseTransition(Duration.seconds(2));
+                pause.setOnFinished(event -> targetNode.getStyleClass().remove("highlighted-message"));
+                pause.play();
+            });
+        } else {
+            System.err.println("Node for message ID " + messageId + " not found in UI.");
+            showToast("Mensagem referenciada não visível ou não carregada.");
+        }
+    }
+
+    private boolean classExists(String className) {
+        try {
+            Class.forName(className);
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    private void enviarMensagem(TextArea input, VBox mensagensBox, ScrollPane scrollPane,
+                                Usuario destinatario, AtomicReference<Mensagem> respondendoA, VBox replyArea, Map<Integer, Mensagem> mensagensMap) {
+        String msg = input.getText().trim();
+        if (msg.isEmpty()) return;
+
+        Integer refMsgId = (respondendoA.get() != null) ? respondendoA.get().getId() : null;
+
+        boolean sent = DatabaseManager.enviarMensagemComReferencia(
+                usuarioLogado.getUsuario(), destinatario.getUsuario(), msg, refMsgId);
+
+        if (!sent) {
+            showToast("❌ Erro ao enviar mensagem.");
+            return;
+        }
+
+        input.clear();
+        respondendoA.set(null);
+        replyArea.setManaged(false);
+        replyArea.setVisible(false); // Oculta a área de resposta
+
+        backgroundExecutor.submit(() -> {
+            // Marca a mensagem enviada como lida para o remetente (você mesmo)
+            // Isso pode não ser estritamente necessário para notificações, mas é boa prática.
+            // E garante que se houver alguma lógica baseada em 'lida' para mensagens enviadas, funcione.
+            // Dependendo da implementação de marcarMensagensComoLidas, pode ser necessário adaptar.
+            DatabaseManager.marcarMensagensComoLidas(
+                    usuarioLogado.getUsuario(), // O remetente
+                    usuarioLogado.getUsuario()  // O destinatário (você mesmo, na sua caixa de saída conceitual)
+            );
+
+            DatabaseManager.getUltimaMensagem(usuarioLogado.getUsuario(), destinatario.getUsuario())
+                    .ifPresent(ultimaMensagem -> {
+                        Platform.runLater(() -> {
+                            HBox newMessageNode = createMessageNode(
+                                    ultimaMensagem,
+                                    mensagensMap,
+                                    mensagensBox,
+                                    scrollPane,
+                                    input,
+                                    replyArea,
+                                    respondendoA
+                            );
+
+                            mensagensBox.getChildren().add(newMessageNode);
+                            mensagensMap.put(ultimaMensagem.getId(), ultimaMensagem);
+                            totalMessages++;
+                            scrollPane.setVvalue(1.0);
+
+                            // Não remove do notifiedMessageIds aqui, pois é uma mensagem que você enviou.
+                            // A notificação só é para mensagens recebidas.
+
+                            // Atualiza a tela de conversas na barra lateral se necessário,
+                            // para mostrar a última mensagem enviada.
+                            // Verificar se a tela de conversas lateral está visível antes de atualizar
+                            Node currentSidebarContent = mainContent.getCenter(); // Verifica o centro, não a direita
+                            if (currentSidebarContent != null && currentSidebarContent.getId() != null && currentSidebarContent.getId().equals("conversationsScreen")) {
+                                // A tela de conversas lateral está visível, atualize-a.
+                                Platform.runLater(this::atualizarTelaConversas);
+                            }
+
+                        });
+                    });
+        });
+    }
+
+
+    private void prepararResposta(Mensagem mensagemOriginal, TextArea inputArea, VBox replyArea, AtomicReference<Mensagem> respondendoA) {
+        Label replyingToLabel = null;
+        Label replyPreviewLabel = null;
+
+        if (!replyArea.getChildren().isEmpty() && replyArea.getChildren().get(0) instanceof HBox) {
+            HBox replyHeader = (HBox) replyArea.getChildren().get(0);
+            // Check for FontIcon or placeholder label at index 0, and the target label at index 1
+            int labelIndex = 1; // Assuming the label is the second child after the icon/placeholder
+            if (replyHeader.getChildren().size() > labelIndex && replyHeader.getChildren().get(labelIndex) instanceof Label) {
+                replyingToLabel = (Label) replyHeader.getChildren().get(labelIndex);
+            }
+        }
+        if (replyArea.getChildren().size() > 1 && replyArea.getChildren().get(1) instanceof Label) {
+            replyPreviewLabel = (Label) replyArea.getChildren().get(1);
+        }
+
+        if (replyingToLabel == null || replyPreviewLabel == null) {
+            System.err.println("Erro: Não foi possível encontrar os Labels dentro da replyArea na prepararResposta.");
+            // Attempt to find by style class as a fallback
+            if(replyingToLabel == null) replyingToLabel = (Label) replyArea.lookup(".replying-to-label");
+            if(replyPreviewLabel == null) replyPreviewLabel = (Label) replyArea.lookup(".reply-preview-label");
+
+            if(replyingToLabel == null || replyPreviewLabel == null) {
+                System.err.println("Erro: Falha ao encontrar Labels mesmo por style class.");
+                return; // Cannot proceed without required labels
+            }
+        }
+
+
+        Usuario remetente = DatabaseManager.getUsuarioByUsername(mensagemOriginal.getRemetente())
+                .orElse(new Usuario("?", "?", "?", "offline", null, "?"));
+
+        replyingToLabel.setText("Respondendo a " + remetente.getNome());
+
+        String previewContent = mensagemOriginal.getConteudo();
+        if (previewContent.length() > 50) {
+            previewContent = previewContent.substring(0, 50) + "...";
+        }
+        replyPreviewLabel.setText(previewContent);
+
+        replyArea.setManaged(true);
+        replyArea.setVisible(true);
+
+        if (respondendoA != null) {
+            respondendoA.set(mensagemOriginal);
+        } else {
+            System.err.println("AtomicReference 'respondendoA' é nulo na prepararResposta.");
+        }
+
+        if (inputArea != null) {
+            inputArea.requestFocus();
+        } else {
+            System.err.println("TextArea 'inputArea' é nulo na prepararResposta.");
+        }
+    }
     private void performEfficientSidebarUpdate() {
         if (onlineUserBox == null || offlineUserBox == null) {
             System.err.println("Sidebar update skipped: UI components not initialized.");
@@ -1786,7 +2399,13 @@ public class Main extends Application {
             boolean isOnlineOrAusente = "online".equalsIgnoreCase(user.getStatus()) || "ausente".equalsIgnoreCase(user.getStatus()) || "não_perturbe".equalsIgnoreCase(user.getStatus());
 
             if (isOnlineOrAusente) {
-                String displayStatus = (user.getAbaAtual() != null && !user.getAbaAtual().isBlank()) ? user.getAbaAtual() : "Indisponível";
+                String displayStatus;
+                if (user.getUsuario().equals(usuarioLogado.getUsuario()) && user.getAbaAtual() != null && user.getAbaAtual().startsWith("DM-")) {
+                    displayStatus = "Em Conversa";
+                } else {
+                    displayStatus = (user.getAbaAtual() != null && !user.getAbaAtual().isBlank()) ? user.getAbaAtual() : "Indisponível";
+                }
+
                 statusLabel.setText(displayStatus);
                 statusLabel.setVisible(true);
                 statusLabel.setManaged(true);
@@ -1922,6 +2541,7 @@ public class Main extends Application {
         content.getStyleClass().add("content-area");
         content.setAlignment(Pos.TOP_CENTER);
         content.setPadding(new Insets(20));
+        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
 
         FlowPane cardsPane = new FlowPane();
         cardsPane.setHgap(10);
@@ -1929,15 +2549,20 @@ public class Main extends Application {
         cardsPane.setPadding(new Insets(20));
         cardsPane.setAlignment(Pos.TOP_CENTER);
 
-        cardsPane.setPrefWrapLength(1000);
-        cardsPane.setMaxWidth(Double.MAX_VALUE);
+        cardsPane.setPrefWrapLength(1000); // Initial value, will be adjusted
+        cardsPane.setMaxWidth(Double.MAX_VALUE); // Allow flow pane to take max width
         cardsPane.getStyleClass().add("scroll-content");
 
+        // Adjust prefWrapLength based on main content width for responsiveness
         mainContent.widthProperty().addListener((obs, oldVal, newVal) -> {
-            double availableWidth = newVal.doubleValue() - 100;
-            int optimalColumns = Math.max(4, (int) (availableWidth / 165));
-            cardsPane.setPrefWrapLength(optimalColumns * 165);
+            double availableWidth = newVal.doubleValue() - (mainContent.getLeft() != null ? mainContent.getLeft().getBoundsInLocal().getWidth() : 0) - (mainContent.getRight() != null ? mainContent.getRight().getBoundsInLocal().getWidth() : 0) - 40; // Adjust for padding and sidebars
+            if(availableWidth > 0) {
+                // Calculate optimal columns based on available width and card width (approx 165 including gaps)
+                int optimalColumns = Math.max(1, (int) (availableWidth / 165));
+                cardsPane.setPrefWrapLength(optimalColumns * 165);
+            }
         });
+
 
         for (OLT olt : OLTList.getOLTs()) {
             VBox card = createOLTCard(olt);
@@ -1948,15 +2573,17 @@ public class Main extends Application {
         scrollContent.setAlignment(Pos.TOP_CENTER);
         scrollContent.setPadding(new Insets(20, 40, 20, 40));
         scrollContent.setFillWidth(true);
+        VBox.setVgrow(scrollContent, Priority.ALWAYS); // Allow scrollContent VBox to grow
 
         ScrollPane scrollPane = new ScrollPane(scrollContent);
         scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(true);
+        scrollPane.setFitToHeight(true); // Fit to height of its content
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scrollPane.setPrefViewportHeight(400);
+        scrollPane.setPrefViewportHeight(400); // This might need adjustment
         scrollPane.getStyleClass().add("scroll-pane");
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        scrollPane.setMaxHeight(Double.MAX_VALUE); // Allow scrollpane to take max height
 
         content.getChildren().addAll(scrollPane);
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
@@ -1977,6 +2604,7 @@ public class Main extends Application {
         content.setPadding(new Insets(20, 0, 20, 0));
         content.getStyleClass().add("content-area");
         content.setAlignment(Pos.TOP_CENTER);
+        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
 
         Label title = new Label("Consulta de Sinal Óptico");
         title.getStyleClass().add("title");
@@ -1985,6 +2613,8 @@ public class Main extends Application {
         formArea.getStyleClass().add("form-area");
         formArea.setMaxWidth(800);
         formArea.setPadding(new Insets(25));
+        formArea.setAlignment(Pos.TOP_CENTER); // Center form content
+        VBox.setVgrow(formArea, Priority.ALWAYS); // Allow formArea to grow
 
         Label infoLabel = new Label("Verifique o Sinal Óptico da Primária.");
         infoLabel.getStyleClass().add("info-label");
@@ -1993,20 +2623,25 @@ public class Main extends Application {
         oltComboBox.getItems().addAll(OLTList.getOLTs());
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
+        oltComboBox.setMaxWidth(240); // Allow combo box to take max width
 
         TextField fsField = new TextField();
         fsField.setPromptText("Digite o F/S");
         fsField.getStyleClass().add("text-field");
-        fsField.setMaxWidth(100);
+        fsField.setMaxWidth(115); // Allow text field to take max width
 
         TextField pField = new TextField();
         pField.setPromptText("Digite o P");
         pField.getStyleClass().add("text-field");
-        pField.setMaxWidth(100);
+        pField.setMaxWidth(115); // Allow text field to take max width
 
         HBox formRow = new HBox(10);
-        formRow.setAlignment(Pos.CENTER_LEFT);
+        formRow.setAlignment(Pos.CENTER);
         formRow.getChildren().addAll(fsField, pField);
+        formRow.setMaxWidth(Double.MAX_VALUE); // Allow form row to take max width
+        HBox.setHgrow(fsField, Priority.ALWAYS); // Allow fsField to grow
+        HBox.setHgrow(pField, Priority.ALWAYS); // Allow pField to grow
+
 
         TextFormatter<String> pFormatter = new TextFormatter<>(change -> {
             if (change.getControlNewText().matches("[0-9]{0,3}")) {
@@ -2026,6 +2661,7 @@ public class Main extends Application {
 
         Button queryBtn = new Button("Consultar");
         queryBtn.getStyleClass().add("connect-btn");
+        queryBtn.setMaxWidth(240); // Allow button to take max width
 
         fsField.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ENTER) {
@@ -2042,10 +2678,13 @@ public class Main extends Application {
         CodeArea resultArea = new CodeArea();
         resultArea.setEditable(false);
         resultArea.getStyleClass().add("code-area");
-        resultArea.setPrefHeight(350);
+        resultArea.setPrefHeight(350); // Initial pref height, but allow growth
+        VBox.setVgrow(resultArea, Priority.ALWAYS); // Allow result area to grow
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
+        exportBtn.setMaxWidth(240); // Allow button to take max width
+
 
         exportBtn.setOnAction(e -> {
             exportarResultado(resultArea, "Consulta_Sinal");
@@ -2210,6 +2849,7 @@ public class Main extends Application {
         content.setPadding(new Insets(20, 0, 20, 0));
         content.getStyleClass().add("content-area");
         content.setAlignment(Pos.TOP_CENTER);
+        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
 
         Label title = new Label("Resumo da PON");
         title.getStyleClass().add("title");
@@ -2218,6 +2858,8 @@ public class Main extends Application {
         formArea.getStyleClass().add("form-area");
         formArea.setMaxWidth(800);
         formArea.setPadding(new Insets(25));
+        formArea.setAlignment(Pos.TOP_CENTER); // Center form content
+        VBox.setVgrow(formArea, Priority.ALWAYS); // Allow formArea to grow
 
         Label infoLabel = new Label("Verifique todas as informações da Primária.");
         infoLabel.getStyleClass().add("info-label");
@@ -2226,11 +2868,12 @@ public class Main extends Application {
         oltComboBox.getItems().addAll(OLTList.getOLTs());
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
+        oltComboBox.setMaxWidth(240); // Allow combo box to take max width
 
         TextField ponField = new TextField();
         ponField.setPromptText("Digite o F/S/P");
         ponField.getStyleClass().add("text-field");
-        ponField.setMaxWidth(120);
+        ponField.setMaxWidth(240); // Allow text field to take max width
 
         TextFormatter<String> ponFormatter = new TextFormatter<>(change -> {
             if (change.getControlNewText().matches("[0-9/]{0,7}")) {
@@ -2242,6 +2885,8 @@ public class Main extends Application {
 
         Button consultarBtn = new Button("Consultar");
         consultarBtn.getStyleClass().add("connect-btn");
+        consultarBtn.setMaxWidth(240); // Allow button to take max width
+
 
         ponField.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ENTER) {
@@ -2252,7 +2897,8 @@ public class Main extends Application {
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
         resultadoArea.getStyleClass().add("code-area");
-        resultadoArea.setPrefHeight(350);
+        resultadoArea.setPrefHeight(350); // Initial pref height, but allow growth
+        VBox.setVgrow(resultadoArea, Priority.ALWAYS); // Allow result area to grow
 
         consultarBtn.setOnAction(e -> {
             OLT selectedOLT = oltComboBox.getValue();
@@ -2338,6 +2984,8 @@ public class Main extends Application {
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
+        exportBtn.setMaxWidth(240); // Allow button to take max width
+
 
         exportBtn.setOnAction(e -> {
             exportarResultado(resultadoArea, "Resumo_PON");
@@ -2364,6 +3012,7 @@ public class Main extends Application {
         content.getStyleClass().add("content-area");
         content.setAlignment(Pos.TOP_CENTER);
         content.setPadding(new Insets(20, 0, 20, 0));
+        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
 
         Label title = new Label("Consulta ONT/ONU por SN");
         title.getStyleClass().add("title");
@@ -2372,6 +3021,9 @@ public class Main extends Application {
         formArea.getStyleClass().add("form-area");
         formArea.setMaxWidth(800);
         formArea.setPadding(new Insets(25));
+        formArea.setAlignment(Pos.TOP_CENTER); // Center form content
+        VBox.setVgrow(formArea, Priority.ALWAYS); // Allow formArea to grow
+
 
         Label infoLabel = new Label("Verifique todas as informações do SN.");
         infoLabel.getStyleClass().add("info-label");
@@ -2380,11 +3032,13 @@ public class Main extends Application {
         oltComboBox.getItems().addAll(OLTList.getOLTs());
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
+        oltComboBox.setMaxWidth(240); // Allow combo box to take max width
+
 
         TextField snField = new TextField();
         snField.setPromptText("Digite o SN da ONT/ONU");
         snField.getStyleClass().add("text-field");
-        snField.setMaxWidth(240);
+        snField.setMaxWidth(240); // Allow text field to take max width
 
         TextFormatter<String> snFormatter = new TextFormatter<>(change -> {
             if (change.getControlNewText().matches("[A-Za-z0-9]{0,20}")) {
@@ -2396,6 +3050,8 @@ public class Main extends Application {
 
         Button consultarBtn = new Button("Consultar");
         consultarBtn.getStyleClass().add("connect-btn");
+        consultarBtn.setMaxWidth(240); // Allow button to take max width
+
 
         snField.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ENTER) {
@@ -2406,7 +3062,9 @@ public class Main extends Application {
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
         resultadoArea.getStyleClass().add("code-area");
-        resultadoArea.setPrefHeight(350);
+        resultadoArea.setPrefHeight(350); // Initial pref height, but allow growth
+        VBox.setVgrow(resultadoArea, Priority.ALWAYS); // Allow result area to grow
+
 
         consultarBtn.setOnAction(e -> {
             OLT selectedOLT = oltComboBox.getValue();
@@ -2493,6 +3151,8 @@ public class Main extends Application {
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
+        exportBtn.setMaxWidth(240); // Allow button to take max width
+
 
         exportBtn.setOnAction(e -> {
             exportarResultado(resultadoArea, "Consulta_SN");
@@ -2519,6 +3179,7 @@ public class Main extends Application {
         content.getStyleClass().add("content-area");
         content.setAlignment(Pos.TOP_CENTER);
         content.setPadding(new Insets(20, 0, 20, 0));
+        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
 
         Label title = new Label("Diagnóstico de Quedas da ONT/ONU");
         title.getStyleClass().add("title");
@@ -2527,6 +3188,8 @@ public class Main extends Application {
         formArea.getStyleClass().add("form-area");
         formArea.setMaxWidth(800);
         formArea.setPadding(new Insets(25));
+        formArea.setAlignment(Pos.TOP_CENTER); // Center form content
+        VBox.setVgrow(formArea, Priority.ALWAYS); // Allow formArea to grow
 
         Label infoLabel = new Label("Verifique o diagnóstico de quedas da ONT/ONU.");
         infoLabel.getStyleClass().add("info-label");
@@ -2535,16 +3198,17 @@ public class Main extends Application {
         oltComboBox.getItems().addAll(OLTList.getOLTs());
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
+        oltComboBox.setMaxWidth(240); // Allow combo box to take max width
 
         TextField fsField = new TextField();
         fsField.setPromptText("Digite F/S");
         fsField.getStyleClass().add("text-field");
-        fsField.setMaxWidth(100);
+        fsField.setMaxWidth(115); // Allow text field to take max width
 
         TextField pidField = new TextField();
         pidField.setPromptText("Digite o P ID");
         pidField.getStyleClass().add("text-field");
-        pidField.setMaxWidth(100);
+        pidField.setMaxWidth(115); // Allow text field to take max width
 
         TextFormatter<String> fsFormatter = new TextFormatter<>(change -> {
             if (change.getControlNewText().matches("[0-9/]{0,4}")) {
@@ -2563,11 +3227,17 @@ public class Main extends Application {
         pidField.setTextFormatter(pidFormatter);
 
         HBox formRow = new HBox(10);
-        formRow.setAlignment(Pos.CENTER_LEFT);
+        formRow.setAlignment(Pos.CENTER);
         formRow.getChildren().addAll(fsField, pidField);
+        formRow.setMaxWidth(Double.MAX_VALUE); // Allow form row to take max width
+        HBox.setHgrow(fsField, Priority.ALWAYS); // Allow fsField to grow
+        HBox.setHgrow(pidField, Priority.ALWAYS); // Allow pidField to grow
+
 
         Button diagnosticarBtn = new Button("Consultar");
         diagnosticarBtn.getStyleClass().add("connect-btn");
+        diagnosticarBtn.setMaxWidth(240); // Allow button to take max width
+
 
         fsField.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ENTER) {
@@ -2584,7 +3254,8 @@ public class Main extends Application {
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
         resultadoArea.getStyleClass().add("code-area");
-        resultadoArea.setPrefHeight(350);
+        resultadoArea.setPrefHeight(350); // Initial pref height, but allow growth
+        VBox.setVgrow(resultadoArea, Priority.ALWAYS); // Allow result area to grow
 
         diagnosticarBtn.setOnAction(e -> {
             OLT selectedOLT = oltComboBox.getValue();
@@ -2674,6 +3345,8 @@ public class Main extends Application {
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
+        exportBtn.setMaxWidth(240); // Allow button to take max width
+
 
         exportBtn.setOnAction(e -> {
             exportarResultado(resultadoArea, "Diagnostico_Quedas");
@@ -2700,6 +3373,7 @@ public class Main extends Application {
         content.setPadding(new Insets(20));
         content.setAlignment(Pos.TOP_CENTER);
         content.getStyleClass().add("content-area");
+        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
 
         Label title = new Label("Chamados");
         title.getStyleClass().add("title");
@@ -2708,6 +3382,8 @@ public class Main extends Application {
         table.getStyleClass().add("data-table");
         table.setItems(FXCollections.observableArrayList(DatabaseManager.getAllTickets()));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        VBox.setVgrow(table, Priority.ALWAYS); // Allow table to grow
+
 
         table.getColumns().addAll(
                 createColumn("Criado por", "criadoPor"),
@@ -2786,8 +3462,10 @@ public class Main extends Application {
         });
 
         node.setOnMouseDragged(event -> {
-            primaryStage.setX(event.getScreenX() - xOffset);
-            primaryStage.setY(event.getScreenY() - yOffset);
+            if (!primaryStage.isMaximized()) {
+                primaryStage.setX(event.getScreenX() - xOffset);
+                primaryStage.setY(event.getScreenY() - yOffset);
+            }
         });
     }
 
@@ -2828,6 +3506,7 @@ public class Main extends Application {
         titleBar.getStyleClass().add("title-bar");
         titleBar.setAlignment(Pos.CENTER_LEFT);
         titleBar.setPadding(new Insets(5, 10, 5, 15));
+        HBox.setHgrow(titleBar, Priority.ALWAYS); // Allow titleBar to grow
 
 
         titleBar.setOnMousePressed(event -> {
@@ -2910,6 +3589,7 @@ public class Main extends Application {
 
         Label titleLabel = new Label("Gerenciador de OLTs");
         titleLabel.getStyleClass().add("olt-name");
+        HBox.setHgrow(titleLabel, Priority.ALWAYS); // Allow titleLabel to grow
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -2921,6 +3601,13 @@ public class Main extends Application {
         minimizeBtn.getStyleClass().addAll("window-btn", "minimize-btn");
         minimizeBtn.setOnAction(e -> primaryStage.setIconified(true));
         minimizeBtn.setTooltip(new Tooltip("Minimizar"));
+
+        // Add Maximize Button
+        Button maximizeBtn = new Button();
+        maximizeBtn.getStyleClass().addAll("window-btn", "maximize-btn");
+        maximizeBtn.setOnAction(e -> toggleMaximize());
+        maximizeBtn.setTooltip(new Tooltip("Maximizar/Restaurar"));
+
 
         Button closeBtn = new Button();
         closeBtn.getStyleClass().addAll("window-btn", "close-btn");
@@ -2938,7 +3625,7 @@ public class Main extends Application {
         });
         closeBtn.setTooltip(new Tooltip("Fechar"));
 
-        windowControls.getChildren().addAll(minimizeBtn, closeBtn);
+        windowControls.getChildren().addAll(minimizeBtn, maximizeBtn, closeBtn); // Added maximizeBtn
 
         titleBar.getChildren().addAll(titleBarIconView, titleLabel, spacer, windowControls);
 
@@ -2987,6 +3674,9 @@ public class Main extends Application {
         double cardWidth = 155;
         double cardHeight = 110;
         card.setPrefSize(cardWidth, cardHeight);
+        card.setMaxWidth(cardWidth); // Keep max width fixed for cards in FlowPane
+        card.setMaxHeight(cardHeight); // Keep max height fixed for cards
+
 
         Rectangle clip = new Rectangle(cardWidth, cardHeight);
         clip.setArcWidth(24);
@@ -3048,8 +3738,10 @@ public class Main extends Application {
     // ---------------------- ANIMAÇÕES JAVAFX ---------------------- //
 
 
+
     // ---------------------- INSIDE-TERMINAL ---------------------- //
     private void showSSHTerminal(OLT olt) {
+
         if (terminalTabs == null) {
             terminalTabs = new TabPane();
             terminalTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
@@ -3066,9 +3758,12 @@ public class Main extends Application {
         VBox content = new VBox(20);
         content.getStyleClass().add("content-area");
         content.setPadding(new Insets(20));
+        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
+
 
         HBox header = new HBox(10);
         header.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(header, Priority.ALWAYS); // Allow header HBox to grow
 
         Label title = new Label("Terminal - " + olt.name);
         title.getStyleClass().add("title");
@@ -3082,7 +3777,7 @@ public class Main extends Application {
             Tab currentTab = terminalTabs.getSelectionModel().getSelectedItem();
             terminalTabs.getSelectionModel().select(0);
 
-            if (currentTab != null && currentTab.getText() != "Lista de OLTs") {
+            if (currentTab != null && !currentTab.getText().equals("Lista de OLTs")) {
                 SSHManager ssh = terminalConnections.remove(currentTab);
                 if (ssh != null) {
                     ssh.disconnect();
@@ -3090,11 +3785,13 @@ public class Main extends Application {
                 terminalTabs.getTabs().remove(currentTab);
             }
 
-            if (terminalTabs.getTabs().isEmpty()) {
-                terminalTabs = null;
-                showSection("OLTs");
+            if (terminalTabs.getTabs().size() <= 1 && terminalTabs.getTabs().get(0).getText().equals("Lista de OLTs")) {
+                if(mainContent.getCenter() != terminalTabs) {
+                    showSection("OLTs");
+                }
             }
         });
+
 
         header.getChildren().addAll(title, spacer, backBtn);
 
@@ -3107,12 +3804,14 @@ public class Main extends Application {
         newTerminalArea.getStyleClass().add("terminal-area");
         newTerminalArea.setEditable(false);
         newTerminalArea.setWrapText(true);
-        newTerminalArea.setPrefHeight(300);
-        VBox.setVgrow(newTerminalArea, Priority.ALWAYS);
+        newTerminalArea.setPrefHeight(300); // Initial pref height, but allow growth
+        VBox.setVgrow(newTerminalArea, Priority.ALWAYS); // Allow terminal area to grow
 
         HBox commandArea = new HBox(10);
         commandArea.setAlignment(Pos.CENTER);
         commandArea.setPadding(new Insets(10, 0, 0, 0));
+        HBox.setHgrow(commandArea, Priority.ALWAYS); // Allow commandArea to grow
+
 
         Label promptLabel = new Label(">");
         promptLabel.getStyleClass().add("prompt-label");
@@ -3130,17 +3829,21 @@ public class Main extends Application {
         HBox quickActions = new HBox(10);
         quickActions.setAlignment(Pos.CENTER);
         quickActions.setPadding(new Insets(10, 0, 0, 0));
+        HBox.setHgrow(quickActions, Priority.ALWAYS); // Allow quickActions to grow
+
 
         Button clearBtn = new Button("Limpar");
         clearBtn.getStyleClass().add("action-btn");
         Button helpBtn = new Button("Ajuda");
         helpBtn.getStyleClass().add("action-btn");
 
+
         quickActions.getChildren().addAll(clearBtn, helpBtn);
 
         terminalBox.getChildren().addAll(newTerminalArea, commandArea, quickActions);
         content.getChildren().addAll(header, terminalBox);
-        VBox.setVgrow(terminalBox, Priority.ALWAYS);
+        VBox.setVgrow(terminalBox, Priority.ALWAYS); // Allow terminalBox to grow
+
 
         Tab terminalTab = new Tab(olt.name, content);
         terminalTab.setClosable(true);
@@ -3153,33 +3856,53 @@ public class Main extends Application {
             if (ssh != null) {
                 ssh.disconnect();
             }
+            if (terminalTabs != null && terminalTabs.getTabs().size() == 1 && terminalTabs.getTabs().get(0).getText().equals("Lista de OLTs")) {
+                terminalTabs.getSelectionModel().select(0);
+            }
         });
 
         terminalTabs.getTabs().add(terminalTab);
         terminalTabs.getSelectionModel().select(terminalTab);
 
         Node currentContent = mainContent.getCenter();
-        if (!(currentContent instanceof TabPane)) {
-            FadeTransition fadeOut = new FadeTransition(Duration.millis(200), currentContent);
-            fadeOut.setFromValue(1.0);
-            fadeOut.setToValue(0.0);
-            fadeOut.setOnFinished(ev -> {
+        if (!(currentContent instanceof TabPane) || currentContent != terminalTabs) {
+            if (currentContent != null) {
+                FadeTransition fadeOut = new FadeTransition(Duration.millis(200), currentContent);
+                fadeOut.setFromValue(1.0);
+                fadeOut.setToValue(0.0);
+                fadeOut.setOnFinished(ev -> {
+                    mainContent.setCenter(terminalTabs);
+                    FadeTransition fadeIn = new FadeTransition(Duration.millis(400), terminalTabs);
+                    fadeIn.setFromValue(0.0);
+                    fadeIn.setToValue(1.0);
+                    fadeIn.play();
+                    Platform.runLater(commandField::requestFocus);
+                });
+                fadeOut.play();
+            } else {
                 mainContent.setCenter(terminalTabs);
                 FadeTransition fadeIn = new FadeTransition(Duration.millis(400), terminalTabs);
                 fadeIn.setFromValue(0.0);
                 fadeIn.setToValue(1.0);
                 fadeIn.play();
-            });
-            fadeOut.play();
+                Platform.runLater(commandField::requestFocus);
+            }
+        } else {
+            Platform.runLater(commandField::requestFocus);
         }
         currentSection = (olt.name);
 
         Thread connectThread = new Thread(() -> {
             try {
-                Platform.runLater(() -> newTerminalArea.appendText("Conectando a " + olt.name + " (" + olt.ip + ")...\n"));
-                newSSHManager.connect(olt.ip, Secrets.SSH_USER, Secrets.SSH_PASS, newTerminalArea);
+                final CodeArea terminalAreaForThread = newTerminalArea;
+                Platform.runLater(() -> terminalAreaForThread.appendText("Conectando a " + olt.name + " (" + olt.ip + ")...\n"));
+                newSSHManager.connect(olt.ip, Secrets.SSH_USER, Secrets.SSH_PASS, terminalAreaForThread);
+                Platform.runLater(commandField::requestFocus);
             } catch (Exception e) {
-                Platform.runLater(() -> newTerminalArea.appendText("\nErro ao conectar: " + e.getMessage() + "\n"));
+                final CodeArea terminalAreaForThread = newTerminalArea;
+                final String errorMsg = e.getMessage();
+                Platform.runLater(() -> terminalAreaForThread.appendText("\nErro ao conectar: " + errorMsg + "\n"));
+                Platform.runLater(commandField::requestFocus);
             }
         });
         connectThread.setDaemon(true);
@@ -3187,6 +3910,79 @@ public class Main extends Application {
 
         List<String> commandHistory = new ArrayList<>();
         int[] commandHistoryIndex = {-1};
+
+        List<String> huaweiOltCommands = new ArrayList<>(Arrays.asList(
+                // COMANDOS OLT Huawei MA5800/MA6800
+                "enable", "config", "display", "interface", "quit", "save", "reboot",
+                "undo", "commit", "compare configuration", "copy", "delete", "dir",
+                "ping", "tracert", "ssh", "telnet", "scroll", "language", "idle-timeout",
+                "system", "super", "patch activate", "patch load", "patch delete",
+                "backup configuration", "backup data", "restore configuration", "restore data",
+                "display version", "display board", "display device", "display time",
+                "display users", "display history-command", "display current-configuration",
+                "display saved-configuration", "display startup", "display log all",
+                "display log buffer", "display alarm active", "display alarm history",
+                "display cpu-usage", "display memory-usage", "display temperature",
+                "display fan", "display power", "display environment", "display ip interface brief",
+                "display ip routing-table", "display arp", "display arp all",
+                "display mac-address", "display mac-address dynamic", "display mac-address static",
+                "display vlan", "display vlan all", "display vlan summary", "display vlan port",
+                "display port state", "display port statistics", "display port desc",
+                "display traffic table ip", "display traffic table ip all", "display qos profile",
+                "display qos profile all", "display ont-srvprofile gpon",
+                "display ont-lineprofile gpon", "display dba-profile", "display dba-profile all",
+                "display ont info summary", "display ont info by-sn", "display ont info by-loid",
+                "display ont info by-ip", "display ont info by-mac", "display ont info",
+                "display ont version", "display ont capability", "display ont status",
+                "display ont wan-info", "display ont iptv-info", "display ont voip-info",
+                "display ont alarm-info", "display ont alarm-profile", "display ont autofind all",
+                "display ont optical-info", "display ont register-info", "display ont traffic",
+                "display ont port state", "display ont port statistics", "display ont video-service-info",
+                "display service-port all", "display service-port", "display service-port port",
+                "display service-port vlan", "display service-port index", "display service-port statistics",
+                "display snmp-agent sys-info", "display ntp-service status", "display ssh server status",
+                "display telnet server status", "display load balancing", "display patch information",
+                "display elabel",
+
+                "interface", "vlan", "port vlan", "traffic table ip", "undo traffic table",
+                "qos profile", "undo qos profile", "dba-profile", "undo dba-profile",
+                "ont-srvprofile gpon", "undo ont-srvprofile", "ont-lineprofile gpon",
+                "undo ont-lineprofile", "ont alarm-profile", "undo ont alarm-profile",
+                "snmp-agent", "ntp-service", "ssh server", "telnet server", "user-interface vty",
+                "aaa", "terminal user", "systemname", "time-zone", "syslog-server",
+                "header login", "mac-address static", "arp static", "ip route-static",
+                "security", "load balancing",
+
+                "display this", "port", "description", "shutdown", "undo shutdown", "speed",
+                "duplex", "port vlan", "port default vlan", "port hybrid vlan", "port link-type",
+                "mac-limit maximum", "broadcast-suppression", "multicast-suppression",
+                "unicast-suppression", "qos apply", "trust", "stp", "loop-detect",
+
+                "port <port_id> ont add", "port <port_id> ont delete", "port <port_id> ont modify",
+                "port <port_id> ont confirm", "ont add", "ont delete", "ont modify", "ont confirm",
+                "ont port attribute", "ont ipconfig", "ont wan-config", "ont internet-config",
+                "ont voice-config", "ont video-config", "ont multicast-forward",
+                "service-port", "undo service-port", "display ont info", "display ont optical-info",
+                "display ont register-info", "display ont traffic", "ont auto-learn",
+                "ont-interconnection enable", "laser", "optical-alarm-profile", "power-saving",
+
+                "flow-control", "jumboframe", "auto-neg",
+
+                "by-sn", "summary", "all", "port", "vlan", "ont", "ip", "index", "profile",
+                "gpon", "ethernet", "eth", "pots", "veip", "gemport",
+                "sn-auth", "loid-auth", "password-auth", "omci", "up-stream", "down-stream",
+                "cir", "pir", "cbs", "pbs", "priority", "weight", "queue",
+                "profile-id", "profile-index", "profile-name",
+                "smart", "standard", "mux", "qinq", "stacking",
+                "access", "trunk", "hybrid", "tagged", "untagged",
+                "enable", "disable", "on", "off",
+                "add", "delete", "modify", "confirm",
+                "dhcp", "static", "pppoe",
+                "active", "history", "brief", "dynamic", "static", "configuration", "state",
+                "statistics", "version", "capability", "wan-info", "optical-info", "register-info",
+                "autofind"
+                // COMANDOS OLT Huawei MA5800/MA6800
+        ));
 
         sendBtn.setOnAction(e -> {
             String cmd = commandField.getText().trim();
@@ -3199,6 +3995,8 @@ public class Main extends Application {
 
                 newTerminalArea.moveTo(newTerminalArea.getLength());
                 newTerminalArea.requestFollowCaret();
+
+                commandField.requestFocus();
             }
         });
 
@@ -3208,34 +4006,133 @@ public class Main extends Application {
                     sendBtn.fire();
                     break;
                 case UP:
-                    if (!commandHistory.isEmpty() && commandHistoryIndex[0] > 0) {
-                        commandHistoryIndex[0]--;
-                        commandField.setText(commandHistory.get(commandHistoryIndex[0]));
-                        commandField.positionCaret(commandField.getText().length());
+                    if (!commandHistory.isEmpty()) {
+                        if (commandHistoryIndex[0] == commandHistory.size()) {
+                            commandHistoryIndex[0] = commandHistory.size() - 1;
+                        } else if (commandHistoryIndex[0] > 0) {
+                            commandHistoryIndex[0]--;
+                        }
+                        if (commandHistoryIndex[0] >= 0 && commandHistoryIndex[0] < commandHistory.size()) {
+                            commandField.setText(commandHistory.get(commandHistoryIndex[0]));
+                            commandField.positionCaret(commandField.getText().length());
+                        }
                     }
+                    e.consume();
                     break;
                 case DOWN:
-                    if (!commandHistory.isEmpty() && commandHistoryIndex[0] < commandHistory.size() - 1) {
-                        commandHistoryIndex[0]++;
-                        commandField.setText(commandHistory.get(commandHistoryIndex[0]));
-                        commandField.positionCaret(commandField.getText().length());
+                    if (!commandHistory.isEmpty()) {
+                        if (commandHistoryIndex[0] >= -1 && commandHistoryIndex[0] < commandHistory.size() - 1) {
+                            commandHistoryIndex[0]++;
+                            commandField.setText(commandHistory.get(commandHistoryIndex[0]));
+                            commandField.positionCaret(commandField.getText().length());
+                        } else {
+                            commandHistoryIndex[0] = commandHistory.size();
+                            commandField.clear();
+                        }
+                    }
+                    e.consume();
+                    break;
+                case TAB:
+                    e.consume();
+
+                    String currentText = commandField.getText();
+                    if (currentText == null || currentText.trim().isEmpty()) {
+                        break;
+                    }
+
+                    String trimmedText = currentText.trim();
+                    List<String> matches = huaweiOltCommands.stream()
+                            .filter(cmd -> cmd.toLowerCase().startsWith(trimmedText.toLowerCase()))
+                            .collect(Collectors.toList());
+
+                    String textToSet = null;
+
+                    if (matches.size() == 1) {
+                        String completion = matches.get(0);
+                        if (!currentText.equals(completion)) {
+                            textToSet = completion;
+                        } else {
+                            Platform.runLater(() -> {
+                                commandField.deselect();
+                                commandField.requestFocus();
+                            });
+                        }
+                    } else if (matches.size() > 1) {
+                        String commonPrefix = findCommonPrefix(matches);
+                        if (commonPrefix != null && !commonPrefix.isEmpty() && commonPrefix.length() > currentText.length()) {
+                            textToSet = commonPrefix;
+                        } else {
+                            final CodeArea terminalAreaForTab = newTerminalArea;
+                            final List<String> finalMatches = matches;
+                            final String currentInputText = commandField.getText();
+                            Platform.runLater(() -> {
+                                terminalAreaForTab.appendText("\n");
+                                for(String match : finalMatches) {
+                                    terminalAreaForTab.appendText(match + "  ");
+                                }
+                                terminalAreaForTab.appendText("\n> " + currentInputText);
+                                terminalAreaForTab.moveTo(terminalAreaForTab.getLength());
+                                terminalAreaForTab.requestFollowCaret();
+                                commandField.requestFocus();
+                                commandField.positionCaret(currentInputText.length());
+                                commandField.deselect();
+                            });
+                        }
                     } else {
-                        commandHistoryIndex[0] = commandHistory.size();
-                        commandField.clear();
+                        commandField.requestFocus();
+                    }
+
+                    if (textToSet != null) {
+                        final String finalTextToSet = textToSet;
+                        commandField.setText(finalTextToSet);
+
+                        Platform.runLater(() -> {
+                            System.out.println("runLater: Attempting to position caret, deselect, and focus for: " + finalTextToSet);
+                            commandField.positionCaret(finalTextToSet.length());
+                            commandField.deselect();
+                            commandField.requestFocus();
+                            System.out.println("runLater: Caret: " + commandField.getCaretPosition() + ", Selected: '" + commandField.getSelectedText() + "', Focused: " + commandField.isFocused());
+                        });
                     }
                     break;
             }
         });
 
+
         clearBtn.setOnAction(e -> {
             newTerminalArea.clear();
+            commandField.requestFocus();
         });
 
         helpBtn.setOnAction(e -> {
             showHelpDialog();
         });
     }
-    // ---------------------- INSIDE-TERMINAL ---------------------- //
+
+    private String findCommonPrefix(List<String> strings) {
+        if (strings == null || strings.isEmpty()) return "";
+        if (strings.size() == 1) return strings.get(0);
+
+        String firstStr = strings.get(0).toLowerCase();
+        int prefixLength = firstStr.length();
+
+        for (int i = 1; i < strings.size(); i++) {
+            String currentStr = strings.get(i).toLowerCase();
+            int currentMatchLength = 0;
+            while (currentMatchLength < prefixLength && currentMatchLength < currentStr.length() &&
+                    firstStr.charAt(currentMatchLength) == currentStr.charAt(currentMatchLength)) {
+                currentMatchLength++;
+            }
+            prefixLength = currentMatchLength;
+            if (prefixLength == 0) break;
+        }
+
+
+        return strings.get(0).substring(0, prefixLength);
+    }
+// ---------------------- INSIDE-TERMINAL ---------------------- //
+
+
 
 
     // ---------------------- TRATAMENTO IP, TOAST e CRÉDITOS ---------------------- //
@@ -3288,7 +4185,7 @@ public class Main extends Application {
         creditsContent.setAlignment(Pos.TOP_LEFT);
         creditsContent.setPadding(new Insets(10));
 
-        Label appName = new Label("Gerenciador de OLTs - 1.5.3.0");
+        Label appName = new Label("Gerenciador de OLTs - 1.5.4.0");
         appName.getStyleClass().add("credits-title");
 
         Label developer = new Label("Desenvolvido por Eduardo Tomaz");
@@ -3401,6 +4298,8 @@ public class Main extends Application {
         VBox commandsBox = new VBox(8);
         commandsBox.getStyleClass().add("commands-box");
         commandsBox.setPadding(new Insets(10));
+        commandsBox.setMaxWidth(Double.MAX_VALUE); // Allow commandsBox to take max width
+
 
         Label basicLabel = new Label("Comandos Principais:");
         basicLabel.getStyleClass().add("help-section");
@@ -3415,6 +4314,8 @@ public class Main extends Application {
                 new Label("• display port desc (F/S/P) - Verificar Cabo e Primária"),
                 new Label("• display ont autofind all - ONT/ONUs boiando")
         );
+        basicCommands.setMaxWidth(Double.MAX_VALUE); // Allow basicCommands to take max width
+
 
         Label oltLabel = new Label("Comandos que utilizam Interface GPON:");
         oltLabel.getStyleClass().add("help-section");
@@ -3427,12 +4328,16 @@ public class Main extends Application {
                 new Label("• display ont traffic (P) all - Tráfego/Velocidade da ONT/ONU"),
                 new Label("• display service-port port (F/S/P) ont (ID) - Serviço da ONT/ONU")
         );
+        oltCommands.setMaxWidth(Double.MAX_VALUE); // Allow oltCommands to take max width
+
 
         commandsBox.getChildren().addAll(basicLabel, basicCommands, oltLabel, oltCommands);
 
         Button closeBtn = new Button("Fechar");
         closeBtn.getStyleClass().add("help-close-btn");
         closeBtn.setOnAction(e -> helpStage.close());
+        closeBtn.setMaxWidth(Double.MAX_VALUE); // Allow closeBtn to take max width
+
 
         helpContent.getChildren().addAll(commandsBox, closeBtn);
 
@@ -3517,7 +4422,7 @@ public class Main extends Application {
                     backgroundExecutor.shutdownNow();
                 }
             } catch (InterruptedException e) {
-                System.err.println("backgroundExecutor interrompido durante o encerramento.");
+                backgroundExecutor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
         }
