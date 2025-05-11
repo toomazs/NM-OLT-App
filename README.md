@@ -1,122 +1,118 @@
+# 🧠 OLT Manager — N-Multifibra
 
-# 🧠 olt manager — n-multifibra
+> Internal network management tool developed by Eduardo Tomaz for Huawei OLTs at **N-Multifibra**.
 
-🔧 project by eduardo tomaz — internal tool for managing huawei olts at *n-multifibra*
-
-> a clean & powerful java tool to connect, diagnose and monitor huawei olts — with ssh access, signal analysis, visual outage tracking, and real-time user interaction 🎯
-
-📶 if you're an employee at **n-multifibra**, just reach out to **eduardo tomaz** — he’ll provide you with the ready-to-use version with correct credentials + olt list.
+A robust and efficient Java-based application for secure SSH access, diagnostics, signal analysis, and real-time collaboration across Huawei OLT devices.
 
 ---
 
-## 📦 what it does
+## 📦 Features
 
-- ssh-rsa connection to huawei olt terminal (via jsch)
-- real-time signal analysis for each pon: shows tx/rx levels, averages and alerts
-- pon summary with all ont details
-- search ont by serial (by-sn)
-- drop diagnosis: last 10 disconnection events from each ont
-- postgresql integration for login and roles
-- real-time interaction between the users
-- different themes and highlighted terminal
-
----
-
-## 📚 libs used
-
-- [jsch](http://www.jcraft.com/jsch/) — ssh access  
-- [javafx](https://openjfx.io/) — for the ui  
-- [openpdf](https://github.com/LibrePDF/OpenPDF) — export to pdf  
-- [launch4j](http://launch4j.sourceforge.net/) — windows .exe packaging  
-- [postgresql](https://jdbc.postgresql.org/) — database access
-- [richtextfx](https://github.com/FXMisc/RichTextFX) — better terminal highlighted
-- [json in java](https://mvnrepository.com/artifact/org.json/json/20140107) — compile to .json files
+- Secure SSH-RSA connection to Huawei OLTs (via JSCH)
+- Real-time optical signal analysis: TX/RX levels, averages, and alert system
+- PON summary with detailed ONT information
+- Serial-based ONT search (ONT/ONU by SN)
+- Disconnection diagnosis: historical log of the last 10 ONT drops
+- Integrated MariaDB (MySQL) database for login and user roles
+- Real-time interaction among connected users
+- Modern user interface with theme support and syntax-highlighted terminal
 
 ---
 
-## 💾 installing on windows
+## 📚 Libraries & Tools
 
-👉 easiest way: download the latest **SetupOLTApp1.5.3.0.exe** from the *releases section on github*  
-
-✅ comes with everything: javafx, libraries, jdk  
-✅ after the setup completed, just run the **OLTApp.exe** and enjoy (will be disponible as shortcut in the desktop too)
-❌ no need to install javafx sdk or clone repo unless you’re editing code
+- [JSCH](http://www.jcraft.com/jsch/) — SSH communication
+- [JavaFX](https://openjfx.io/) — graphical user interface
+- [OpenPDF](https://github.com/LibrePDF/OpenPDF) — PDF export support
+- [Launch4j](http://launch4j.sourceforge.net/) — Windows executable packaging
+- [MariaDB Connector/J](https://mariadb.com/kb/en/mariadb-connector-j/) — database integration
+- [RichTextFX](https://github.com/FXMisc/RichTextFX) — syntax highlighting in terminal
+- [JSON in Java](https://mvnrepository.com/artifact/org.json/json/20140107) — JSON file handling
 
 ---
 
-## 🧑‍💻 for devs
+## 💾 Installation (Windows)
 
-1. clone the repo:
+**Recommended:** Download the latest **SetupOLTApp1.5.4.0.exe** from the *Releases* section on GitHub.
+
+✅ Bundled with JavaFX, all libraries, and the required JDK  
+✅ Desktop shortcut is created after setup  
+❌ No manual configuration or JavaFX SDK installation required
+
+---
+
+## 🧑‍💻 For Developers
+
+1. Clone the repository:
 
 ```bash
 git clone https://github.com/toomazs/NM-OLT-App.git
 cd NM-OLT-App
 ```
 
-2. make sure java 22+ is installed:
+2. Ensure Java 22 or later is installed:
 
 ```bash
 java -version
 ```
 
-3. open it in intellij (recommended)  
-javafx sdk already included in `lib/javafx-sdk-24/lib`
+3. Open the project in **IntelliJ IDEA** (recommended).  
+JavaFX SDK is already bundled in `lib/javafx-sdk-24/lib`.
 
-4. check `lib/` for all jars:  
-includes everything you need — javafx, openpdf, jsch, postgresql, json, richtextfx
+4. Check the `lib/` directory for all required `.jar` files (JavaFX, JSCH, RichTextFX, OpenPDF, MariaDB, etc).
 
 ---
 
-## 🛠 database (postgresql)
+## 🛠 Database Setup (MariaDB 11.7)
 
-1. create the db:
+1. Create the database:
 
 ```sql
-create database nm_olt_db;
+CREATE DATABASE nm_olt_db;
 ```
 
-2. create users table:
+2. Create the user table:
 
 ```sql
-create table usuarios (
-  id serial primary key,
-  nome text not null,
-  usuario text unique not null,
-  senha text not null,
-  cargo text not null
+CREATE TABLE usuarios (
+  id SERIAL PRIMARY KEY,
+  nome TEXT NOT NULL,
+  usuario TEXT UNIQUE NOT NULL,
+  senha TEXT NOT NULL,
+  cargo TEXT NOT NULL
 );
 ```
 
-3. insert default users:
+3. Insert default users:
 
 ```sql
-insert into usuarios (nome, usuario, senha, cargo)
-values
+INSERT INTO usuarios (nome, usuario, senha, cargo)
+VALUES
   ('intern user', 'intern', 'nm12345678', 'estagiario'),
   ('admin user', 'admin', 'nm12345678', 'supervisor');
 ```
 
 ---
 
-## 🔐 secret files you need
+## 🔐 Required Secret Files
 
-### `SecretsDB.java` — db connection
+### `SecretsDB.java` – MariaDB Credentials
 
 ```java
 package database;
 
 public class SecretsDB {
-    public static final String DB_URL = "jdbc:postgresql://localhost:5432/nm_olt_db";
+    public static final String DB_URL = "jdbc:mariadb://localhost:3306/nm_olt_db";
     public static final String DB_USER = "your_db_user";
     public static final String DB_PASSWORD = "your_db_password";
 }
 ```
 
-📁 put it in: `src/database/`
+📁 Place in: `src/database/`
 
 ---
 
-### `Secrets.java` — ssh login + olt list
+### `Secrets.java` – SSH Login & OLT List
 
 ```java
 public class Secrets {
@@ -129,11 +125,11 @@ public class Secrets {
 }
 ```
 
-📁 put it in: `src/` (next to `Main.java`)
+📁 Place in: `src/` (next to `Main.java`)
 
 ---
 
-## 📞 support
+## 📞 Support
 
-any bugs or suggestions? hit me up here or dm me on insta: [@tomazdudux](https://www.instagram.com/tomazdudux/)  
-always down to help 😄
+For bug reports or feature suggestions, feel free to contact Eduardo Tomaz directly.  
+[@tomazdudux](https://www.instagram.com/tomazdudux/)
