@@ -18,6 +18,7 @@ logs/
 
 # Ignorar arquivos .iss 
 *.iss
+*.bat
 
 ### IntelliJ IDEA ###
 .idea/

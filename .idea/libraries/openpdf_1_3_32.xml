@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="openpdf-1.3.32">
-    <CLASSES>
-      <root url="jar://$PROJECT_DIR$/update/lib/openpdf-1.3.32.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>

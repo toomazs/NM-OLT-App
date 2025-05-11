@@ -1,13 +1,15 @@
 <configuration base="https://raw.githubusercontent.com/toomazs/NM-OLT-App/main/update/">
     <properties>
         <property name="default.launcher.main.class" value="Main"/>
+        <!-- Adicione estas propriedades para JavaFX -->
+        <property name="default.launcher.system.javafx.version" value="24"/>
+        <property name="default.launcher.system.javafx.modules" value="javafx.controls,javafx.fxml,javafx.graphics"/>
     </properties>
-
+    
     <files>
-        <!-- Arquivo principal -->
         <file path="OLTApp.jar" classpath="true" launcher="true" version="1.5.4.0"/>
-
-        <!-- Dependências JavaFX -->
+        
+        <!-- JavaFX -->
         <file path="lib/javafx-sdk-24/javafx.base.jar" classpath="true"/>
         <file path="lib/javafx-sdk-24/javafx.controls.jar" classpath="true"/>
         <file path="lib/javafx-sdk-24/javafx.fxml.jar" classpath="true"/>
@@ -15,6 +17,11 @@
         <file path="lib/javafx-sdk-24/javafx.media.jar" classpath="true"/>
         <file path="lib/javafx-sdk-24/javafx.swing.jar" classpath="true"/>
         <file path="lib/javafx-sdk-24/javafx.web.jar" classpath="true"/>
+        <file path="lib/javafx-sdk-24/javafx.swt.jar" classpath="true"/>
+        <file path="lib/javafx-sdk-24/jdk.jsobject.jar" classpath="true"/>
+        <file path="lib/javafx-sdk-24/jfx.incubator.input.jar" classpath="true"/>
+        <file path="lib/javafx-sdk-24/jfx.incubator.richtext.jar" classpath="true"/>
+                            
 
         <!-- Outras dependências -->
         <file path="lib/fontawesomefx-8.9.jar" classpath="true"/>
