@@ -264,7 +264,6 @@ public class Main extends Application {
                     if (ultimaMsg != null && !ultimaMsg.isLida() &&
                             !ultimaMsg.getRemetente().equals(usuarioLogado.getUsuario())) {
 
-                        // Verifica se esta mensagem já gerou uma notificação nesta sessão
                         if (!notifiedMessageIds.contains(ultimaMsg.getId())) {
                             Platform.runLater(() -> {
                                 if (trayIcon != null) {
@@ -441,7 +440,7 @@ public class Main extends Application {
             );
             fadeIn.play();
 
-            // setupWindowDrag(rootLayout.getChildren().get(0)); // Drag handled by titleBar
+            setupWindowDrag(rootLayout.getChildren().get(0));
 
             scene.setOnKeyPressed(event -> {
                 if (event.isControlDown() && event.getCode() == KeyCode.F) {
@@ -511,9 +510,8 @@ public class Main extends Application {
     private VBox createSideNavigation() {
         VBox sideNav = new VBox(10);
         sideNav.getStyleClass().add("side-nav");
-        // sideNav.setPrefWidth(200); // Use minWidth instead of prefWidth for responsiveness
         sideNav.setPrefWidth(200);
-        sideNav.setMaxWidth(250); // Optional: set a max width
+        sideNav.setMaxWidth(250);
         sideNav.setPadding(new Insets(20, 0, 20, 0));
 
         HBox versionBox = new HBox();
@@ -943,7 +941,7 @@ public class Main extends Application {
             Node novaSidebar = createStatusSidebar();
             if (novaSidebar instanceof Region) {
                 ((Region) novaSidebar).setMaxHeight(Double.MAX_VALUE);
-                VBox.setVgrow((ScrollPane)novaSidebar, Priority.ALWAYS); // Ensure scrollpane grows
+                VBox.setVgrow((ScrollPane)novaSidebar, Priority.ALWAYS);
             }
             mainContent.setRight(novaSidebar);
             statusSidebar = novaSidebar;
@@ -1061,19 +1059,17 @@ public class Main extends Application {
     private Node createStatusSidebar() {
         VBox sidebarVBox = new VBox(10);
         sidebarVBox.setPadding(new Insets(10));
-        // sidebarVBox.setPrefWidth(220); // Use minWidth instead of prefWidth
         sidebarVBox.setPrefWidth(220);
-        sidebarVBox.setMaxWidth(250); // Optional: set max width
+        sidebarVBox.setMaxWidth(250);
         sidebarVBox.getStyleClass().add("side-status");
-        VBox.setVgrow(sidebarVBox, Priority.ALWAYS); // Allow sidebarVBox to grow
+        VBox.setVgrow(sidebarVBox, Priority.ALWAYS);
 
         onlineUserBox = new VBox(5);
         onlineUserBox.setPadding(new Insets(5, 0, 5, 0));
-        VBox.setVgrow(onlineUserBox, Priority.ALWAYS); // Allow onlineUserBox to grow
+        VBox.setVgrow(onlineUserBox, Priority.ALWAYS);
 
         offlineUserBox = new VBox(5);
         offlineUserBox.setPadding(new Insets(5, 0, 5, 0));
-        // Don't set Vgrow for offlineUserBox so it doesn't take up space when collapsed
 
         ScrollPane offlineScrollPane = new ScrollPane(offlineUserBox);
         offlineScrollPane.setFitToWidth(true);
@@ -1210,7 +1206,6 @@ public class Main extends Application {
         StackPane.setMargin(statusCircle, new Insets(0, 5, 5, 0));
         StackPane.setAlignment(avatarStack, Pos.CENTER); // Center the avatar stack
 
-        // --- Lógica para Trocar Foto (Apenas se for o usuário logado) ---
         if (usuarioLogado != null && usuarioLogado.getUsuario().equals(usuarioParaExibir.getUsuario())) {
             avatar.setCursor(Cursor.HAND);
             Tooltip.install(avatar, new Tooltip("Clique para alterar sua foto"));
@@ -1422,12 +1417,6 @@ public class Main extends Application {
                             Mensagem ultimaMsg = conversa.getUltimaMensagem();
 
                             if (!usuarioLogado.getStatus().equalsIgnoreCase("não_perturbe") && !ultimaMsg.isLida() && trayIcon != null) {
-                                // A notificação agora é tratada no scheduler principal para evitar repetição.
-                                // Apenas a lógica de atualização do ícone na bandeja pode ser feita aqui, se desejado.
-                                // Porém, a lógica de notificação repetida foi movida para o scheduler.
-                                // Se quisermos que a tela de conversas *também* possa triggar a primeira notificação,
-                                // precisaríamos replicar a lógica do Set aqui ou refatorar.
-                                // Por enquanto, a notificação repetida foi corrigida no scheduler.
                             }
                         }
                         HBox conversationItem = createConversationItem(conversa);
@@ -2642,7 +2631,6 @@ public class Main extends Application {
         HBox.setHgrow(fsField, Priority.ALWAYS); // Allow fsField to grow
         HBox.setHgrow(pField, Priority.ALWAYS); // Allow pField to grow
 
-
         TextFormatter<String> pFormatter = new TextFormatter<>(change -> {
             if (change.getControlNewText().matches("[0-9]{0,3}")) {
                 return change;
@@ -2661,15 +2649,29 @@ public class Main extends Application {
 
         Button queryBtn = new Button("Consultar");
         queryBtn.getStyleClass().add("connect-btn");
-        queryBtn.setMaxWidth(240); // Allow button to take max width
+        queryBtn.setMaxWidth(140);
 
         fsField.setOnKeyPressed(event -> {
+            if (event.isControlDown()) {
+                if (event.getCode() == KeyCode.C) {
+                    fsField.copy();
+                } else if (event.getCode() == KeyCode.V) {
+                    fsField.paste();
+                }
+            }
             if (event.getCode() == KeyCode.ENTER) {
                 queryBtn.fire();
             }
         });
 
         pField.setOnKeyPressed(event -> {
+            if (event.isControlDown()) {
+                if (event.getCode() == KeyCode.C) {
+                    pField.copy();
+                } else if (event.getCode() == KeyCode.V) {
+                    pField.paste();
+                }
+            }
             if (event.getCode() == KeyCode.ENTER) {
                 queryBtn.fire();
             }
@@ -2683,7 +2685,7 @@ public class Main extends Application {
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
-        exportBtn.setMaxWidth(240); // Allow button to take max width
+        exportBtn.setMaxWidth(140); // Allow button to take max width
 
 
         exportBtn.setOnAction(e -> {
@@ -2868,27 +2870,34 @@ public class Main extends Application {
         oltComboBox.getItems().addAll(OLTList.getOLTs());
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
-        oltComboBox.setMaxWidth(240); // Allow combo box to take max width
+        oltComboBox.setMaxWidth(240);
 
         TextField ponField = new TextField();
         ponField.setPromptText("Digite o F/S/P");
         ponField.getStyleClass().add("text-field");
-        ponField.setMaxWidth(240); // Allow text field to take max width
+        ponField.setMaxWidth(240);
 
         TextFormatter<String> ponFormatter = new TextFormatter<>(change -> {
-            if (change.getControlNewText().matches("[0-9/]{0,7}")) {
-                return change;
+            String newText = change.getControlNewText();
+            if (change.isContentChange() && !newText.matches("[0-9/]{0,7}")) {
+                return null;
             }
-            return null;
+            return change;
         });
         ponField.setTextFormatter(ponFormatter);
 
         Button consultarBtn = new Button("Consultar");
         consultarBtn.getStyleClass().add("connect-btn");
-        consultarBtn.setMaxWidth(240); // Allow button to take max width
-
+        consultarBtn.setMaxWidth(140);
 
         ponField.setOnKeyPressed(event -> {
+            if (event.isControlDown()) {
+                if (event.getCode() == KeyCode.C) {
+                    ponField.copy();
+                } else if (event.getCode() == KeyCode.V) {
+                    ponField.paste();
+                }
+            }
             if (event.getCode() == KeyCode.ENTER) {
                 consultarBtn.fire();
             }
@@ -2984,7 +2993,7 @@ public class Main extends Application {
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
-        exportBtn.setMaxWidth(240); // Allow button to take max width
+        exportBtn.setMaxWidth(140); // Allow button to take max width
 
 
         exportBtn.setOnAction(e -> {
@@ -3034,7 +3043,6 @@ public class Main extends Application {
         oltComboBox.getStyleClass().add("combo-box");
         oltComboBox.setMaxWidth(240); // Allow combo box to take max width
 
-
         TextField snField = new TextField();
         snField.setPromptText("Digite o SN da ONT/ONU");
         snField.getStyleClass().add("text-field");
@@ -3050,10 +3058,16 @@ public class Main extends Application {
 
         Button consultarBtn = new Button("Consultar");
         consultarBtn.getStyleClass().add("connect-btn");
-        consultarBtn.setMaxWidth(240); // Allow button to take max width
-
+        consultarBtn.setMaxWidth(140); // Allow button to take max width
 
         snField.setOnKeyPressed(event -> {
+            if (event.isControlDown()) {
+                if (event.getCode() == KeyCode.C) {
+                    snField.copy();
+                } else if (event.getCode() == KeyCode.V) {
+                    snField.paste();
+                }
+            }
             if (event.getCode() == KeyCode.ENTER) {
                 consultarBtn.fire();
             }
@@ -3151,7 +3165,7 @@ public class Main extends Application {
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
-        exportBtn.setMaxWidth(240); // Allow button to take max width
+        exportBtn.setMaxWidth(140); // Allow button to take max width
 
 
         exportBtn.setOnAction(e -> {
@@ -3236,20 +3250,35 @@ public class Main extends Application {
 
         Button diagnosticarBtn = new Button("Consultar");
         diagnosticarBtn.getStyleClass().add("connect-btn");
-        diagnosticarBtn.setMaxWidth(240); // Allow button to take max width
-
+        diagnosticarBtn.setMaxWidth(140); // Allow button to take max width
 
         fsField.setOnKeyPressed(event -> {
+            if (event.isControlDown()) {
+                if (event.getCode() == KeyCode.C) {
+                    fsField.copy();
+                } else if (event.getCode() == KeyCode.V) {
+                    fsField.paste();
+                }
+            }
             if (event.getCode() == KeyCode.ENTER) {
                 diagnosticarBtn.fire();
             }
         });
 
         pidField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                diagnosticarBtn.fire();
+            if (event.isControlDown()) {
+                if (event.getCode() == KeyCode.C) {
+                    pidField.copy();
+                } else if (event.getCode() == KeyCode.V) {
+                    pidField.paste();
+                }
             }
+                if (event.getCode() == KeyCode.ENTER) {
+                    diagnosticarBtn.fire();
+                }
         });
+
+
 
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
@@ -3345,7 +3374,7 @@ public class Main extends Application {
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
-        exportBtn.setMaxWidth(240); // Allow button to take max width
+        exportBtn.setMaxWidth(140); // Allow button to take max width
 
 
         exportBtn.setOnAction(e -> {

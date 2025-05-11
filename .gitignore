@@ -2,6 +2,8 @@
 src/Secrets.java
 src/database/SecretsDB.java
 
+# Ignorar .jar especifico
+OLTApp.jar
 
 # Ignorar pastas especificas
 exports/
@@ -14,9 +16,8 @@ logs/
 # Ignorar arquivos .bat
 *.bat
 
-# Ignorar arquivos .iss 
+# Ignorar arquivos .iss
 *.iss
-*.bat
 
 ### IntelliJ IDEA ###
 .idea/
