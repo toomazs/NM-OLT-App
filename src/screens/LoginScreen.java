@@ -127,12 +127,12 @@ public class LoginScreen {
         minimizeBtn.getStyleClass().addAll("window-btn", "minimize-btn");
         minimizeBtn.setOnAction(e -> stage.setIconified(true));
 
-
         Region buttonSpacer = new Region();
         buttonSpacer.setPrefWidth(5);
 
-        Button closeBtn = new Button("×");
-        closeBtn.getStyleClass().addAll("window-btn", "close-btn");
+        Button closeBtn = new Button("✕");
+        closeBtn.getStyleClass().addAll("close-btn", "window-btn");
+        closeBtn.setPadding(new Insets(12, 12, 12, 12));
         closeBtn.setOnAction(e -> {
             Node rootNode = stage.getScene().getRoot();
             FadeTransition fadeOut = new FadeTransition(Duration.millis(200), rootNode);

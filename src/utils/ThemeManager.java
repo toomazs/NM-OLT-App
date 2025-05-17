@@ -36,61 +36,56 @@ public class ThemeManager {
     }
 
     public static void applyTheme(Scene scene, String themeName) {
+        if (scene == null) {
+            System.err.println("ThemeManager: Tentativa de aplicar tema a uma cena nula.");
+            return;
+        }
         currentScene = scene;
 
         Platform.runLater(() -> {
-
-            if (currentScene != null && currentScene.getRoot() instanceof Pane rootPane) {
-
+            if (currentScene.getRoot() instanceof Pane rootPane) {
                 Rectangle overlay = new Rectangle();
                 overlay.setFill(Color.BLACK);
-                overlay.setOpacity(0);
+                overlay.setOpacity(0.0);
 
-                rootPane.getChildren().add(overlay);
+                if (!rootPane.getChildren().contains(overlay)) {
+                    rootPane.getChildren().add(overlay);
+                }
                 overlay.toFront();
 
-                if (rootPane instanceof Region region) {
-                    overlay.widthProperty().bind(region.widthProperty());
-                    overlay.heightProperty().bind(region.heightProperty());
+                if (rootPane instanceof Region) {
+                    overlay.widthProperty().bind(((Region) rootPane).widthProperty());
+                    overlay.heightProperty().bind(((Region) rootPane).heightProperty());
                 } else {
                     overlay.widthProperty().bind(currentScene.widthProperty());
                     overlay.heightProperty().bind(currentScene.heightProperty());
                 }
-
-
-                FadeTransition fadeIn = new FadeTransition(Duration.millis(250), overlay);
+                FadeTransition fadeIn = new FadeTransition(Duration.millis(150), overlay);
                 fadeIn.setFromValue(0.0);
-                fadeIn.setToValue(0.8);
+                fadeIn.setToValue(0.7);
 
-                FadeTransition fadeOut = new FadeTransition(Duration.millis(400), overlay);
-                fadeOut.setFromValue(0.8);
+                FadeTransition fadeOut = new FadeTransition(Duration.millis(250), overlay);
+                fadeOut.setFromValue(0.7);
                 fadeOut.setToValue(0.0);
 
-
-                fadeOut.setOnFinished(outEvent -> {
+                fadeOut.setOnFinished(event -> {
                     if (rootPane.getChildren().contains(overlay)) {
                         rootPane.getChildren().remove(overlay);
                     }
-
                     overlay.widthProperty().unbind();
                     overlay.heightProperty().unbind();
                 });
 
-                fadeIn.setOnFinished(inEvent -> {
-                    applyThemeStylesheets(currentScene, themeName);
+                fadeIn.setOnFinished(event -> {
                     if (applyThemeStylesheets(currentScene, themeName)) {
-                        configManager.setTheme(themeName);
-                        System.out.println("Tema salvo: " + themeName);
                     }
                     fadeOut.play();
                 });
 
                 fadeIn.play();
-            } else if (currentScene != null) {
-                System.out.println("Aplicando tema diretamente (sem fade).");
+            } else {
+                System.out.println("Aplicando tema diretamente (root não é Pane ou cena nula).");
                 if (applyThemeStylesheets(currentScene, themeName)) {
-                    configManager.setTheme(themeName);
-                    System.out.println("Tema (direto) salvo: " + themeName);
                 }
             }
         });

@@ -32,9 +32,7 @@ public class ChangePasswordScreen {
         stage.initModality(Modality.APPLICATION_MODAL);
         stage.initOwner(owner);
 
-
         ConfigManager configManager = ConfigManager.getInstance();
-
         String currentThemeFile = configManager.getTheme();
         String iconFileName = ThemeManager.getIconFileNameForTheme(currentThemeFile);
 
@@ -69,9 +67,8 @@ public class ChangePasswordScreen {
         mainLayout.setTop(titleBar);
         mainLayout.setCenter(root);
 
-        Scene scene = new Scene(mainLayout, 360, 520);
+        Scene scene = new Scene(mainLayout, 400, 550);
         ThemeManager.applyThemeToNewScene(scene);
-
 
         scene.getRoot().setEffect(new DropShadow(15, Color.rgb(0, 0, 0, 0.6)));
 
@@ -132,15 +129,12 @@ public class ChangePasswordScreen {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button minimizeBtn = new Button("—");
-        minimizeBtn.getStyleClass().addAll("window-btn", "minimize-btn");
-        minimizeBtn.setOnAction(e -> stage.setIconified(true));
-
         Region buttonSpacer = new Region();
         buttonSpacer.setPrefWidth(5);
 
-        Button closeBtn = new Button("×");
-        closeBtn.getStyleClass().addAll("window-btn", "close-btn");
+        Button closeBtn = new Button("✕");
+        closeBtn.getStyleClass().addAll("close-btn", "window-btn");
+        closeBtn.setPadding(new Insets(12, 12, 12, 12));
         closeBtn.setOnAction(e -> {
             Node rootNode = stage.getScene().getRoot();
             FadeTransition fadeOut = new FadeTransition(Duration.millis(200), rootNode);
@@ -150,7 +144,7 @@ public class ChangePasswordScreen {
             fadeOut.play();
         });
 
-        titleBar.getChildren().addAll(titleBarIconView, titleLabel, spacer, minimizeBtn, buttonSpacer, closeBtn);
+        titleBar.getChildren().addAll(titleBarIconView, titleLabel, spacer, buttonSpacer, closeBtn);
         HBox.setMargin(closeBtn, new Insets(0, 10, 0, 0));
 
         titleBar.setOnMousePressed(event -> {
@@ -201,6 +195,27 @@ public class ChangePasswordScreen {
         userField.setMaxWidth(260);
         userField.getStyleClass().add("modern-text-field");
 
+        PasswordField currentPassHidden = new PasswordField();
+        currentPassHidden.setPromptText("Senha Atual");
+        currentPassHidden.getStyleClass().add("modern-text-field");
+        currentPassHidden.setPrefWidth(230);
+
+        TextField currentPassVisible = new TextField();
+        currentPassVisible.setPromptText("Senha Atual");
+        currentPassVisible.getStyleClass().add("modern-text-field");
+        currentPassVisible.setPrefWidth(230);
+        currentPassVisible.setVisible(false);
+        currentPassVisible.setManaged(false);
+
+        Button toggleCurrentPassBtn = new Button("\uD83D\uDC41");
+        toggleCurrentPassBtn.getStyleClass().add("eye-button");
+
+        toggleCurrentPassBtn.setOnAction(e -> togglePasswordVisibility(currentPassHidden, currentPassVisible, toggleCurrentPassBtn));
+
+        HBox currentPassBox = new HBox(5, currentPassHidden, currentPassVisible, toggleCurrentPassBtn);
+        currentPassBox.setAlignment(Pos.CENTER_LEFT);
+        currentPassBox.setMaxWidth(260);
+
         PasswordField newPassHidden = new PasswordField();
         newPassHidden.setPromptText("Nova Senha");
         newPassHidden.getStyleClass().add("modern-text-field");
@@ -213,7 +228,7 @@ public class ChangePasswordScreen {
         newPassVisible.setVisible(false);
         newPassVisible.setManaged(false);
 
-        Button toggleNewPassBtn = new Button("\uD83D\uDC41\uFE0F");
+        Button toggleNewPassBtn = new Button("\uD83D\uDC41");
         toggleNewPassBtn.getStyleClass().add("eye-button");
 
         toggleNewPassBtn.setOnAction(e -> togglePasswordVisibility(newPassHidden, newPassVisible, toggleNewPassBtn));
@@ -228,13 +243,13 @@ public class ChangePasswordScreen {
         confirmPassHidden.setPrefWidth(230);
 
         TextField confirmPassVisible = new TextField();
-        confirmPassVisible.setPromptText("Confirmação");
+        confirmPassVisible.setPromptText("Confirme a Nova Senha");
         confirmPassVisible.getStyleClass().add("modern-text-field");
         confirmPassVisible.setPrefWidth(230);
         confirmPassVisible.setVisible(false);
         confirmPassVisible.setManaged(false);
 
-        Button toggleConfirmPassBtn = new Button("\uD83D\uDC41\uFE0F");
+        Button toggleConfirmPassBtn = new Button("\uD83D\uDC41");
         toggleConfirmPassBtn.getStyleClass().add("eye-button");
 
         toggleConfirmPassBtn.setOnAction(e -> togglePasswordVisibility(confirmPassHidden, confirmPassVisible, toggleConfirmPassBtn));
@@ -271,11 +286,16 @@ public class ChangePasswordScreen {
 
         alterarBtn.setOnAction(e -> {
             String usuario = userField.getText().trim();
+            String currentPassword = currentPassHidden.isVisible() ? currentPassHidden.getText() : currentPassVisible.getText();
             String newPassword = newPassHidden.isVisible() ? newPassHidden.getText() : newPassVisible.getText();
             String confirmPassword = confirmPassHidden.isVisible() ? confirmPassHidden.getText() : confirmPassVisible.getText();
 
             if (usuario.isEmpty()) {
                 showStatusMessage(status, "Nome de usuário é obrigatório.", true);
+                return;
+            }
+            if (currentPassword.isEmpty()) {
+                showStatusMessage(status, "A senha atual é obrigatória.", true);
                 return;
             }
             if (newPassword.isEmpty() || confirmPassword.isEmpty()) {
@@ -284,6 +304,11 @@ public class ChangePasswordScreen {
             }
             if (!newPassword.equals(confirmPassword)) {
                 showStatusMessage(status, "As senhas não coincidem.", true);
+                return;
+            }
+
+            if (!DatabaseManager.verifyCurrentPassword(usuario, currentPassword)) {
+                showStatusMessage(status, "Senha atual incorreta.", true);
                 return;
             }
 
@@ -304,12 +329,14 @@ public class ChangePasswordScreen {
                 if (success) {
                     showStatusMessage(status, "Senha alterada com sucesso!", false);
                     userField.clear();
+                    currentPassHidden.clear();
+                    currentPassVisible.clear();
                     newPassHidden.clear();
                     newPassVisible.clear();
                     confirmPassHidden.clear();
                     confirmPassVisible.clear();
                 } else {
-                    showStatusMessage(status, "Erro ao alterar senha. Verifique o usuário.", true);
+                    showStatusMessage(status, "Erro ao alterar senha.", true);
                 }
             });
             pause.play();
@@ -340,12 +367,11 @@ public class ChangePasswordScreen {
             if (event.getCode() == KeyCode.ENTER) alterarBtn.fire();
         });
 
-
-
         VBox formFieldsVBox = new VBox(15);
         formFieldsVBox.setAlignment(Pos.CENTER);
         formFieldsVBox.getChildren().addAll(
                 userField,
+                currentPassBox,
                 newPassBox,
                 confirmPassBox,
                 alterarBtn,
@@ -364,7 +390,7 @@ public class ChangePasswordScreen {
             hiddenField.setManaged(false);
             visibleField.setVisible(true);
             visibleField.setManaged(true);
-            toggleButton.setText("\uD83D\uDC41\uFE0F");
+            toggleButton.setText("\uD83D\uDC41");
             visibleField.requestFocus();
             visibleField.positionCaret(visibleField.getText().length());
         } else {
@@ -373,7 +399,7 @@ public class ChangePasswordScreen {
             visibleField.setManaged(false);
             hiddenField.setVisible(true);
             hiddenField.setManaged(true);
-            toggleButton.setText("\uD83D\uDC41");
+            toggleButton.setText("\uD83D\uDC40");
             hiddenField.requestFocus();
             hiddenField.positionCaret(hiddenField.getText().length());
         }

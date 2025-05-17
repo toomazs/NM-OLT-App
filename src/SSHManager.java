@@ -1,4 +1,6 @@
 import com.jcraft.jsch.*;
+
+import java.io.PrintStream;
 import java.util.Locale;
 import javafx.application.Platform;
 import org.fxmisc.richtext.CodeArea;
@@ -333,8 +335,46 @@ public class SSHManager {
         }
     }
 
-    private String cleanTerminalOutput(String output) {
-        // Primeiro passo: remover caracteres de controle
+    public String sendCommandWithResponse(String command) throws Exception {
+        if (channel == null || !channel.isConnected()) {
+            throw new Exception("Canal SSH não conectado");
+        }
+
+        InputStream in = channel.getInputStream();
+        OutputStream out = channel.getOutputStream();
+
+        out.write((command + "\n").getBytes());
+        out.flush();
+
+        byte[] buffer = new byte[1024];
+        StringBuilder response = new StringBuilder();
+
+        while (true) {
+            while (in.available() > 0) {
+                int i = in.read(buffer, 0, 1024);
+                if (i < 0) {
+                    break;
+                }
+                response.append(new String(buffer, 0, i));
+            }
+
+            if (channel.isClosed()) {
+                break;
+            }
+
+            try {
+                Thread.sleep(1000);
+            } catch (Exception ee) {
+                ee.printStackTrace();
+            }
+        }
+
+        return response.toString();
+    }
+
+
+   private String cleanTerminalOutput(String output) {
+
         String cleaned = output
                 .replaceAll("---- More \\( Press 'Q' to break \\) ----", "")
                 .replaceAll("More: <space>", "")
@@ -345,58 +385,46 @@ public class SSHManager {
                 .replaceAll("\r\n", "\n")
                 .replaceAll("\r", "\n");
 
-        // Tratamento especial: juntar linhas quebradas incorretamente
-        // Este é um problema comum na saída da OLT Huawei
         StringBuilder fixedOutput = new StringBuilder();
         String[] lines = cleaned.split("\n");
 
         for (int i = 0; i < lines.length; i++) {
             String currentLine = lines[i].trim();
 
-            // Pular linhas vazias
             if (currentLine.isEmpty()) {
                 fixedOutput.append("\n");
                 continue;
             }
 
-            // CASO 1: Linha termina com "EG" e a próxima começa com números ou letras
-            // Este é o caso do "EG\n8145X6-10"
             if (currentLine.endsWith("EG") && i + 1 < lines.length) {
                 String nextLine = lines[i+1].trim();
                 if (nextLine.matches("^[0-9A-Za-z].*")) {
-                    // Remover "EG" do final e juntar com a próxima linha
                     currentLine = currentLine.substring(0, currentLine.length() - 2) + "EG" + nextLine;
-                    i++; // Pular a próxima linha que foi incorporada
+                    i++;
                 }
             }
 
-            // CASO 2: Linhas de etiqueta sem ":" seguidas por linhas começando com ":"
-            // Este é o caso do "UpTime\n: valor"
             if (currentLine.matches("^[A-Za-z]+$") && i + 1 < lines.length) {
                 String nextLine = lines[i+1].trim();
                 if (nextLine.startsWith(":")) {
                     currentLine = currentLine + nextLine;
-                    i++; // Pular a próxima linha que foi incorporada
+                    i++;
                 }
             }
 
-            // CASO 3: Linhas com números de ONT e modelo quebrado
-            // Como "20  48575443026AEEAD EG" seguido por "8145X6-10      16435 -23.01/2.09  70373xy"
             if (currentLine.matches("^\\d+\\s+[0-9A-F]{12,}\\s+EG$") && i + 1 < lines.length) {
                 String nextLine = lines[i+1].trim();
                 if (nextLine.matches("^[0-9A-Za-z].*")) {
                     currentLine = currentLine + nextLine;
-                    i++; // Pular a próxima linha que foi incorporada
+                    i++;
                 }
             }
 
             fixedOutput.append(currentLine).append("\n");
         }
 
-        // Agora o texto foi pré-processado para juntar linhas quebradas incorretamente
         cleaned = fixedOutput.toString();
 
-        // Reformatar cada linha para garantir alinhamento consistente
         StringBuilder result = new StringBuilder();
         lines = cleaned.split("\n");
 
@@ -408,7 +436,6 @@ public class SSHManager {
                 continue;
             }
 
-            // FORMATO 1: Linhas de tipo "chave : valor" (como TYPE, UpTime, etc.)
             if (line.matches("^[A-Za-z][A-Za-z -]+\\s*:.*")) {
                 Matcher matcher = Pattern.compile("^([A-Za-z][A-Za-z -]+)\\s*:(.*)$").matcher(line);
                 if (matcher.find()) {
@@ -419,21 +446,17 @@ public class SSHManager {
                     result.append("  ").append(line).append("\n");
                 }
             }
-            // FORMATO 2: Linhas de ONT com número e serial (19  48575443F26AD2AC EG8145X6-10 ...)
             else if (line.matches("^\\d+\\s+[0-9A-F]{12,}.*")) {
-                // Extrair número da ONT
                 Matcher numMatcher = Pattern.compile("^(\\d+)\\s+(.*)$").matcher(line);
                 if (numMatcher.find()) {
                     String num = numMatcher.group(1);
                     String rest = numMatcher.group(2);
 
-                    // Extrair serial number
                     Matcher serialMatcher = Pattern.compile("^([0-9A-F]{12,})\\s+(.*)$").matcher(rest);
                     if (serialMatcher.find()) {
                         String serial = serialMatcher.group(1);
                         String remaining = serialMatcher.group(2);
 
-                        // Extrair modelo (se presente)
                         Matcher modelMatcher = Pattern.compile("^(EG[0-9A-Za-z-]+)\\s+(.*)$").matcher(remaining);
                         if (modelMatcher.find()) {
                             String model = modelMatcher.group(1);
@@ -449,7 +472,7 @@ public class SSHManager {
                     result.append("  ").append(line).append("\n");
                 }
             }
-            // FORMATO 3: Linhas com status online/offline
+
             else if (line.matches("^\\d+\\s+(online|offline).*")) {
                 Matcher matcher = Pattern.compile("^(\\d+)\\s+(online|offline)\\s+(.*)$").matcher(line);
                 if (matcher.find()) {
@@ -461,7 +484,7 @@ public class SSHManager {
                     result.append("  ").append(line).append("\n");
                 }
             }
-            // FORMATO 4: Outras linhas que começam com números
+
             else if (line.matches("^\\d+\\s+.*")) {
                 Matcher matcher = Pattern.compile("^(\\d+)\\s+(.*)$").matcher(line);
                 if (matcher.find()) {
@@ -472,7 +495,7 @@ public class SSHManager {
                     result.append("  ").append(line).append("\n");
                 }
             }
-            // Caso padrão: manter a formatação mas garantir espaçamento consistente
+
             else {
                 result.append("  ").append(line).append("\n");
             }
@@ -493,6 +516,15 @@ public class SSHManager {
         codeArea.setStyleSpans(0, computeHighlighting(texto));
     }
 
+    public void sendEnterKey() throws IOException {
+        if (session != null && session.isConnected() && channel != null && channel.isConnected()) {
+            PrintStream commander = new PrintStream(channel.getOutputStream());
+            commander.println();
+            commander.flush();
+        }
+    }
+
+
     private StyleSpans<Collection<String>> computeHighlighting(String text) {
         Matcher matcher = IP_REGEX.matcher(text);
         int lastKwEnd = 0;
@@ -507,11 +539,12 @@ public class SSHManager {
         spansBuilder.add(Collections.emptyList(), text.length() - lastKwEnd);
         return spansBuilder.create();
     }
+
     // ---------------------- TRATAMENTO TERMINAL e IP ---------------------- //
 
 
 
-    // ---------------------- CONSULTA DE SINAL ---------------------- //
+    // ---------------------- CONSULTA DE SINAL - REGEX ESPECIFICADO ---------------------- //
     public String queryOpticalSignal(String fs, String p) {
         synchronized(outputLock) {
             commandOutput.setLength(0);
@@ -660,6 +693,7 @@ public class SSHManager {
         double totalRx = 0;
         double totalTx = 0;
 
+
         result.append("RESULTADO DA CONSULTA DE SINAL:\n");
         result.append("----------------------------------------------------------------------\n");
         result.append("ONT-ID   RX Power(dBm)   TX Power(dBm)   OLT RX(dBm)   Temp(°C)   Dist(m)\n");
@@ -721,19 +755,21 @@ public class SSHManager {
         if (totalOnts > 0) {
             result.append("Status:\n");
             result.append("• (ℹ VERIFICAR MÉDIA) entre -27 e -29 dBm — analisar com média da primária\n");
-            result.append("• (⚠ CRÍTICO) menor que -29 dBm — pode causar quedas/oscilação\n\n");
-
-            result.append("Total de ONTs: ").append(totalOnts).append("\n");
-            result.append("ONTs com sinal RX acima do padrão: ").append(weakSignalRX).append("\n");
-            result.append("ONTs com sinal RX crítico: ").append(noSignalRX).append("\n");
-            result.append("ONTs com sinal TX acima do padrão: ").append(weakSignalTX).append("\n");
-            result.append("ONTs com sinal TX crítico: ").append(noSignalTX).append("\n");
+            result.append("• (⚠ CRÍTICO) menor que -29 dBm — pode causar quedas/oscilação\n");
 
             double avgRx = totalRx / totalOnts;
             double avgTx = totalTx / totalOnts;
 
             result.append(String.format(Locale.US, "\nMédia Sinal RX: %.2f dBm", avgRx));
             result.append(String.format(Locale.US, "\nMédia Sinal TX: %.2f dBm\n", avgTx));
+
+            result.append("\n");
+
+            result.append("Total de ONTs: ").append(totalOnts).append("\n");
+            result.append("ONTs com sinal RX acima do padrão: ").append(weakSignalRX).append("\n");
+            result.append("ONTs com sinal RX crítico: ").append(noSignalRX).append("\n");
+            result.append("ONTs com sinal TX acima do padrão: ").append(weakSignalTX).append("\n");
+            result.append("ONTs com sinal TX crítico: ").append(noSignalTX).append("\n");
         } else {
             result.append("Não foram encontrados dados de sinal óptico.\n");
             result.append("Verifique se o comando foi executado corretamente e se há ONTs configuradas nesta porta.\n");
@@ -742,4 +778,4 @@ public class SSHManager {
         return result.toString();
     }
 }
-// ---------------------- CONSULTA DE SINAL ---------------------- //
+// ---------------------- CONSULTA DE SINAL - REGEX ESPECIFICADO ---------------------- //

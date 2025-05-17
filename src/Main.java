@@ -32,9 +32,6 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import javafx.scene.control.Button;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -48,7 +45,6 @@ import javafx.geometry.Pos;
 import javafx.animation.FadeTransition;
 import models.Ticket;
 import models.Usuario;
-import models.Mensagem;
 import database.DatabaseManager;
 import screens.LoginScreen;
 import org.fxmisc.richtext.CodeArea;
@@ -62,42 +58,28 @@ import utils.ConfigManager;
 import java.awt.Desktop;
 import java.net.URI;
 import utils.ThemeManager;
-import javafx.scene.shape.Circle;
-import java.sql.Connection;
-import javafx.stage.FileChooser;
 import java.nio.file.Files;
-import javafx.scene.Cursor;
-import java.util.Locale;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.util.concurrent.ExecutorService;
-import java.sql.*;
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
-import java.awt.Graphics2D;
-import java.awt.MediaTracker;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
-import java.util.concurrent.atomic.AtomicReference;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.StackPane;
-import org.kordamp.ikonli.javafx.FontIcon;
-import java.util.Optional;
 import java.nio.file.Paths;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import utils.WindowsUtils;
-import java.util.Set;
-import java.util.HashSet;
+import javafx.beans.value.ChangeListener;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.TimerTask;
+import java.util.Timer;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TextFormatter;
 
 
 public class Main extends Application {
@@ -110,47 +92,22 @@ public class Main extends Application {
     private Stage primaryStage;
     private static CodeArea terminalArea;
     private SSHManager sshManager;
-    private ScheduledExecutorService breakageMonitor;
     private BorderPane mainContent;
     private ToggleGroup navGroup;
     private String currentSection = null;
     private Map<String, Node> contentCache = new HashMap<>();
     private boolean isConnectedToOLT = false;
     private OLT connectedOLT;
-    private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private ConfigManager configManager = ConfigManager.getInstance();
     private TabPane terminalTabs;
     private Map<Tab, SSHManager> terminalConnections = new HashMap<>();
     private ImageView titleBarIconView;
     private Node statusSidebar;
-    private ScrollPane userProfileDrawer;
-    private VBox conversationsScreenRoot = null;
-    private final Map<String, Node> userNodeMap = new HashMap<>();
-    private final Map<String, String> userStatusMap = new HashMap<>();
-    private final Map<String, String> userLocationMap = new HashMap<>();
-    private VBox onlineUserBox;
-    private VBox offlineUserBox;
-    private TitledPane onlinePane;
-    private TitledPane offlinePane;
     private TrayIcon trayIcon;
-    private ImageView profileAvatarView;
     private String iconFileName;
     private PrintStream fileLogger;
     private static final String DEBUG_LOG_FILE = "debug.log";
     private static final String LOG_DIRECTORY = "logs";
-    private final int MESSAGES_PER_PAGE = 50;
-    private int currentMessageOffset = 0;
-    private int totalMessages = 0;
-    private boolean isLoadingMessages = false;
-    private Set<Integer> notifiedMessageIds = new HashSet<>(); // Adicionado para rastrear mensagens notificadas
-    private Usuario currentChatPartner = null;
-    private ExecutorService backgroundExecutor = Executors.newCachedThreadPool(runnable -> {
-        Thread t = Executors.defaultThreadFactory().newThread(runnable);
-        t.setDaemon(true);
-        return t;
-    });
-
-
 
 
     // ---------------------- START ---------------------- //
@@ -158,7 +115,6 @@ public class Main extends Application {
     public void start(Stage primaryStage) {
 
         WindowsUtils.setAppUserModelId(APP_ID);
-
         setupFileLogging();
 
         if (configManager != null) {
@@ -185,14 +141,14 @@ public class Main extends Application {
             fileLogger.println("DEBUG: Tentando salvar o usuário: '" + usernameToSave + "'");
             configManager.setLastUser(usernameToSave);
 
+            this.primaryStage = primaryStage;
+            primaryStage.initStyle(StageStyle.UNDECORATED);
+
             String initialTheme = configManager.getTheme();
             fileLogger.println("DEBUG (Main): Tema inicial configurado: " + initialTheme);
 
             this.iconFileName = ThemeManager.getIconFileNameForTheme(initialTheme);
             fileLogger.println("DEBUG (Main): Nome do arquivo do ícone inicial: " + this.iconFileName);
-
-            this.primaryStage = primaryStage;
-            primaryStage.initStyle(StageStyle.UNDECORATED);
 
             try {
                 InputStream iconStream = getClass().getResourceAsStream(this.iconFileName);
@@ -215,76 +171,14 @@ public class Main extends Application {
             rootLayout.setAlignment(Pos.TOP_CENTER);
             rootLayout.getStyleClass().add("root");
 
-            // rootLayout.getChildren().add(createTitleBar()); // Add title bar here
-            HBox titleBar = createTitleBar(); // Create title bar
-            rootLayout.getChildren().add(titleBar); // Add title bar to rootLayout
+            HBox titleBar = createTitleBar();
+            rootLayout.getChildren().add(titleBar);
 
             mainContent = new BorderPane();
 
             VBox.setVgrow(mainContent, Priority.ALWAYS);
             mainContent.setLeft(createSideNavigation());
-
-            statusSidebar = createStatusSidebar();
             mainContent.setRight(statusSidebar);
-
-            scheduler.scheduleAtFixedRate(() -> {
-                String sql = "UPDATE usuarios SET status = 'ausente' WHERE status = 'online' AND ultima_atividade < ?";
-                Timestamp cutoffTime = Timestamp.from(Instant.now().minus(20, java.time.temporal.ChronoUnit.MINUTES));
-
-                try (Connection conn = DatabaseManager.getConnection();
-                     PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-                    stmt.setTimestamp(1, cutoffTime);
-                    int updatedRows = stmt.executeUpdate();
-                    if (updatedRows > 0) {
-                        System.out.println("Idle check: Marked " + updatedRows + " user(s) as 'ausente'.");
-                        performEfficientSidebarUpdate();
-                    }
-                } catch (Exception e) {
-                    System.err.println("Error updating idle users to 'ausente': " + e.getMessage());
-                }
-            }, 1, 5, TimeUnit.MINUTES);
-
-            scheduler.scheduleAtFixedRate(() -> {
-                if (usuarioLogado != null && currentSection != null) {
-                    DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), currentSection);
-                }
-            }, 30, 30, TimeUnit.SECONDS);
-
-            scheduler.scheduleAtFixedRate(this::performEfficientSidebarUpdate, 5, 10, TimeUnit.SECONDS);
-
-            scheduler.scheduleAtFixedRate(() -> {
-                if (usuarioLogado == null || "não_perturbe".equalsIgnoreCase(usuarioLogado.getStatus())) return;
-
-                List<DatabaseManager.ConversationInfo> conversas = DatabaseManager.getConversas(usuarioLogado.getUsuario());
-
-                for (DatabaseManager.ConversationInfo conversa : conversas) {
-                    Mensagem ultimaMsg = conversa.getUltimaMensagem();
-
-                    if (ultimaMsg != null && !ultimaMsg.isLida() &&
-                            !ultimaMsg.getRemetente().equals(usuarioLogado.getUsuario())) {
-
-                        if (!notifiedMessageIds.contains(ultimaMsg.getId())) {
-                            Platform.runLater(() -> {
-                                if (trayIcon != null) {
-                                    Usuario remetente = conversa.getOutroUsuario();
-                                    updateTrayIconWithAvatar(remetente);
-
-                                    trayIcon.displayMessage(
-                                            "Nova mensagem de " + remetente.getNome(),
-                                            ultimaMsg.getConteudo(),
-                                            TrayIcon.MessageType.INFO
-                                    );
-                                }
-                            });
-                            // Adiciona a ID da mensagem ao conjunto de notificadas
-                            notifiedMessageIds.add(ultimaMsg.getId());
-                        }
-
-                        break; // Breaks after finding the first unread message in the list
-                    }
-                }
-            }, 5, 8, TimeUnit.SECONDS);
 
             terminalTabs = new TabPane();
             terminalTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
@@ -304,6 +198,49 @@ public class Main extends Application {
             criarTicketBtn.getStyleClass().add("floating-btn");
             criarTicketBtn.setPrefSize(48, 48);
 
+            criarTicketBtn.setOnMouseEntered(e -> {
+                Timeline timeline = new Timeline();
+                FadeTransition fadeOut = new FadeTransition(Duration.millis(150), criarTicketBtn);
+                fadeOut.setFromValue(1.0);
+                fadeOut.setToValue(0.0);
+                fadeOut.setOnFinished(event -> {
+                    criarTicketBtn.setText("Abrir Ticket");
+
+                    FadeTransition fadeIn = new FadeTransition(Duration.millis(150), criarTicketBtn);
+                    fadeIn.setFromValue(0.0);
+                    fadeIn.setToValue(1.0);
+                    fadeIn.play();
+                });
+                fadeOut.play();
+
+                KeyValue widthValue = new KeyValue(criarTicketBtn.prefWidthProperty(), 150, Interpolator.EASE_BOTH);
+                KeyFrame keyFrame = new KeyFrame(Duration.millis(300), widthValue);
+                timeline.getKeyFrames().add(keyFrame);
+                timeline.play();
+            });
+
+            criarTicketBtn.setOnMouseExited(e -> {
+                Timeline timeline = new Timeline();
+                FadeTransition fadeOut = new FadeTransition(Duration.millis(150), criarTicketBtn);
+                fadeOut.setFromValue(1.0);
+                fadeOut.setToValue(0.0);
+                fadeOut.setOnFinished(event -> {
+
+                    criarTicketBtn.setText("!");
+                    FadeTransition fadeIn = new FadeTransition(Duration.millis(150), criarTicketBtn);
+                    fadeIn.setFromValue(0.0);
+                    fadeIn.setToValue(1.0);
+                    fadeIn.play();
+
+                });
+                fadeOut.play();
+
+                KeyValue widthValue = new KeyValue(criarTicketBtn.prefWidthProperty(), 48, Interpolator.EASE_BOTH);
+                KeyFrame keyFrame = new KeyFrame(Duration.millis(300), widthValue);
+                timeline.getKeyFrames().add(keyFrame);
+                timeline.play();
+            });
+
             criarTicketBtn.setOnAction(e -> {
                 Stage ticketStage = new Stage();
                 ticketStage.initStyle(StageStyle.UNDECORATED);
@@ -315,7 +252,7 @@ public class Main extends Application {
                 content.setPrefSize(500, 450);
                 content.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.3)));
 
-                HBox ticketTitleBar = new HBox(); // Use a different name for ticket title bar
+                HBox ticketTitleBar = new HBox();
                 ticketTitleBar.setAlignment(Pos.CENTER_LEFT);
                 ticketTitleBar.setPadding(new Insets(5, 10, 5, 15));
 
@@ -327,6 +264,7 @@ public class Main extends Application {
 
                 Button closeBtn = new Button("✕");
                 closeBtn.getStyleClass().addAll("close-btn", "window-btn");
+                closeBtn.setPadding(new Insets(12, 12, 12, 12));
                 closeBtn.setOnAction(ev -> ticketStage.close());
                 addEnhancedButtonHoverEffects(closeBtn);
 
@@ -370,7 +308,7 @@ public class Main extends Application {
                 });
 
                 btnRow.getChildren().addAll(okBtn);
-                content.getChildren().addAll(ticketTitleBar, descLabel, descricaoArea, prioridadeLabel, prioridadeBox, infoLabel, btnRow); // Added ticketTitleBar
+                content.getChildren().addAll(ticketTitleBar, descLabel, descricaoArea, prioridadeLabel, prioridadeBox, infoLabel, btnRow);
 
                 Scene scene = new Scene(content);
                 ThemeManager.applyThemeToNewScene(scene);
@@ -393,31 +331,7 @@ public class Main extends Application {
             primaryStage.setOnCloseRequest(event -> {
                 System.out.println("Window close requested.");
                 event.consume();
-
-                backgroundExecutor.submit(() -> {
-                    if (usuarioLogado != null) {
-                        System.out.println("Updating status to offline for: " + usuarioLogado.getUsuario());
-                        DatabaseManager.atualizarStatus(usuarioLogado.getUsuario(), "offline");
-                    } else {
-                        System.err.println("Close request: usuarioLogado is null.");
-                    }
-
-                    shutdownApplicationResources();
-
-                    Platform.runLater(Platform::exit);
-                    System.exit(0);
-                });
             });
-
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                System.out.println("Shutdown hook triggered.");
-                if (usuarioLogado != null) {
-                    DatabaseManager.atualizarStatus(usuarioLogado.getUsuario(), "offline");
-                    System.out.println("ShutdownHook: Attempted to update status to offline for " + usuarioLogado.getUsuario());
-                }
-                shutdownApplicationResources();
-            }));
-
             primaryStage.show();
 
             if (SystemTray.isSupported()) {
@@ -462,10 +376,6 @@ public class Main extends Application {
                 }
             });
 
-
-            performEfficientSidebarUpdate();
-
-
         } catch (Exception e) {
             fileLogger.println("ERRO (Main): Exceção geral no método start: " + e.getMessage());
             e.printStackTrace(fileLogger);
@@ -474,6 +384,7 @@ public class Main extends Application {
         }
     }
 
+    // Debug log
     private void setupFileLogging() {
         try {
             Path logDir = Paths.get(LOG_DIRECTORY);
@@ -502,11 +413,7 @@ public class Main extends Application {
     // ---------------------- START ---------------------- //
 
 
-
-
-
-    // ---------------------- BARRAS VERTICAIS ---------------------- //
-    // ------- Barra lateral esquerda (Abas)
+    // ---------------------- BARRA VERTICAL ---------------------- //
     private VBox createSideNavigation() {
         VBox sideNav = new VBox(10);
         sideNav.getStyleClass().add("side-nav");
@@ -518,7 +425,7 @@ public class Main extends Application {
         versionBox.setAlignment(Pos.CENTER_LEFT);
         versionBox.setPadding(new Insets(0, 0, 10, 15));
 
-        Label versionLabel = new Label("v1.5.4.0 • ");
+        Label versionLabel = new Label("v1.5.5.0 • ");
         versionLabel.getStyleClass().add("version-text");
 
         Label creditsLink = new Label("créditos");
@@ -540,13 +447,14 @@ public class Main extends Application {
         navGroup = new ToggleGroup();
 
         ToggleButton oltBtn = createNavButton("OLTs", false);
-        ToggleButton signalBtn = createNavButton("Consulta de Sinal", false);
+        ToggleButton signalBtn = createNavButton("PON Consulta de Sinal", false);
         ToggleButton ponSummaryBtn = createNavButton("PON Summary", false);
         ToggleButton onuBySNBtn = createNavButton("ONT/ONU By-SN", false);
         ToggleButton diagnosisBtn = createNavButton("ONT/ONU Quedas", false);
-        ToggleButton conversasBtn = createNavButton("Conversas", false);
+        ToggleButton trafficBtn = createNavButton("ONT/ONU Velocidade", false);
+        ToggleButton serviceBtn = createNavButton("ONT/ONU Serviços", false);
 
-        sideNav.getChildren().addAll(oltBtn, signalBtn, ponSummaryBtn, onuBySNBtn, diagnosisBtn, conversasBtn);
+        sideNav.getChildren().addAll(oltBtn, signalBtn, ponSummaryBtn, onuBySNBtn, diagnosisBtn, trafficBtn, serviceBtn);
 
         if (usuario.getUsuario().equalsIgnoreCase("Eduardo")) {
             ToggleButton pendenciasBtn = createNavButton("Chamados", false);
@@ -584,22 +492,10 @@ public class Main extends Application {
         logoutContainer.setVisible(false);
         logoutContainer.setManaged(false);
 
-        Button dropdownPerfilBtn = new Button("👤 Perfil");
-        dropdownPerfilBtn.getStyleClass().add("logout-button");
-        dropdownPerfilBtn.setMaxWidth(Double.MAX_VALUE);
-        dropdownPerfilBtn.setOnAction(e -> {
-            showSection("Perfil");
-            logoutContainer.setVisible(false);
-            logoutContainer.setManaged(false);
-            dropdownBtn.setText("▾");
-            dropdownBtn.getStyleClass().remove("dropdown-arrow-active");
-        });
-
 
         Button themeBtn = new Button("🎨 Temas");
         themeBtn.getStyleClass().add("logout-button");
         themeBtn.setMaxWidth(Double.MAX_VALUE);
-        logoutContainer.getChildren().add(dropdownPerfilBtn);
         logoutContainer.getChildren().add(themeBtn);
 
         ComboBox<String> themeCombo = new ComboBox<>();
@@ -742,7 +638,6 @@ public class Main extends Application {
         logoutContainer.getChildren().add(logoutBtn);
 
         logoutBtn.setOnAction(e -> {
-            DatabaseManager.atualizarStatus(usuario.getUsuario(), "offline");
             primaryStage.close();
 
             Stage loginStage = new Stage();
@@ -790,7 +685,6 @@ public class Main extends Application {
     }
 
     private void showSection(String section) {
-
         if ("OLTs".equals(section) && terminalTabs != null) {
             if (mainContent.getCenter() == terminalTabs) {
                 for (Tab tab : terminalTabs.getTabs()) {
@@ -801,7 +695,6 @@ public class Main extends Application {
                 }
                 if (!section.equals(currentSection)) {
                     currentSection = section;
-                    DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), currentSection);
                 }
                 return;
             } else {
@@ -809,22 +702,22 @@ public class Main extends Application {
                 mainContent.setCenter(terminalTabs);
                 if (!section.equals(currentSection)) {
                     currentSection = section;
-                    DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), currentSection);
                 }
 
                 if (currentContent != null) {
-                    FadeTransition fadeOut = new FadeTransition(Duration.millis(150), currentContent);
+                    FadeTransition fadeOut = new FadeTransition(Duration.millis(200), currentContent);
                     fadeOut.setFromValue(1.0);
                     fadeOut.setToValue(0.0);
                     fadeOut.setOnFinished(e -> {
-                        FadeTransition fadeIn = new FadeTransition(Duration.millis(300), terminalTabs);
+                        FadeTransition fadeIn = new FadeTransition(Duration.millis(200), terminalTabs);
                         fadeIn.setFromValue(0.0);
                         fadeIn.setToValue(1.0);
                         fadeIn.play();
                     });
                     fadeOut.play();
                 } else {
-                    FadeTransition fadeIn = new FadeTransition(Duration.millis(300), terminalTabs);
+                    terminalTabs.setOpacity(0);
+                    FadeTransition fadeIn = new FadeTransition(Duration.millis(200), terminalTabs);
                     fadeIn.setFromValue(0.0);
                     fadeIn.setToValue(1.0);
                     fadeIn.play();
@@ -840,22 +733,12 @@ public class Main extends Application {
             }
         }
 
-        if (section.equals(currentSection)) {
-            if ("Conversas".equals(section)) {
-                atualizarTelaConversas();
-            }
-        }
-
         Node currentContent = mainContent.getCenter();
-        Node newContent = null;
+        Node newContent = contentCache.get(section);
 
-        if (section.equals("Chamados")) {
-            newContent = createTechnicalTicketsScreen();
-        } else if (contentCache.containsKey(section)) {
-            newContent = contentCache.get(section);
-        } else {
+        if (newContent == null) {
             switch (section) {
-                case "Consulta de Sinal":
+                case "PON Consulta de Sinal":
                     newContent = createSignalQueryScreen();
                     break;
                 case "PON Summary":
@@ -867,11 +750,11 @@ public class Main extends Application {
                 case "ONT/ONU Quedas":
                     newContent = createDropDiagnosisScreen();
                     break;
-                case "Conversas":
-                    newContent = createConversationsScreen();
+                case "ONT/ONU Velocidade":
+                    newContent = createONUTrafficScreen();
                     break;
-                case "Perfil":
-                    newContent = createPerfilScreen();
+                case "ONT/ONU Serviços":
+                    newContent = createONUServiceScreen();
                     break;
                 case "Chamados":
                     newContent = createTechnicalTicketsScreen();
@@ -880,1648 +763,35 @@ public class Main extends Application {
                     newContent = new VBox();
                     break;
             }
-            if (newContent != null && !section.startsWith("DM-") && !section.equals("Chamados")) {
-                contentCache.put(section, newContent);
-                DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), section);
-            } else if (section.equals("Chamados")) {
-                DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), "Chamados");
-            }
-
         }
 
-        final Node finalNewContent = newContent;
+        if (newContent != null && newContent != currentContent) {
+            final Node finalNewContent = newContent;
+            finalNewContent.setOpacity(0);
+            mainContent.setCenter(finalNewContent);
 
-        if (finalNewContent != null && finalNewContent != mainContent.getCenter()) {
             if (currentContent != null) {
-                FadeTransition fadeOut = new FadeTransition(Duration.millis(150), currentContent);
+                FadeTransition fadeOut = new FadeTransition(Duration.millis(200), currentContent);
                 fadeOut.setFromValue(1.0);
                 fadeOut.setToValue(0.0);
-
                 fadeOut.setOnFinished(e -> {
-                    mainContent.setCenter(finalNewContent);
-                    atualizarTelaConversas();
-
-                    if ("Conversas".equals(section)) {
-                        atualizarTelaConversas();
-                    }
-                    FadeTransition fadeIn = new FadeTransition(Duration.millis(300), finalNewContent);
+                    FadeTransition fadeIn = new FadeTransition(Duration.millis(200), finalNewContent);
                     fadeIn.setFromValue(0.0);
                     fadeIn.setToValue(1.0);
                     fadeIn.play();
                 });
-
                 fadeOut.play();
             } else {
-                mainContent.setCenter(finalNewContent);
-                if ("Conversas".equals(section)) {
-                    atualizarTelaConversas();
-                }
-
-                FadeTransition fadeIn = new FadeTransition(Duration.millis(300), finalNewContent);
+                FadeTransition fadeIn = new FadeTransition(Duration.millis(200), finalNewContent);
                 fadeIn.setFromValue(0.0);
                 fadeIn.setToValue(1.0);
                 fadeIn.play();
             }
-        }
 
-        if (!section.equals(currentSection)) {
             currentSection = section;
-            if (!section.startsWith("DM-")) {
-                DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), currentSection);
-            } else {
-                DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), "Em Conversa");
-            }
         }
     }
-    // ------- Barra lateral esquerda (Abas)
-
-    // ------- Barra lateral direita (Usuarios)
-    private void atualizarStatusSidebar() {
-        Platform.runLater(() -> {
-            Node novaSidebar = createStatusSidebar();
-            if (novaSidebar instanceof Region) {
-                ((Region) novaSidebar).setMaxHeight(Double.MAX_VALUE);
-                VBox.setVgrow((ScrollPane)novaSidebar, Priority.ALWAYS);
-            }
-            mainContent.setRight(novaSidebar);
-            statusSidebar = novaSidebar;
-        });
-    }
-
-    private Node createPerfilScreen() {
-        VBox perfilBox = new VBox(15);
-        perfilBox.setPadding(new Insets(20));
-        perfilBox.getStyleClass().add("content-area");
-        perfilBox.setAlignment(Pos.CENTER);
-
-        Label nomeLabel = new Label(usuarioLogado.getNome());
-        nomeLabel.getStyleClass().add("user-name-profile");
-        Label usuarioLabel = new Label("@" + usuarioLogado.getUsuario());
-        usuarioLabel.getStyleClass().add("user-tag-profile");
-        Label cargoLabel = new Label(usuarioLogado.getCargo());
-        cargoLabel.getStyleClass().add("user-role-profile");
-
-        Label statusLabel = new Label("Status:");
-        statusLabel.getStyleClass().add("form-label");
-
-        ComboBox<String> statusCombo = new ComboBox<>();
-        statusCombo.getItems().addAll("online", "ausente", "offline", "não_perturbe");
-        statusCombo.setValue(usuarioLogado.getStatus());
-        statusCombo.getStyleClass().add("combo-box");
-
-        statusCombo.setOnAction(e -> {
-            String novoStatus = statusCombo.getValue();
-            DatabaseManager.atualizarStatus(usuarioLogado.getUsuario(), novoStatus);
-            usuarioLogado = new Usuario(
-                    usuarioLogado.getNome(),
-                    usuarioLogado.getUsuario(),
-                    usuarioLogado.getCargo(),
-                    novoStatus,
-                    usuarioLogado.getFotoPerfil(),
-                    usuarioLogado.getAbaAtual()
-            );
-            performEfficientSidebarUpdate();
-        });
-
-        profileAvatarView = carregarAvatar(usuarioLogado.getFotoPerfil(), 200, 200);
-        profileAvatarView.setClip(new Circle(100, 100, 100));
-
-        Button trocarFotoBtn = new Button("Trocar Foto");
-        trocarFotoBtn.getStyleClass().add("action-button-profile");
-        trocarFotoBtn.setOnAction(e -> {
-            FileChooser fileChooser = new FileChooser();
-            fileChooser.setTitle("Selecione sua nova foto de perfil");
-            fileChooser.getExtensionFilters().addAll(
-                    new FileChooser.ExtensionFilter("Imagens", "*.png", "*.jpg", "*.jpeg")
-            );
-
-            File file = fileChooser.showOpenDialog(null);
-            if (file != null) {
-                try {
-                    byte[] imageBytes = Files.readAllBytes(file.toPath());
-                    DatabaseManager.atualizarFotoPerfil(usuarioLogado.getUsuario(), imageBytes);
-
-                    usuarioLogado = new Usuario(
-                            usuarioLogado.getNome(),
-                            usuarioLogado.getUsuario(),
-                            usuarioLogado.getCargo(),
-                            usuarioLogado.getStatus(),
-                            imageBytes,
-                            usuarioLogado.getAbaAtual()
-                    );
-
-                    try {
-                        Image newProfileImage = new Image(new ByteArrayInputStream(imageBytes));
-                        profileAvatarView.setImage(newProfileImage);
-                        Circle clip = new Circle(profileAvatarView.getFitWidth() / 2.0, profileAvatarView.getFitHeight() / 2.0, Math.min(profileAvatarView.getFitWidth(), profileAvatarView.getFitHeight()) / 2.0);
-                        if (!(profileAvatarView.getClip() instanceof Circle) || ((Circle) profileAvatarView.getClip()).getRadius() != clip.getRadius()) {
-                            profileAvatarView.setClip(clip);
-                        }
-                    } catch (Exception imgEx) {
-                        System.err.println("Erro ao atualizar ImageView do perfil: " + imgEx.getMessage());
-                        try {
-                            InputStream stream = getClass().getResourceAsStream("/imagens/error-avatar.png");
-                            if (stream != null) {
-                                Image errorAvatarImage = new Image(stream);
-                                profileAvatarView.setImage(errorAvatarImage);
-                            }
-                        } catch (Exception ex) {
-                            System.err.println("Could not load error avatar for profile screen: " + ex.getMessage());
-                        }
-                    }
-
-
-                    performEfficientSidebarUpdate();
-
-
-                    Alert alerta = new Alert(Alert.AlertType.INFORMATION, "Foto atualizada com sucesso!");
-                    alerta.showAndWait();
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                    Alert erro = new Alert(Alert.AlertType.ERROR, "Erro ao enviar a imagem: " + ex.getMessage());
-                    erro.showAndWait();
-                }
-            }
-        });
-
-        perfilBox.getChildren().addAll(
-                profileAvatarView,
-                nomeLabel,
-                usuarioLabel,
-                cargoLabel,
-                trocarFotoBtn,
-                new Separator(javafx.geometry.Orientation.HORIZONTAL),
-                statusLabel,
-                statusCombo);
-        return perfilBox;
-    }
-
-    private Node createStatusSidebar() {
-        VBox sidebarVBox = new VBox(10);
-        sidebarVBox.setPadding(new Insets(10));
-        sidebarVBox.setPrefWidth(220);
-        sidebarVBox.setMaxWidth(250);
-        sidebarVBox.getStyleClass().add("side-status");
-        VBox.setVgrow(sidebarVBox, Priority.ALWAYS);
-
-        onlineUserBox = new VBox(5);
-        onlineUserBox.setPadding(new Insets(5, 0, 5, 0));
-        VBox.setVgrow(onlineUserBox, Priority.ALWAYS);
-
-        offlineUserBox = new VBox(5);
-        offlineUserBox.setPadding(new Insets(5, 0, 5, 0));
-
-        ScrollPane offlineScrollPane = new ScrollPane(offlineUserBox);
-        offlineScrollPane.setFitToWidth(true);
-        offlineScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        offlineScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        offlineScrollPane.getStyleClass().add("transparent-scroll");
-        offlineScrollPane.setMaxHeight(Double.MAX_VALUE); // Allow scrollpane to take max height
-
-        onlinePane = new TitledPane("Online (0)", onlineUserBox);
-        onlinePane.setExpanded(true);
-        onlinePane.getStyleClass().add("user-pane");
-        onlinePane.setAnimated(false);
-        VBox.setVgrow(onlinePane, Priority.ALWAYS); // Allow onlinePane to grow
-
-        offlinePane = new TitledPane("Offline (0)", offlineScrollPane);
-        offlinePane.setExpanded(false);
-        offlinePane.getStyleClass().add("user-pane");
-        offlinePane.setAnimated(false);
-        // Don't set Vgrow for offlinePane
-
-        sidebarVBox.getChildren().addAll(onlinePane, offlinePane);
-
-        ScrollPane mainScrollPane = new ScrollPane(sidebarVBox);
-        mainScrollPane.setFitToWidth(true);
-        mainScrollPane.setFitToHeight(true); // Fit to height of its content
-        mainScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        mainScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        mainScrollPane.getStyleClass().add("transparent-scroll");
-        mainScrollPane.setMaxHeight(Double.MAX_VALUE); // Allow main scrollpane to take max height
-        VBox.setVgrow(mainScrollPane, Priority.ALWAYS); // Make sure the main scrollpane grows within the parent
-
-        return mainScrollPane;
-    }
-
-
-    private HBox criarUserBox(Usuario u) {
-        HBox userBox = new HBox(8);
-        userBox.setAlignment(Pos.CENTER_LEFT);
-        userBox.setCursor(Cursor.HAND);
-        userBox.getStyleClass().addAll("user-info-box", "user-hbox");
-        userBox.setUserData(u.getUsuario());
-        userBox.setOnMouseClicked(event -> abrirPerfilUsuario(u));
-        userBox.setMaxWidth(Double.MAX_VALUE); // Allow HBox to take max width
-
-        ImageView avatar = carregarAvatar(u.getFotoPerfil(), 32, 32);
-        Circle clip = new Circle(16, 16, 16);
-        avatar.setClip(clip);
-
-        Circle statusCircle = new Circle(5);
-        statusCircle.setStroke(Color.web("#1e1e2e"));
-        statusCircle.setStrokeWidth(1.5);
-        statusCircle.setFill(getStatusColor(u.getStatus()));
-        statusCircle.getStyleClass().add("status-circle");
-
-        StackPane avatarStack = new StackPane(avatar, statusCircle);
-        StackPane.setAlignment(statusCircle, Pos.BOTTOM_RIGHT);
-        StackPane.setMargin(statusCircle, new Insets(0, 1, 1, 0));
-
-        Circle stackClip = new Circle(16, 16, 16);
-        avatarStack.setClip(stackClip);
-        avatarStack.setStyle("-fx-background-color: transparent;");
-        VBox nameBox = new VBox(2);
-        Label nomeLabel = new Label(u.getNome());
-        nomeLabel.getStyleClass().add("user-name");
-
-        String location = u.getAbaAtual();
-        boolean isOnlineOrAusente = "online".equalsIgnoreCase(u.getStatus()) || "ausente".equalsIgnoreCase(u.getStatus()) || "não_perturbe".equalsIgnoreCase(u.getStatus()); // Include não_perturbe
-        String displayStatus = (isOnlineOrAusente && location != null && !location.isBlank()) ? location : "";
-        Label statusLabel = new Label(displayStatus);
-
-        statusLabel.getStyleClass().add("user-role");
-        statusLabel.getStyleClass().add("status-label");
-        statusLabel.setVisible(!displayStatus.isEmpty());
-        statusLabel.setManaged(!displayStatus.isEmpty());
-
-        nameBox.getChildren().addAll(nomeLabel, statusLabel);
-        HBox.setHgrow(nameBox, Priority.ALWAYS); // Allow nameBox to grow
-
-        userBox.getChildren().addAll(avatarStack, nameBox);
-
-        return userBox;
-    }
-
-    private void abrirPerfilUsuario(Usuario u) {
-        // Busca os dados mais recentes do usuário para garantir que a foto e status estão atualizados
-        Usuario usuarioMaisRecente = DatabaseManager.getUsuarioByUsername(u.getUsuario()).orElse(u);
-        final Usuario usuarioParaExibir = usuarioMaisRecente; // Usa final para lambda
-
-        // Lógica para fechar ou substituir o drawer existente
-        if (userProfileDrawer != null && mainContent.getRight() == userProfileDrawer) {
-            String userInDrawer = (userProfileDrawer.getContent() instanceof VBox) ? (String) ((VBox) userProfileDrawer.getContent()).getUserData() : null;
-            if (userInDrawer != null && userInDrawer.equals(usuarioParaExibir.getUsuario())) {
-                // Se o drawer já está aberto para este usuário, fecha ele
-                mainContent.setRight(statusSidebar);
-                userProfileDrawer = null;
-                return; // Sai do método
-            } else {
-                // Se é de outro usuário, fecha o drawer atual antes de abrir o novo
-                mainContent.setRight(statusSidebar);
-                userProfileDrawer = null;
-            }
-        }
-
-        // Cria o painel do perfil
-        VBox profilePane = new VBox(15);
-        profilePane.setPadding(new Insets(20));
-        profilePane.setPrefWidth(220); // Largura do drawer
-        profilePane.getStyleClass().add("user-profile-drawer");
-        profilePane.setUserData(usuarioParaExibir.getUsuario()); // Guarda o usuário exibido
-        profilePane.setAlignment(Pos.TOP_CENTER); // Align content to top-center
-        VBox.setVgrow(profilePane, Priority.ALWAYS); // Allow profilePane to grow
-
-        // Botão de fechar
-        Button closeButton = new Button("✕");
-        closeButton.getStyleClass().addAll("window-btn", "close-btn", "profile-close-button"); // Adiciona classe específica
-        closeButton.setOnAction(e -> {
-            mainContent.setRight(statusSidebar); // Volta para a sidebar de status
-            userProfileDrawer = null;
-        });
-        HBox topBar = new HBox(closeButton);
-        topBar.setAlignment(Pos.TOP_RIGHT);
-
-        // Avatar do usuário
-        ImageView avatar = carregarAvatar(usuarioParaExibir.getFotoPerfil(), 120, 120);
-        avatar.setClip(new Circle(60, 60, 60)); // Clip circular
-
-        // Círculo de status sobreposto ao avatar
-        Circle statusCircle = new Circle(10);
-        statusCircle.setStroke(Color.web("#1e1e2e")); // Cor da borda baseada no tema?
-        statusCircle.setStrokeWidth(2);
-        statusCircle.setFill(getStatusColor(usuarioParaExibir.getStatus()));
-        StackPane avatarStack = new StackPane(avatar, statusCircle);
-        StackPane.setAlignment(statusCircle, Pos.BOTTOM_RIGHT);
-        StackPane.setMargin(statusCircle, new Insets(0, 5, 5, 0));
-        StackPane.setAlignment(avatarStack, Pos.CENTER); // Center the avatar stack
-
-        if (usuarioLogado != null && usuarioLogado.getUsuario().equals(usuarioParaExibir.getUsuario())) {
-            avatar.setCursor(Cursor.HAND);
-            Tooltip.install(avatar, new Tooltip("Clique para alterar sua foto"));
-
-            avatar.setOnMouseClicked(event -> {
-                FileChooser fileChooser = new FileChooser();
-                fileChooser.setTitle("Selecione sua nova foto de perfil");
-                fileChooser.getExtensionFilters().addAll(
-                        new FileChooser.ExtensionFilter("Imagens", "*.png", "*.jpg", "*.jpeg", "*.gif")
-                );
-
-                File file = fileChooser.showOpenDialog(primaryStage); // Usa primaryStage
-                if (file != null) {
-                    try {
-                        // Opcional: Verificação de tamanho
-                        if (file.length() > 5 * 1024 * 1024) { // Limite de 5MB
-                            Alert sizeError = new Alert(Alert.AlertType.ERROR, "Arquivo muito grande (limite: 5MB).");
-                            sizeError.initOwner(primaryStage);
-                            sizeError.showAndWait();
-                            return;
-                        }
-
-                        byte[] imageBytes = Files.readAllBytes(file.toPath());
-                        DatabaseManager.atualizarFotoPerfil(usuarioLogado.getUsuario(), imageBytes);
-
-                        // Atualiza o objeto local 'usuarioLogado' com a nova foto
-                        usuarioLogado = new Usuario(
-                                usuarioLogado.getNome(),
-                                usuarioLogado.getUsuario(),
-                                usuarioLogado.getCargo(),
-                                usuarioLogado.getStatus(),
-                                imageBytes, // Nova foto
-                                usuarioLogado.getAbaAtual()
-                        );
-
-                        // Atualiza a ImageView no drawer imediatamente
-                        try {
-                            Image newProfileImage = new Image(new ByteArrayInputStream(imageBytes));
-                            if (newProfileImage.isError()) throw new IOException("Erro ao carregar bytes da imagem.");
-                            avatar.setImage(newProfileImage);
-                            // Reaplicar clip pode ser necessário se o tamanho da ImageView mudar
-                            avatar.setClip(new Circle(avatar.getFitWidth() / 2.0, avatar.getFitHeight() / 2.0, Math.min(avatar.getFitWidth(), avatar.getFitHeight()) / 2.0));
-                        } catch (Exception imgEx) {
-                            System.err.println("Erro ao atualizar ImageView no drawer: " + imgEx.getMessage());
-                            fileLogger.println("ERRO (abrirPerfilUsuario): Falha ao atualizar ImageView: " + imgEx.getMessage());
-                            // Mostrar imagem de erro?
-                        }
-
-
-                        performEfficientSidebarUpdate(); // Atualiza a lista principal de usuários
-                        showToast("✅ Foto atualizada com sucesso!");
-
-                    } catch (IOException ex) {
-                        ex.printStackTrace(fileLogger);
-                        Alert erro = new Alert(Alert.AlertType.ERROR, "Erro ao ler ou enviar a imagem: " + ex.getMessage());
-                        erro.initOwner(primaryStage);
-                        erro.showAndWait();
-                    }
-                }
-            });
-        } else {
-            avatar.setCursor(Cursor.DEFAULT);
-        }
-
-
-        // Informações do usuário
-        Label nomeLabel = new Label(usuarioParaExibir.getNome()); // Removido \n
-        nomeLabel.getStyleClass().add("profile-user-name");
-        Label usuarioLabel = new Label("@" + usuarioParaExibir.getUsuario());
-        usuarioLabel.getStyleClass().add("profile-user-tag");
-        Label cargoLabel = new Label(usuarioParaExibir.getCargo());
-        cargoLabel.getStyleClass().add("profile-user-role");
-
-        String statusTextToDisplay;
-        switch (usuarioParaExibir.getStatus().toLowerCase()) {
-            case "online":
-                statusTextToDisplay = "Online";
-                break;
-            case "ausente":
-                statusTextToDisplay = "Ausente";
-                break;
-            case "não_perturbe":
-                statusTextToDisplay = "Não Perturbe";
-                break;
-            default:
-                statusTextToDisplay = "Offline";
-                break;
-        }
-        Label statusLabel = new Label("Status: " + statusTextToDisplay);
-        statusLabel.getStyleClass().add("profile-user-status");
-
-        Separator separator = new Separator();
-        separator.getStyleClass().add("profile-separator");
-
-        Label msgLabel = new Label("Enviar mensagem");
-        msgLabel.getStyleClass().add("profile-section-title");
-
-        TextField campoMensagem = new TextField();
-        campoMensagem.setPromptText("Escreva uma mensagem...");
-        campoMensagem.getStyleClass().add("profile-message-field");
-
-        Button btnEnviar = new Button("Enviar");
-        btnEnviar.getStyleClass().add("button");
-        btnEnviar.setOnAction(e -> {
-            String texto = campoMensagem.getText();
-            if (!texto.isBlank()) {
-                DatabaseManager.enviarMensagem(usuarioLogado.getUsuario(), usuarioParaExibir.getUsuario(), texto);
-                mainContent.setRight(statusSidebar);
-                userProfileDrawer = null;
-                showSection("Conversas");
-                Platform.runLater(() -> mostrarDMNaMesmaAba(usuarioParaExibir));
-            }
-        });
-
-        profilePane.getChildren().addAll(
-                topBar,
-                avatarStack,
-                nomeLabel,
-                usuarioLabel,
-                cargoLabel,
-                statusLabel,
-                separator,
-                msgLabel,
-                campoMensagem,
-                btnEnviar
-        );
-
-        // Configura o ScrollPane
-        ScrollPane scrollPane = new ScrollPane(profilePane);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scrollPane.getStyleClass().add("transparent-scroll"); // Usa estilo transparente
-        VBox.setVgrow(scrollPane, Priority.ALWAYS); // Allow the scrollpane to grow within the right side
-
-        // Atualiza o drawer e mostra
-        userProfileDrawer = scrollPane;
-        mainContent.setRight(userProfileDrawer);
-    }
-
-
-    private void atualizarTelaConversas() {
-
-        Node centerContent = mainContent.getCenter();
-        boolean isActive = centerContent != null && centerContent.getId() != null && centerContent.getId().equals("conversationsScreen");
-
-        if (conversationsScreenRoot != null && isActive) {
-
-            VBox targetContentBox = null;
-
-            if (conversationsScreenRoot.getChildren().size() > 1) {
-                Node secondChild = conversationsScreenRoot.getChildren().get(1);
-                if (secondChild instanceof ScrollPane) {
-                    ScrollPane scrollPane = (ScrollPane) secondChild;
-                    Node contentNode = scrollPane.getContent();
-                    if (contentNode instanceof VBox && contentNode.getId() != null && contentNode.getId().equals("contentListBox")) {
-                        targetContentBox = (VBox) contentNode;
-                    }
-                }
-            }
-
-            final VBox finalTargetContentBox = targetContentBox;
-
-            if (finalTargetContentBox == null) {
-                return;
-            }
-
-            Platform.runLater(() -> {
-                finalTargetContentBox.getChildren().clear();
-                Label loadingLabel = new Label("Carregando...");
-                loadingLabel.getStyleClass().add("empty-state");
-                finalTargetContentBox.getChildren().add(loadingLabel);
-            });
-
-            backgroundExecutor.submit(() -> {
-                List<DatabaseManager.ConversationInfo> conversas = DatabaseManager.getConversas(usuarioLogado.getUsuario());
-
-                List<Node> itemsToAdd = new ArrayList<>();
-
-                if (conversas.isEmpty()) {
-                    Label recommendedTitle = new Label("Não há conversas ativas. Comece uma agora mesmo:");
-                    recommendedTitle.getStyleClass().add("section-title");
-                    recommendedTitle.setPadding(new Insets(10, 0, 0, 0));
-                    itemsToAdd.add(recommendedTitle);
-
-                    List<Usuario> allUsers = DatabaseManager.getTodosUsuarios();
-                    List<Usuario> recommendedUsers = new ArrayList<>();
-
-                    for (Usuario user : allUsers) {
-                        if (!user.getUsuario().equals(usuarioLogado.getUsuario())) {
-                            recommendedUsers.add(user);
-                        }
-                    }
-
-                    if (recommendedUsers.isEmpty()) {
-                        Label noUsersLabel = new Label("Nenhum outro usuário encontrado.");
-                        noUsersLabel.getStyleClass().add("empty-state");
-                        itemsToAdd.add(noUsersLabel);
-                    } else {
-                        for (Usuario recommendedUser : recommendedUsers) {
-                            HBox userItem = createRecommendedUserItem(recommendedUser);
-                            itemsToAdd.add(userItem);
-                        }
-                    }
-                } else {
-                    for (DatabaseManager.ConversationInfo conversa : conversas) {
-
-                        if (conversa.getMensagensNaoLidas() > 0) {
-                            Mensagem ultimaMsg = conversa.getUltimaMensagem();
-
-                            if (!usuarioLogado.getStatus().equalsIgnoreCase("não_perturbe") && !ultimaMsg.isLida() && trayIcon != null) {
-                            }
-                        }
-                        HBox conversationItem = createConversationItem(conversa);
-                        itemsToAdd.add(conversationItem);
-
-                        if (conversas.indexOf(conversa) < conversas.size() - 1) {
-                            Separator separator = new Separator();
-                            separator.getStyleClass().add("conversation-separator");
-                            itemsToAdd.add(separator);
-                        }
-                    }
-                }
-
-                Platform.runLater(() -> {
-                    finalTargetContentBox.getChildren().clear();
-                    finalTargetContentBox.getChildren().addAll(itemsToAdd);
-                });
-            });
-
-        } else if (conversationsScreenRoot == null) {
-        } else {
-        }
-    }
-
-
-    private void updateTrayIconWithAvatar(Usuario sender) {
-        if (trayIcon != null && sender != null) {
-            backgroundExecutor.submit(() -> {
-                java.awt.Image combinedImage = createCombinedTrayIcon(sender.getFotoPerfil());
-                if (combinedImage != null) {
-                    Platform.runLater(() -> {
-                        trayIcon.setImage(combinedImage);
-                    });
-                }
-            });
-        }
-    }
-
-    private java.awt.Image createCombinedTrayIcon(byte[] userAvatarBytes) {
-        try {
-            java.awt.Image baseIcon = Toolkit.getDefaultToolkit().getImage(getClass().getResource("/oltapp-icon-taskbar.png"));
-            MediaTracker tracker = new MediaTracker(new java.awt.Component() {
-            });
-            tracker.addImage(baseIcon, 0);
-            tracker.waitForID(0);
-
-            int baseWidth = baseIcon.getWidth(null);
-            int baseHeight = baseIcon.getHeight(null);
-
-            java.awt.Image combinedImage = new java.awt.image.BufferedImage(baseWidth, baseHeight, java.awt.image.BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = (Graphics2D) combinedImage.getGraphics();
-
-            g.drawImage(baseIcon, 0, 0, null);
-
-            if (userAvatarBytes != null && userAvatarBytes.length > 0) {
-                java.awt.Image userAvatar = Toolkit.getDefaultToolkit().createImage(userAvatarBytes);
-                tracker.addImage(userAvatar, 1);
-                tracker.waitForID(1);
-
-                int avatarSize = Math.min(baseWidth, baseHeight) / 3;
-                int avatarX = baseWidth - avatarSize;
-                int avatarY = baseHeight - avatarSize;
-
-                g.drawImage(userAvatar, avatarX, avatarY, avatarSize, avatarSize, null);
-
-            }
-
-            g.dispose();
-            return combinedImage;
-
-        } catch (Exception e) {
-            System.err.println("Erro ao criar ícone combinado para TrayIcon: " + e.getMessage());
-            e.printStackTrace();
-            try {
-                java.awt.Image baseIcon = Toolkit.getDefaultToolkit().getImage(getClass().getResource("/oltapp-icon-taskbar.png"));
-                MediaTracker tracker = new MediaTracker(new java.awt.Component() {
-                });
-                tracker.addImage(baseIcon, 0);
-                tracker.waitForID(0);
-                return baseIcon;
-            } catch (Exception ex) {
-                System.err.println("Erro ao carregar ícone base em caso de erro: " + ex.getMessage());
-                return null;
-            }
-        }
-    }
-
-    private void removeSystemTrayIcon() {
-        if (SystemTray.isSupported()) {
-            SystemTray tray = SystemTray.getSystemTray();
-            if (trayIcon != null) {
-                tray.remove(trayIcon);
-                System.out.println("System Tray Icon removed.");
-                trayIcon = null;
-            }
-        }
-    }
-
-
-    private Node createConversationsScreen() {
-        if (conversationsScreenRoot == null) {
-            conversationsScreenRoot = new VBox(15);
-            conversationsScreenRoot.setPadding(new Insets(15));
-            conversationsScreenRoot.getStyleClass().add("content-area");
-            conversationsScreenRoot.setId("conversationsScreen");
-            VBox.setVgrow(conversationsScreenRoot, Priority.ALWAYS); // Allow conversationsScreenRoot to grow
-
-            Label titleLabel = new Label("Minhas Conversas");
-            titleLabel.getStyleClass().add("screen-title");
-
-            VBox contentListBox = new VBox(5);
-            contentListBox.setId("contentListBox");
-            contentListBox.setPadding(new Insets(5, 0, 5, 0));
-            VBox.setVgrow(contentListBox, Priority.ALWAYS); // Allow contentListBox to grow
-
-            ScrollPane scrollPane = new ScrollPane(contentListBox);
-            scrollPane.setFitToWidth(true);
-            scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-            scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-            scrollPane.getStyleClass().add("transparent-scroll");
-            scrollPane.setMaxHeight(Double.MAX_VALUE); // Allow scrollpane to take max height
-            VBox.setVgrow(scrollPane, Priority.ALWAYS);
-
-            conversationsScreenRoot.getChildren().addAll(titleLabel, scrollPane);
-        }
-        return conversationsScreenRoot;
-    }
-
-
-    private HBox createRecommendedUserItem(Usuario u) {
-        HBox userBox = new HBox(8);
-        userBox.setAlignment(Pos.CENTER_LEFT);
-        userBox.setCursor(Cursor.HAND);
-        userBox.getStyleClass().addAll("user-info-box", "user-hbox", "recommended-user-item");
-        userBox.setUserData(u.getUsuario());
-        userBox.setMaxWidth(Double.MAX_VALUE); // Allow HBox to take max width
-
-        ImageView avatar = carregarAvatar(u.getFotoPerfil(), 32, 32);
-        Circle clip = new Circle(16, 16, 16);
-        avatar.setClip(clip);
-
-        Circle statusCircle = new Circle(5);
-        statusCircle.setStroke(Color.web("#1e1e2e"));
-        statusCircle.setStrokeWidth(1.5);
-        statusCircle.setFill(getStatusColor(u.getStatus()));
-        statusCircle.getStyleClass().add("status-circle");
-
-        StackPane avatarStack = new StackPane(avatar, statusCircle);
-        StackPane.setAlignment(statusCircle, Pos.BOTTOM_RIGHT);
-        StackPane.setMargin(statusCircle, new Insets(0, 1, 1, 0));
-
-        VBox nameBox = new VBox(2);
-        Label nomeLabel = new Label(u.getNome());
-        nomeLabel.getStyleClass().add("user-name");
-
-        Label cargoLabel = new Label(u.getCargo());
-        cargoLabel.getStyleClass().add("user-role");
-
-        nameBox.getChildren().addAll(nomeLabel, cargoLabel);
-        HBox.setHgrow(nameBox, Priority.ALWAYS); // Allow nameBox to grow
-
-        userBox.getChildren().addAll(avatarStack, nameBox);
-
-        userBox.setOnMouseClicked(event -> {
-            mostrarDMNaMesmaAba(u);
-        });
-
-        return userBox;
-    }
-
-    private HBox createConversationItem(DatabaseManager.ConversationInfo conversa) {
-        HBox item = new HBox(10);
-        item.setPadding(new Insets(8));
-        item.getStyleClass().add("conversation-item");
-        item.setCursor(Cursor.HAND);
-        item.setMaxWidth(Double.MAX_VALUE); // Allow HBox to take max width
-
-        ImageView avatar = carregarAvatar(conversa.getOutroUsuario().getFotoPerfil(), 48, 48);
-
-        VBox infoBox = new VBox(3);
-        HBox.setHgrow(infoBox, Priority.ALWAYS);
-
-        HBox headerBox = new HBox();
-        headerBox.setAlignment(Pos.CENTER_LEFT);
-
-        Label nameLabel = new Label(conversa.getOutroUsuario().getNome() + " • ");
-        nameLabel.getStyleClass().add("conversation-name");
-        HBox.setHgrow(nameLabel, Priority.ALWAYS);
-
-        String displayTime = "??:??";
-        Mensagem lastMsg = conversa.getUltimaMensagem();
-        if (lastMsg != null && lastMsg.getTimestampObject() != null) {
-
-            Timestamp dbTimestamp = lastMsg.getTimestampObject();
-            Instant instant = dbTimestamp.toInstant();
-
-            LocalDateTime messageLDT = lastMsg.getTimestampObject().toLocalDateTime();
-            ZonedDateTime messageZDT = messageLDT.atZone(ZoneId.of("UTC-3"));
-            ZonedDateTime localZDT = messageZDT.withZoneSameInstant(ZoneId.systemDefault());
-            LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
-
-
-            if (localZDT.toLocalDate().equals(now.toLocalDate())) {
-                DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
-                displayTime = timeFormatter.format(localZDT);
-            } else if (localZDT.toLocalDate().equals(now.minusDays(1).toLocalDate())) {
-                displayTime = "Ontem";
-            } else if (localZDT.toLocalDate().isAfter(now.minusDays(7).toLocalDate())) {
-                DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("EEEE", new Locale("pt", "BR"));
-                displayTime = dayFormatter.format(localZDT);
-                displayTime = displayTime.substring(0, 1).toUpperCase() + displayTime.substring(1);
-            } else {
-                DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yy");
-                displayTime = dateFormatter.format(localZDT);
-            }
-        }
-
-        Label timeLabel = new Label(displayTime);
-        timeLabel.getStyleClass().add("conversation-time");
-        timeLabel.setMinWidth(Region.USE_PREF_SIZE);
-
-        headerBox.getChildren().addAll(nameLabel, timeLabel);
-        HBox.setHgrow(headerBox, Priority.ALWAYS); // Allow headerBox to grow
-
-        HBox previewBox = new HBox();
-        previewBox.setAlignment(Pos.CENTER_LEFT);
-
-        Label messageLabel = new Label();
-        messageLabel.getStyleClass().add("conversation-preview");
-        messageLabel.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(messageLabel, Priority.ALWAYS);
-
-        if (lastMsg != null && lastMsg.getConteudo() != null) {
-            String previewText = lastMsg.getConteudo();
-            int maxLength = 40;
-            if (previewText.length() > maxLength) {
-                previewText = previewText.substring(0, maxLength) + "...";
-            }
-            previewText = previewText.replace('\n', ' ');
-            messageLabel.setText(previewText);
-        } else {
-            messageLabel.setText("...");
-        }
-
-        previewBox.getChildren().add(messageLabel);
-
-        if (conversa.getMensagensNaoLidas() > 0) {
-            StackPane badge = new StackPane();
-            badge.getStyleClass().add("unread-badge");
-
-            Circle badgeCircle = new Circle(10);
-            badgeCircle.getStyleClass().add("unread-badge-circle");
-
-            Label countLabel = new Label(String.valueOf(conversa.getMensagensNaoLidas()));
-            countLabel.getStyleClass().add("unread-badge-text");
-
-            badge.getChildren().addAll(badgeCircle, countLabel);
-
-            Region spacer = new Region();
-            HBox.setHgrow(spacer, Priority.ALWAYS);
-            previewBox.getChildren().addAll(spacer, badge);
-            HBox.setMargin(badge, new Insets(0, 0, 0, 5));
-        }
-        HBox.setHgrow(previewBox, Priority.ALWAYS); // Allow previewBox to grow
-
-        infoBox.getChildren().addAll(headerBox, previewBox);
-
-        item.getChildren().addAll(avatar, infoBox);
-
-        item.setOnMouseClicked(event -> {
-            List<Integer> readMessageIds = DatabaseManager.marcarMensagensComoLidas(
-                    usuarioLogado.getUsuario(),
-                    conversa.getOutroUsuario().getUsuario()
-            );
-            mostrarDMNaMesmaAba(conversa.getOutroUsuario());
-        });
-
-        return item;
-    }
-    private void mostrarDMNaMesmaAba(Usuario destinatario) {
-        currentChatPartner = destinatario;
-        currentMessageOffset = 0;
-        totalMessages = 0;
-        isLoadingMessages = false;
-
-        BorderPane chatLayout = new BorderPane();
-        chatLayout.getStyleClass().add("content-area-dms");
-        chatLayout.setId("dmChatLayout-" + destinatario.getUsuario());
-        VBox.setVgrow(chatLayout, Priority.ALWAYS); // Allow chatLayout to grow
-
-        HBox header = new HBox(10);
-        Button backBtn = new Button("←");
-        backBtn.getStyleClass().add("back-button");
-        backBtn.setOnAction(e -> showSection("Conversas"));
-
-        Label titulo = new Label("Mensagem Privada com " + destinatario.getNome());
-        titulo.getStyleClass().add("screen-title");
-
-        header.getChildren().addAll(backBtn, titulo);
-        header.setAlignment(Pos.CENTER_LEFT);
-        header.setPadding(new Insets(0, 0, 10, 0));
-        chatLayout.setTop(header);
-
-        VBox mensagensBox = new VBox(8);
-        mensagensBox.setPadding(new Insets(10));
-        mensagensBox.getStyleClass().add("dm-messages-container");
-        VBox.setVgrow(mensagensBox, Priority.ALWAYS); // Allow mensagensBox to grow
-
-        ScrollPane scrollPane = new ScrollPane(mensagensBox);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scrollPane.getStyleClass().add("transparent-scroll");
-        scrollPane.setMaxHeight(Double.MAX_VALUE); // Allow scrollpane to take max height
-        chatLayout.setCenter(scrollPane);
-
-        Map<Integer, Mensagem> mensagensMap = new HashMap<>();
-        AtomicReference<Mensagem> respondendoA = new AtomicReference<>(null);
-        VBox bottomContainer = new VBox();
-        bottomContainer.getProperties().put("respondendoA", respondendoA);
-        bottomContainer.getProperties().put("mensagensMap", mensagensMap);
-
-        VBox replyArea = new VBox(5);
-        replyArea.getStyleClass().add("reply-area");
-        replyArea.setManaged(false);
-        replyArea.setVisible(false);
-
-        HBox replyHeader = new HBox(5);
-        replyHeader.setAlignment(Pos.CENTER_LEFT);
-
-        Label replyingToLabel = new Label();
-        replyingToLabel.getStyleClass().add("replying-to-label");
-
-        Button cancelReplyBtn = new Button("×");
-        cancelReplyBtn.getStyleClass().addAll("cancel-reply-button"); // Use all styles from CSS
-        cancelReplyBtn.setOnAction(e -> {
-            respondendoA.set(null);
-            replyArea.setManaged(false);
-            replyArea.setVisible(false);
-        });
-
-
-        if (classExists("org.kordamp.ikonli.javafx.FontIcon")) {
-            // Ensure FontIcon is correctly used
-            replyHeader.getChildren().addAll(new FontIcon("fas-reply"), replyingToLabel, new Region(), cancelReplyBtn);
-        } else {
-            Label iconPlaceholder = new Label("[Reply Icon]");
-            replyHeader.getChildren().addAll(iconPlaceholder, replyingToLabel, new Region(), cancelReplyBtn);
-            System.err.println("FontIcon class not found. Please ensure Ikonli is in your project dependencies.");
-        }
-
-        HBox.setHgrow(replyHeader.getChildren().get(replyHeader.getChildren().size() - 2), Priority.ALWAYS);
-
-        Label replyPreviewLabel = new Label();
-        replyPreviewLabel.getStyleClass().add("reply-preview-label");
-        replyPreviewLabel.setWrapText(true);
-
-        replyArea.getChildren().addAll(replyHeader, replyPreviewLabel);
-
-        TextArea input = new TextArea();
-        input.setPromptText("Digite sua mensagem...");
-        input.getStyleClass().add("dm-input-field");
-        input.setPrefRowCount(1);
-        input.setWrapText(true);
-        HBox.setHgrow(input, Priority.ALWAYS);
-
-        Button enviar = new Button("→");
-        enviar.getStyleClass().add("dm-send-button");
-        enviar.setDisable(true);
-
-        input.textProperty().addListener((obs, oldText, newText) -> {
-            enviar.setDisable(newText.trim().isEmpty());
-            int newLineCount = newText.split("\n").length;
-            input.setPrefRowCount(Math.min(5, Math.max(1, newLineCount)));
-        });
-
-        enviar.setOnAction(e -> enviarMensagem(input, mensagensBox, scrollPane, destinatario, respondendoA, replyArea, mensagensMap));
-
-        input.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                if (event.isShiftDown()) {
-                } else {
-                    event.consume();
-                    if (!input.getText().trim().isEmpty()) {
-                        enviar.fire();
-                    }
-                }
-            }
-        });
-
-        HBox inputArea = new HBox(10, input, enviar);
-        inputArea.setPadding(new Insets(10));
-        inputArea.getStyleClass().add("dm-input-container");
-        inputArea.setAlignment(Pos.CENTER);
-
-        bottomContainer.getChildren().addAll(replyArea, inputArea);
-        chatLayout.setBottom(bottomContainer);
-        VBox.setVgrow(bottomContainer, Priority.NEVER); // Don't allow bottomContainer to grow
-
-        scrollPane.vvalueProperty().addListener((obs, oldVvalue, newVvalue) -> {
-            if (newVvalue.doubleValue() < 0.1 && !isLoadingMessages && (currentMessageOffset < totalMessages)) {
-                loadMoreMessages(mensagensBox, scrollPane, destinatario, mensagensMap, input, replyArea, respondendoA);
-            }
-        });
-
-        loadInitialMessages(mensagensBox, scrollPane, destinatario, mensagensMap, input, replyArea, respondendoA);
-
-        Platform.runLater(() -> {
-            mainContent.setCenter(chatLayout);
-            currentSection = "DM-" + destinatario.getUsuario();
-            DatabaseManager.atualizarUltimaAtividade(usuarioLogado.getUsuario(), "Em Conversa");
-            input.requestFocus();
-        });
-    }
-
-    private void loadInitialMessages(VBox mensagensBox, ScrollPane scrollPane, Usuario destinatario,
-                                     Map<Integer, Mensagem> mensagensMap, TextArea input, VBox replyArea, AtomicReference<Mensagem> respondendoA) {
-        Label loadingLabel = new Label("Carregando mensagens...");
-        loadingLabel.getStyleClass().add("empty-state");
-        Platform.runLater(() -> {
-            mensagensBox.getChildren().setAll(loadingLabel);
-        });
-
-        backgroundExecutor.submit(() -> {
-            try {
-                totalMessages = DatabaseManager.getTotalMensagensPrivadas(usuarioLogado.getUsuario(), destinatario.getUsuario());
-
-                List<Mensagem> mensagens = DatabaseManager.getMensagensPrivadasPaginado(
-                        usuarioLogado.getUsuario(), destinatario.getUsuario(), MESSAGES_PER_PAGE, 0
-                );
-
-                Platform.runLater(() -> {
-                    mensagensBox.getChildren().clear();
-                    mensagensMap.clear();
-
-                    for (Mensagem m : mensagens) {
-                        mensagensBox.getChildren().add(createMessageNode(m, mensagensMap, mensagensBox, scrollPane, input, replyArea, respondendoA));
-                        mensagensMap.put(m.getId(), m);
-                    }
-
-                    List<Integer> initialMessageIds = new ArrayList<>();
-                    for(Mensagem m : mensagens) {
-                        if (!m.getRemetente().equals(usuarioLogado.getUsuario())) {
-                            initialMessageIds.add(m.getId());
-                        }
-                    }
-                    notifiedMessageIds.removeAll(initialMessageIds);
-
-                    List<Integer> readMessageIds = DatabaseManager.marcarMensagensComoLidas( // <--- E AQUI RECEBE A LISTA E ATUALIZA O SET LOCAL
-                            usuarioLogado.getUsuario(),
-                            destinatario.getUsuario()
-                    );
-                    notifiedMessageIds.removeAll(readMessageIds);
-
-                    Node currentSidebarContent = mainContent.getCenter(); // Verifica o centro, não a direita
-                    if (currentSidebarContent != null && currentSidebarContent.getId() != null && currentSidebarContent.getId().equals("conversationsScreen")) {
-                        Platform.runLater(this::atualizarTelaConversas);
-                    }
-
-
-                    Platform.runLater(() -> {
-                        scrollPane.setVvalue(1.0);
-                        mensagensBox.getProperties().put("chatRecipient", destinatario.getUsuario());
-                    });
-
-
-                    currentMessageOffset = mensagens.size();
-                });
-            } catch (Exception e) {
-                System.err.println("Erro durante o carregamento inicial de mensagens: " + e.getMessage());
-                e.printStackTrace();
-                Platform.runLater(() -> {
-                    mensagensBox.getChildren().setAll(new Label("Erro ao carregar mensagens."));
-                });
-            } finally {
-                isLoadingMessages = false;
-            }
-        });
-    }
-
-    private void loadMoreMessages(VBox mensagensBox, ScrollPane scrollPane, Usuario destinatario,
-                                  Map<Integer, Mensagem> mensagensMap, TextArea input, VBox replyArea, AtomicReference<Mensagem> respondendoA) {
-        if (currentMessageOffset >= totalMessages || isLoadingMessages) {
-            return;
-        }
-
-        isLoadingMessages = true;
-        Label loadingMoreLabel = new Label("Carregando mensagens antigas...");
-        loadingMoreLabel.getStyleClass().add("empty-state");
-        Platform.runLater(() -> mensagensBox.getChildren().add(0, loadingMoreLabel));
-
-        backgroundExecutor.submit(() -> {
-            try {
-                List<Mensagem> oldMessages = DatabaseManager.getMensagensPrivadasPaginado(
-                        usuarioLogado.getUsuario(), destinatario.getUsuario(), MESSAGES_PER_PAGE, currentMessageOffset
-                );
-
-                Platform.runLater(() -> {
-                    mensagensBox.getChildren().remove(0);
-                    double currentScrollY = scrollPane.getBoundsInLocal().getMinY() + scrollPane.getVvalue() * (mensagensBox.getHeight() - scrollPane.getViewportBounds().getHeight());
-                    double contentHeightBefore = mensagensBox.getHeight();
-
-                    for (int i = oldMessages.size() - 1; i >= 0; i--) {
-                        Mensagem m = oldMessages.get(i);
-                        mensagensBox.getChildren().add(0, createMessageNode(m, mensagensMap, mensagensBox, scrollPane, input, replyArea, respondendoA));
-                        mensagensMap.put(m.getId(), m);
-                    }
-
-                    currentMessageOffset += oldMessages.size();
-                    mensagensBox.requestLayout();
-                    mensagensBox.layout();
-
-                    double contentHeightAfter = mensagensBox.getHeight();
-                    double heightDifference = contentHeightAfter - contentHeightBefore;
-                    double newScrollY = currentScrollY + heightDifference;
-                    double newVvalue = newScrollY / (mensagensBox.getHeight() > 0 ? mensagensBox.getHeight() : 1.0);
-
-                    Platform.runLater(() -> {
-                        scrollPane.setVvalue(Math.max(0.0, Math.min(1.0, newVvalue)));
-                    });
-
-                    isLoadingMessages = false;
-                });
-            } catch (Exception e) {
-                System.err.println("Erro durante o carregamento de mais mensagens: " + e.getMessage());
-                e.printStackTrace();
-                Platform.runLater(() -> {
-                    mensagensBox.getChildren().remove(0);
-                });
-            } finally {
-                isLoadingMessages = false;
-            }
-        });
-    }
-
-    private HBox createMessageNode(Mensagem m, Map<Integer, Mensagem> mensagensMap, VBox mensagensBox, ScrollPane scrollPane,
-                                   TextArea input, VBox replyArea, AtomicReference<Mensagem> respondendoA) {
-        HBox messageContainer = new HBox(8);
-        messageContainer.setId("msg-" + m.getId());
-        messageContainer.setMaxWidth(Double.MAX_VALUE); // Allow messageContainer to take max width
-        boolean isSenderMe = m.getRemetente().equals(usuarioLogado.getUsuario());
-        Usuario remetente = DatabaseManager.getUsuarioByUsername(m.getRemetente())
-                .orElse(new Usuario("?", "?", "?", "offline", null, "?"));
-
-        ImageView avatar = null;
-        if (remetente.getFotoPerfil() != null && remetente.getFotoPerfil().length > 0) {
-            avatar = carregarAvatar(remetente.getFotoPerfil(), 32, 32);
-        } else {
-            try (InputStream is = getClass().getResourceAsStream("/imagens/default-avatar.png")) {
-                if (is != null) {
-                    byte[] defaultAvatarBytes = is.readAllBytes();
-                    avatar = carregarAvatar(defaultAvatarBytes, 32, 32);
-                } else {
-                    System.err.println("❌ Imagem padrão não encontrada em /imagens/default-avatar.png");
-                    avatar = new ImageView();
-                    avatar.setFitWidth(32);
-                    avatar.setFitHeight(32);
-                }
-            } catch (IOException e) {
-                System.err.println("Erro ao carregar imagem padrão: " + e.getMessage());
-                avatar = new ImageView();
-                avatar.setFitWidth(32);
-                avatar.setFitHeight(32);
-            }
-        }
-
-        VBox messageBox = new VBox(2);
-        Label nameLabel = new Label(remetente.getNome());
-        nameLabel.getStyleClass().add("message-sender-name");
-
-        Integer refMsgId = DatabaseManager.getMensagemRespondidaId(m.getId());
-        if (refMsgId != null) {
-            Mensagem refMsg = mensagensMap.get(refMsgId);
-            if (refMsg == null) {
-                Optional<Mensagem> optionalRefMsg = DatabaseManager.getMensagemPorId(refMsgId);
-                if (optionalRefMsg.isPresent()) {
-                    refMsg = optionalRefMsg.get();
-                }
-            }
-
-            if (refMsg != null) {
-                Usuario refRemetente = DatabaseManager.getUsuarioByUsername(refMsg.getRemetente())
-                        .orElse(new Usuario("?", "?", "?", "offline", null, "?"));
-
-                VBox replyContainer = new VBox(2);
-                replyContainer.getStyleClass().add("reply-reference");
-
-                Label replyName = new Label(refRemetente.getNome());
-                replyName.getStyleClass().add("reply-name");
-
-                String previewContent = refMsg.getConteudo();
-                if (previewContent.length() > 50) {
-                    previewContent = previewContent.substring(0, 50) + "...";
-                }
-                Label replyPreview = new Label(previewContent);
-                replyPreview.getStyleClass().add("reply-preview");
-
-                replyContainer.getChildren().addAll(replyName, replyPreview);
-                replyContainer.setOnMouseClicked(e -> {
-                    Mensagem originalMsgToScroll = mensagensMap.get(refMsgId);
-                    if (originalMsgToScroll == null) {
-                        DatabaseManager.getMensagemPorId(refMsgId).ifPresent(msg -> {
-                            scrollToMessage(msg.getId(), mensagensBox, scrollPane);
-                        });
-                    } else {
-                        scrollToMessage(originalMsgToScroll.getId(), mensagensBox, scrollPane);
-                    }
-                });
-
-                messageBox.getChildren().add(replyContainer);
-            } else {
-                VBox replyContainer = new VBox(2);
-                replyContainer.getStyleClass().add("reply-reference-unavailable");
-                Label unavailableLabel = new Label("Mensagem original não disponível");
-                unavailableLabel.getStyleClass().add("reply-preview-unavailable");
-                replyContainer.getChildren().add(unavailableLabel);
-                messageBox.getChildren().add(replyContainer);
-            }
-        }
-
-        TextFlow textFlow = new TextFlow();
-        textFlow.setMaxWidth(400);
-        textFlow.getStyleClass().add(isSenderMe ? "bolha-enviada" : "bolha-recebida");
-
-        String[] lines = m.getConteudo().split("\n", -1);
-        for (int i = 0; i < lines.length; i++) {
-            Text textPart = new Text(lines[i]);
-            textFlow.getChildren().add(textPart);
-
-            if (i < lines.length - 1) {
-                textFlow.getChildren().add(new Text("\n"));
-            }
-        }
-        if (!textFlow.getChildren().isEmpty() && !m.getConteudo().endsWith("\n")) {
-            Node lastNode = textFlow.getChildren().get(textFlow.getChildren().size() - 1);
-            if (lastNode instanceof Text && ((Text)lastNode).getText().equals("\n")) {
-                textFlow.getChildren().remove(lastNode);
-            }
-        }
-
-        StackPane messageBubbleContainer = new StackPane();
-        messageBubbleContainer.getStyleClass().add("message-bubble-container");
-        messageBubbleContainer.getChildren().add(textFlow);
-
-        HBox actionButtons = new HBox(5);
-        actionButtons.getStyleClass().add("message-action-buttons");
-        actionButtons.setOpacity(0);
-
-        if (classExists("org.kordamp.ikonli.javafx.FontIcon")) {
-            Button copyBtn = new Button();
-            copyBtn.setGraphic(new FontIcon("fas-copy"));
-            copyBtn.getStyleClass().add("action-button");
-            copyBtn.setTooltip(new Tooltip("Copiar mensagem"));
-            copyBtn.setOnAction(e -> {
-                final Clipboard clipboard = Clipboard.getSystemClipboard();
-                final ClipboardContent content = new ClipboardContent();
-                content.putString(m.getConteudo());
-                clipboard.setContent(content);
-                showToast("✓ Mensagem copiada!");
-            });
-
-            Button replyBtn = new Button();
-            replyBtn.setGraphic(new FontIcon("fas-reply"));
-            replyBtn.getStyleClass().add("action-button");
-            replyBtn.setTooltip(new Tooltip("Responder"));
-            replyBtn.setOnAction(e -> prepararResposta(m, input, replyArea, respondendoA));
-
-            actionButtons.getChildren().addAll(copyBtn, replyBtn);
-        } else {
-            Button copyBtn = new Button("Copiar");
-            copyBtn.getStyleClass().add("action-button");
-            copyBtn.setOnAction(e -> {
-                final Clipboard clipboard = Clipboard.getSystemClipboard();
-                final ClipboardContent content = new ClipboardContent();
-                content.putString(m.getConteudo());
-                clipboard.setContent(content);
-                showToast("✓ Mensagem copiada!");
-            });
-
-            Button replyBtn = new Button("Responder");
-            replyBtn.getStyleClass().add("action-button");
-            replyBtn.setOnAction(e -> prepararResposta(m, input, replyArea, respondendoA));
-
-            actionButtons.getChildren().addAll(copyBtn, replyBtn);
-            System.err.println("FontIcon class not found for message action buttons. Using text buttons.");
-        }
-
-        HBox bubbleWithActions = new HBox(5);
-        if (isSenderMe) {
-            bubbleWithActions.getChildren().addAll(actionButtons, messageBubbleContainer);
-            bubbleWithActions.setAlignment(Pos.CENTER_RIGHT);
-        } else {
-            bubbleWithActions.getChildren().addAll(messageBubbleContainer, actionButtons);
-            bubbleWithActions.setAlignment(Pos.CENTER_LEFT);
-        }
-        HBox.setHgrow(bubbleWithActions, Priority.ALWAYS); // Allow bubbleWithActions to grow
-
-        bubbleWithActions.setOnMouseEntered(e -> actionButtons.setOpacity(1));
-        bubbleWithActions.setOnMouseExited(e -> actionButtons.setOpacity(0));
-
-        Label timeLabel = new Label(m.getFormattedTimestamp("HH:mm", ZoneId.systemDefault()));
-        timeLabel.getStyleClass().add("message-timestamp");
-
-        messageBox.getChildren().addAll(bubbleWithActions, timeLabel);
-        VBox.setVgrow(messageBox, Priority.NEVER); // Prevent messageBox from growing vertically
-
-        if (isSenderMe) {
-            messageContainer.setAlignment(Pos.CENTER_RIGHT);
-            if (avatar != null) messageContainer.getChildren().addAll(messageBox, avatar); else messageContainer.getChildren().add(messageBox);
-        } else {
-            messageContainer.setAlignment(Pos.CENTER_LEFT);
-            if (avatar != null) messageContainer.getChildren().addAll(avatar, messageBox); else messageContainer.getChildren().add(messageBox);
-        }
-
-        return messageContainer;
-    }
-
-    private void scrollToMessage(int messageId, VBox mensagensBox, ScrollPane scrollPane) {
-        Node targetNode = mensagensBox.lookup("#msg-" + messageId);
-        if (targetNode != null) {
-            double scrollY = targetNode.getBoundsInParent().getMinY();
-            double contentHeight = mensagensBox.getHeight();
-            double viewportHeight = scrollPane.getViewportBounds().getHeight();
-            double targetVvalue = scrollY / contentHeight;
-
-            Platform.runLater(() -> {
-                scrollPane.setVvalue(Math.max(0.0, Math.min(1.0, targetVvalue)));
-                targetNode.getStyleClass().add("highlighted-message");
-                PauseTransition pause = new PauseTransition(Duration.seconds(2));
-                pause.setOnFinished(event -> targetNode.getStyleClass().remove("highlighted-message"));
-                pause.play();
-            });
-        } else {
-            System.err.println("Node for message ID " + messageId + " not found in UI.");
-            showToast("Mensagem referenciada não visível ou não carregada.");
-        }
-    }
-
-    private boolean classExists(String className) {
-        try {
-            Class.forName(className);
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-
-    private void enviarMensagem(TextArea input, VBox mensagensBox, ScrollPane scrollPane,
-                                Usuario destinatario, AtomicReference<Mensagem> respondendoA, VBox replyArea, Map<Integer, Mensagem> mensagensMap) {
-        String msg = input.getText().trim();
-        if (msg.isEmpty()) return;
-
-        Integer refMsgId = (respondendoA.get() != null) ? respondendoA.get().getId() : null;
-
-        boolean sent = DatabaseManager.enviarMensagemComReferencia(
-                usuarioLogado.getUsuario(), destinatario.getUsuario(), msg, refMsgId);
-
-        if (!sent) {
-            showToast("❌ Erro ao enviar mensagem.");
-            return;
-        }
-
-        input.clear();
-        respondendoA.set(null);
-        replyArea.setManaged(false);
-        replyArea.setVisible(false); // Oculta a área de resposta
-
-        backgroundExecutor.submit(() -> {
-            // Marca a mensagem enviada como lida para o remetente (você mesmo)
-            // Isso pode não ser estritamente necessário para notificações, mas é boa prática.
-            // E garante que se houver alguma lógica baseada em 'lida' para mensagens enviadas, funcione.
-            // Dependendo da implementação de marcarMensagensComoLidas, pode ser necessário adaptar.
-            DatabaseManager.marcarMensagensComoLidas(
-                    usuarioLogado.getUsuario(), // O remetente
-                    usuarioLogado.getUsuario()  // O destinatário (você mesmo, na sua caixa de saída conceitual)
-            );
-
-            DatabaseManager.getUltimaMensagem(usuarioLogado.getUsuario(), destinatario.getUsuario())
-                    .ifPresent(ultimaMensagem -> {
-                        Platform.runLater(() -> {
-                            HBox newMessageNode = createMessageNode(
-                                    ultimaMensagem,
-                                    mensagensMap,
-                                    mensagensBox,
-                                    scrollPane,
-                                    input,
-                                    replyArea,
-                                    respondendoA
-                            );
-
-                            mensagensBox.getChildren().add(newMessageNode);
-                            mensagensMap.put(ultimaMensagem.getId(), ultimaMensagem);
-                            totalMessages++;
-                            scrollPane.setVvalue(1.0);
-
-                            // Não remove do notifiedMessageIds aqui, pois é uma mensagem que você enviou.
-                            // A notificação só é para mensagens recebidas.
-
-                            // Atualiza a tela de conversas na barra lateral se necessário,
-                            // para mostrar a última mensagem enviada.
-                            // Verificar se a tela de conversas lateral está visível antes de atualizar
-                            Node currentSidebarContent = mainContent.getCenter(); // Verifica o centro, não a direita
-                            if (currentSidebarContent != null && currentSidebarContent.getId() != null && currentSidebarContent.getId().equals("conversationsScreen")) {
-                                // A tela de conversas lateral está visível, atualize-a.
-                                Platform.runLater(this::atualizarTelaConversas);
-                            }
-
-                        });
-                    });
-        });
-    }
-
-
-    private void prepararResposta(Mensagem mensagemOriginal, TextArea inputArea, VBox replyArea, AtomicReference<Mensagem> respondendoA) {
-        Label replyingToLabel = null;
-        Label replyPreviewLabel = null;
-
-        if (!replyArea.getChildren().isEmpty() && replyArea.getChildren().get(0) instanceof HBox) {
-            HBox replyHeader = (HBox) replyArea.getChildren().get(0);
-            // Check for FontIcon or placeholder label at index 0, and the target label at index 1
-            int labelIndex = 1; // Assuming the label is the second child after the icon/placeholder
-            if (replyHeader.getChildren().size() > labelIndex && replyHeader.getChildren().get(labelIndex) instanceof Label) {
-                replyingToLabel = (Label) replyHeader.getChildren().get(labelIndex);
-            }
-        }
-        if (replyArea.getChildren().size() > 1 && replyArea.getChildren().get(1) instanceof Label) {
-            replyPreviewLabel = (Label) replyArea.getChildren().get(1);
-        }
-
-        if (replyingToLabel == null || replyPreviewLabel == null) {
-            System.err.println("Erro: Não foi possível encontrar os Labels dentro da replyArea na prepararResposta.");
-            // Attempt to find by style class as a fallback
-            if(replyingToLabel == null) replyingToLabel = (Label) replyArea.lookup(".replying-to-label");
-            if(replyPreviewLabel == null) replyPreviewLabel = (Label) replyArea.lookup(".reply-preview-label");
-
-            if(replyingToLabel == null || replyPreviewLabel == null) {
-                System.err.println("Erro: Falha ao encontrar Labels mesmo por style class.");
-                return; // Cannot proceed without required labels
-            }
-        }
-
-
-        Usuario remetente = DatabaseManager.getUsuarioByUsername(mensagemOriginal.getRemetente())
-                .orElse(new Usuario("?", "?", "?", "offline", null, "?"));
-
-        replyingToLabel.setText("Respondendo a " + remetente.getNome());
-
-        String previewContent = mensagemOriginal.getConteudo();
-        if (previewContent.length() > 50) {
-            previewContent = previewContent.substring(0, 50) + "...";
-        }
-        replyPreviewLabel.setText(previewContent);
-
-        replyArea.setManaged(true);
-        replyArea.setVisible(true);
-
-        if (respondendoA != null) {
-            respondendoA.set(mensagemOriginal);
-        } else {
-            System.err.println("AtomicReference 'respondendoA' é nulo na prepararResposta.");
-        }
-
-        if (inputArea != null) {
-            inputArea.requestFocus();
-        } else {
-            System.err.println("TextArea 'inputArea' é nulo na prepararResposta.");
-        }
-    }
-    private void performEfficientSidebarUpdate() {
-        if (onlineUserBox == null || offlineUserBox == null) {
-            System.err.println("Sidebar update skipped: UI components not initialized.");
-            return;
-        }
-        if (onlinePane == null || offlinePane == null) {
-            System.err.println("Sidebar update skipped: TitledPanes not initialized.");
-            return;
-        }
-
-        backgroundExecutor.submit(() -> {
-            List<Usuario> latestUsers = DatabaseManager.getTodosUsuarios();
-            List<Runnable> uiUpdates = new ArrayList<>();
-            List<String> usersToRemove = new ArrayList<>(userNodeMap.keySet());
-
-            List<Node> onlineNodes = new ArrayList<>();
-            List<Node> offlineNodes = new ArrayList<>();
-
-
-            for (Usuario user : latestUsers) {
-                String username = user.getUsuario();
-                usersToRemove.remove(username);
-
-                Node userNode = userNodeMap.get(username);
-
-                if (userNode == null) {
-                    userNode = criarUserBox(user);
-                    userNodeMap.put(username, userNode);
-                } else {
-                    final Node finalUserNode = userNode;
-                    final Usuario latestUser = user;
-
-                    uiUpdates.add(() -> {
-                        updateUserNodeUI(finalUserNode, latestUser);
-                        userStatusMap.put(username, latestUser.getStatus());
-                        userLocationMap.put(username, latestUser.getAbaAtual());
-                    });
-                }
-
-                boolean isCurrentlyConsideredOnline = "online".equalsIgnoreCase(user.getStatus()) || "ausente".equalsIgnoreCase(user.getStatus()) || "não_perturbe".equalsIgnoreCase(user.getStatus());
-                if (isCurrentlyConsideredOnline) {
-                    onlineNodes.add(userNode);
-                } else {
-                    offlineNodes.add(userNode);
-                }
-            }
-
-            for (String userToRemove : usersToRemove) {
-                Node nodeToRemove = userNodeMap.remove(userToRemove);
-                userStatusMap.remove(userToRemove);
-                userLocationMap.remove(userToRemove);
-                if (nodeToRemove != null) {
-                    uiUpdates.add(() -> {
-                        onlineUserBox.getChildren().remove(nodeToRemove);
-                        offlineUserBox.getChildren().remove(nodeToRemove);
-                        System.out.println("Removed user node: " + userToRemove);
-                    });
-                }
-            }
-
-            Platform.runLater(() -> {
-                for (Runnable update : uiUpdates) {
-                    update.run();
-                }
-
-                onlineUserBox.getChildren().setAll(onlineNodes);
-                offlineUserBox.getChildren().setAll(offlineNodes);
-
-                onlinePane.setText("Online (" + onlineNodes.size() + ")");
-                offlinePane.setText("Offline (" + offlineNodes.size() + ")");
-
-            });
-        });
-    }
-
-    private void updateUserNodeUI(Node userNode, Usuario user) {
-        if (userNode == null || user == null) return;
-
-        Circle statusCircle = (Circle) userNode.lookup(".status-circle");
-        Label statusLabel = (Label) userNode.lookup(".status-label");
-        ImageView avatarView = null;
-
-        if (userNode instanceof HBox) {
-            HBox userHBox = (HBox) userNode;
-            if (!userHBox.getChildren().isEmpty() && userHBox.getChildren().get(0) instanceof StackPane) {
-                StackPane avatarStack = (StackPane) userHBox.getChildren().get(0);
-                for (Node stackChild : avatarStack.getChildren()) {
-                    if (stackChild instanceof ImageView) {
-                        avatarView = (ImageView) stackChild;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (statusCircle != null) {
-            statusCircle.setFill(getStatusColor(user.getStatus()));
-        }
-
-        if (statusLabel != null) {
-            boolean isOnlineOrAusente = "online".equalsIgnoreCase(user.getStatus()) || "ausente".equalsIgnoreCase(user.getStatus()) || "não_perturbe".equalsIgnoreCase(user.getStatus());
-
-            if (isOnlineOrAusente) {
-                String displayStatus;
-                if (user.getUsuario().equals(usuarioLogado.getUsuario()) && user.getAbaAtual() != null && user.getAbaAtual().startsWith("DM-")) {
-                    displayStatus = "Em Conversa";
-                } else {
-                    displayStatus = (user.getAbaAtual() != null && !user.getAbaAtual().isBlank()) ? user.getAbaAtual() : "Indisponível";
-                }
-
-                statusLabel.setText(displayStatus);
-                statusLabel.setVisible(true);
-                statusLabel.setManaged(true);
-
-            } else {
-                statusLabel.setText("");
-                statusLabel.setVisible(false);
-                statusLabel.setManaged(false);
-            }
-        }
-
-        if (avatarView != null) {
-            try {
-
-                if (user.getFotoPerfil() != null && user.getFotoPerfil().length > 0) {
-                    Image newAvatarImage = new Image(new ByteArrayInputStream(user.getFotoPerfil()));
-                    avatarView.setImage(newAvatarImage);
-
-                } else {
-                    InputStream stream = getClass().getResourceAsStream("/imagens/default-avatar.png");
-                    if (stream != null) {
-                        Image defaultAvatarImage = new Image(stream);
-                        avatarView.setImage(defaultAvatarImage);
-
-                    } else {
-                        System.err.println("❌ Imagem padrão não encontrada ao tentar atualizar avatar para " + user.getUsuario() + ".");
-                    }
-                }
-
-                Circle clip = new Circle(avatarView.getFitWidth() / 2.0, avatarView.getFitHeight() / 2.0, Math.min(avatarView.getFitWidth(), avatarView.getFitHeight()) / 2.0);
-
-                if (!(avatarView.getClip() instanceof Circle) || ((Circle) avatarView.getClip()).getRadius() != clip.getRadius()) {
-                    avatarView.setClip(clip);
-                }
-
-            } catch (Exception e) {
-                System.err.println("Erro ao carregar/atualizar imagem do avatar para " + user.getUsuario() + ": " + e.getMessage());
-
-                try {
-                    InputStream stream = getClass().getResourceAsStream("/imagens/error-avatar.png");
-                    if (stream != null) {
-                        Image errorAvatarImage = new Image(stream);
-                        avatarView.setImage(errorAvatarImage);
-                    }
-                } catch (Exception ex) {
-                    System.err.println("Não foi possível carregar o ícone de erro do avatar: " + ex.getMessage());
-                }
-            }
-        }
-    }
-
-    private Color getStatusColor(String status) {
-        if (status == null) return Color.GRAY;
-        return switch (status.toLowerCase()) {
-            case "online" -> Color.LIMEGREEN;
-            case "ausente" -> Color.GOLD;
-            case "não_perturbe" -> Color.web("#f23f42");
-            default -> Color.GRAY;
-        };
-    }
-
-    private void shutdownApplicationResources() {
-        System.out.println("Shutting down application resources...");
-        if (scheduler != null && !scheduler.isShutdown()) {
-            scheduler.shutdown();
-            try {
-                if (!scheduler.awaitTermination(2, TimeUnit.SECONDS)) {
-                    scheduler.shutdownNow();
-                }
-                System.out.println("Scheduler shutdown complete.");
-            } catch (InterruptedException e) {
-                scheduler.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-        }
-        if (backgroundExecutor != null && !backgroundExecutor.isShutdown()) {
-            backgroundExecutor.shutdown();
-            try {
-                if (!backgroundExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
-                    backgroundExecutor.shutdownNow();
-                }
-                System.out.println("Background Executor shutdown complete.");
-            } catch (InterruptedException e) {
-                backgroundExecutor.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-        }
-        if (!terminalConnections.isEmpty()) {
-            System.out.println("Disconnecting active SSH sessions...");
-            for (SSHManager ssh : terminalConnections.values()) {
-                if (ssh != null) {
-                    ssh.disconnect();
-                }
-            }
-            terminalConnections.clear();
-            System.out.println("SSH sessions disconnected.");
-        }
-        System.out.println("Resource shutdown process finished.");
-    }
-
-
-    private ImageView carregarAvatar(byte[] fotoBytes, int largura, int altura) {
-        ImageView avatar;
-        try {
-            if (fotoBytes != null && fotoBytes.length > 0) {
-                avatar = new ImageView(new Image(new ByteArrayInputStream(fotoBytes)));
-            } else {
-                InputStream stream = getClass().getResourceAsStream("/imagens/default-avatar.png");
-                if (stream != null) {
-                    avatar = new ImageView(new Image(stream));
-                } else {
-                    System.err.println("❌ Imagem padrão não encontrada em /imagens/default-avatar.png");
-                    avatar = new ImageView();
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("❌ Erro ao carregar avatar: " + e.getMessage());
-            avatar = new ImageView();
-        }
-
-        avatar.setFitWidth(largura);
-        avatar.setFitHeight(altura);
-        avatar.setClip(new Circle(largura / 2.0, altura / 2.0, Math.min(largura, altura) / 2.0));
-        return avatar;
-    }
-    // ------- Barra lateral direita (Usuarios)
-    // ---------------------- BARRAS VERTICAIS ---------------------- //
+    // ---------------------- BARRA VERTICAl ---------------------- //
 
 
     // ---------------------- OLTS ---------------------- //
@@ -2530,49 +800,86 @@ public class Main extends Application {
         content.getStyleClass().add("content-area");
         content.setAlignment(Pos.TOP_CENTER);
         content.setPadding(new Insets(20));
-        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
+        VBox.setVgrow(content, Priority.ALWAYS);
 
         FlowPane cardsPane = new FlowPane();
-        cardsPane.setHgap(10);
-        cardsPane.setVgap(10);
+        cardsPane.setHgap(15);
+        cardsPane.setVgap(15);
         cardsPane.setPadding(new Insets(20));
-        cardsPane.setAlignment(Pos.TOP_CENTER);
+        cardsPane.setAlignment(Pos.CENTER);
 
-        cardsPane.setPrefWrapLength(1000); // Initial value, will be adjusted
-        cardsPane.setMaxWidth(Double.MAX_VALUE); // Allow flow pane to take max width
-        cardsPane.getStyleClass().add("scroll-content");
-
-        // Adjust prefWrapLength based on main content width for responsiveness
-        mainContent.widthProperty().addListener((obs, oldVal, newVal) -> {
-            double availableWidth = newVal.doubleValue() - (mainContent.getLeft() != null ? mainContent.getLeft().getBoundsInLocal().getWidth() : 0) - (mainContent.getRight() != null ? mainContent.getRight().getBoundsInLocal().getWidth() : 0) - 40; // Adjust for padding and sidebars
-            if(availableWidth > 0) {
-                // Calculate optimal columns based on available width and card width (approx 165 including gaps)
-                int optimalColumns = Math.max(1, (int) (availableWidth / 165));
-                cardsPane.setPrefWrapLength(optimalColumns * 165);
-            }
-        });
-
+        List<VBox> oltCards = new ArrayList<>();
+        final boolean[] isMaximized = {false};
 
         for (OLT olt : OLTList.getOLTs()) {
-            VBox card = createOLTCard(olt);
+            VBox card = createOLTCard(olt, isMaximized[0]);
+            oltCards.add(card);
             cardsPane.getChildren().add(card);
         }
 
+        ChangeListener<Number> widthChangeListener = (obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            double availableWidth = newVal.doubleValue();
+            double cardWidth = isMaximized[0] ? 185 : 155;
+            int gap = 15;
+            int numColumns = Math.max(1, (int) ((availableWidth - 40) / (cardWidth + gap)));
+            double newPaneWidth = numColumns * (cardWidth + gap);
+            cardsPane.setPrefWidth(newPaneWidth);
+            int itemsPerRow = Math.max(1, numColumns);
+            int totalRows = (int) Math.ceil((double) OLTList.getOLTs().size() / itemsPerRow);
+            int itemsInLastRow = OLTList.getOLTs().size() % itemsPerRow;
+            if (itemsInLastRow == 1 && totalRows > 1 && itemsPerRow > 1) {
+                cardsPane.setPrefWrapLength((itemsPerRow - 1) * (cardWidth + gap));
+            } else {
+                cardsPane.setPrefWrapLength(newPaneWidth);
+            }
+        };
+
+        content.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                Stage stage = (Stage) newScene.getWindow();
+                newScene.widthProperty().addListener(widthChangeListener);
+                stage.maximizedProperty().addListener((obs2, oldMax, newMax) -> {
+                    isMaximized[0] = newMax;
+                    widthChangeListener.changed(null, null, newScene.getWidth());
+                    for (VBox card : oltCards) {
+                        double newWidth = newMax ? 185 : 155;
+                        double newHeight = newMax ? 141.5 : 123;
+                        card.setPrefSize(newWidth, newHeight);
+                        card.setMaxWidth(newWidth);
+                        card.setMaxHeight(newHeight);
+                        Rectangle clip = (Rectangle) card.getClip();
+                        clip.setWidth(newWidth);
+                        clip.setHeight(newHeight);
+                        for (Node child : card.getChildren()) {
+                            if (child instanceof Label && ((Label) child).getStyleClass().contains("olt-name")) {
+                                ((Label) child).setStyle(newMax ? "-fx-font-size: 16px;" : "-fx-font-size: 14px;");
+                            }
+                            if (child instanceof Button && ((Button) child).getText().equals("Conectar")) {
+                                ((Button) child).setStyle(newMax ? "-fx-font-size: 14px; -fx-pref-width: 120px; -fx-pref-height: 35px;" :
+                                        "-fx-font-size: 12px; -fx-pref-width: 100px; -fx-pref-height: 30px;");
+                            }
+                        }
+                    }
+                });
+                Platform.runLater(() -> widthChangeListener.changed(null, null, newScene.getWidth()));
+            }
+        });
+
         VBox scrollContent = new VBox(cardsPane);
         scrollContent.setAlignment(Pos.TOP_CENTER);
-        scrollContent.setPadding(new Insets(20, 40, 20, 40));
+        scrollContent.setPadding(new Insets(20, 20, 20, 20));
         scrollContent.setFillWidth(true);
-        VBox.setVgrow(scrollContent, Priority.ALWAYS); // Allow scrollContent VBox to grow
+        VBox.setVgrow(scrollContent, Priority.ALWAYS);
 
         ScrollPane scrollPane = new ScrollPane(scrollContent);
         scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(true); // Fit to height of its content
+        scrollPane.setFitToHeight(true);
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scrollPane.setPrefViewportHeight(400); // This might need adjustment
         scrollPane.getStyleClass().add("scroll-pane");
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
-        scrollPane.setMaxHeight(Double.MAX_VALUE); // Allow scrollpane to take max height
+        scrollPane.setMaxHeight(Double.MAX_VALUE);
 
         content.getChildren().addAll(scrollPane);
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
@@ -2584,6 +891,81 @@ public class Main extends Application {
 
         return content;
     }
+
+    private VBox createOLTCard(OLT olt, boolean isMaximized) {
+        double cardWidth = isMaximized ? 185 : 155;
+        double cardHeight = isMaximized ? 141.5 : 123;
+
+        VBox card = new VBox(8);
+        card.getStyleClass().add("olt-card");
+        card.setAlignment(Pos.CENTER);
+        card.setPrefSize(cardWidth, cardHeight);
+        card.setMaxWidth(cardWidth);
+        card.setMaxHeight(cardHeight);
+
+        Rectangle clip = new Rectangle(cardWidth, cardHeight);
+        clip.setArcWidth(24);
+        clip.setArcHeight(24);
+        card.setClip(clip);
+
+        Label nameLabel = new Label(olt.name.replace("_", " "));
+        nameLabel.getStyleClass().add("olt-name");
+        nameLabel.setStyle(isMaximized ? "-fx-font-size: 16px;" : "-fx-font-size: 14px;");
+
+        Label ipLabel = new Label(olt.ip);
+        ipLabel.getStyleClass().add("olt-ip");
+
+        Button connectBtn = new Button("Conectar");
+        connectBtn.getStyleClass().add("connect-btn");
+        connectBtn.setStyle(isMaximized ? "-fx-font-size: 14px; -fx-pref-width: 120px; -fx-pref-height: 55px;" :
+                "-fx-font-size: 12px; -fx-pref-width: 100px; -fx-pref-height: 30px;");
+
+        Glow glow = new Glow();
+        glow.setLevel(0.0);
+        connectBtn.setEffect(glow);
+
+        connectBtn.setOnAction(e -> {
+            if (sshManager != null) sshManager.disconnect();
+            ScaleTransition clickEffect = new ScaleTransition(Duration.millis(100), card);
+            clickEffect.setToX(0.95);
+            clickEffect.setToY(0.95);
+            clickEffect.setAutoReverse(true);
+            clickEffect.setCycleCount(2);
+            clickEffect.setOnFinished(event -> showSSHTerminal(olt));
+            DatabaseManager.logUsuario(usuario.getNome(), "Conectou na " + olt.name);
+            clickEffect.play();
+        });
+
+        addEnhancedButtonHoverEffects(connectBtn);
+
+        card.setOnMouseEntered(e -> {
+            TranslateTransition lift = new TranslateTransition(Duration.millis(200), card);
+            lift.setToY(-5);
+            lift.play();
+            ScaleTransition scale = new ScaleTransition(Duration.millis(200), card);
+            scale.setToX(1.03);
+            scale.setToY(1.03);
+            scale.play();
+        });
+
+        card.setOnMouseExited(e -> {
+            TranslateTransition drop = new TranslateTransition(Duration.millis(200), card);
+            drop.setToY(0);
+            drop.play();
+            ScaleTransition scale = new ScaleTransition(Duration.millis(200), card);
+            scale.setToX(1.0);
+            scale.setToY(1.0);
+            scale.play();
+        });
+
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.SOMETIMES);
+        spacer.setPrefHeight(10);
+
+        card.getChildren().addAll(nameLabel, ipLabel, spacer, connectBtn);
+        VBox.setMargin(connectBtn, new Insets(0, 0, 5, 0));
+        return card;
+    }
     // ---------------------- OLTS ---------------------- //
 
 
@@ -2593,7 +975,7 @@ public class Main extends Application {
         content.setPadding(new Insets(20, 0, 20, 0));
         content.getStyleClass().add("content-area");
         content.setAlignment(Pos.TOP_CENTER);
-        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
+        VBox.setVgrow(content, Priority.ALWAYS);
 
         Label title = new Label("Consulta de Sinal Óptico");
         title.getStyleClass().add("title");
@@ -2602,8 +984,8 @@ public class Main extends Application {
         formArea.getStyleClass().add("form-area");
         formArea.setMaxWidth(800);
         formArea.setPadding(new Insets(25));
-        formArea.setAlignment(Pos.TOP_CENTER); // Center form content
-        VBox.setVgrow(formArea, Priority.ALWAYS); // Allow formArea to grow
+        formArea.setAlignment(Pos.TOP_CENTER);
+        VBox.setVgrow(formArea, Priority.ALWAYS);
 
         Label infoLabel = new Label("Verifique o Sinal Óptico da Primária.");
         infoLabel.getStyleClass().add("info-label");
@@ -2612,24 +994,24 @@ public class Main extends Application {
         oltComboBox.getItems().addAll(OLTList.getOLTs());
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
-        oltComboBox.setMaxWidth(240); // Allow combo box to take max width
+        oltComboBox.setMaxWidth(240);
 
         TextField fsField = new TextField();
         fsField.setPromptText("Digite o F/S");
         fsField.getStyleClass().add("text-field");
-        fsField.setMaxWidth(115); // Allow text field to take max width
+        fsField.setMaxWidth(115);
 
         TextField pField = new TextField();
         pField.setPromptText("Digite o P");
         pField.getStyleClass().add("text-field");
-        pField.setMaxWidth(115); // Allow text field to take max width
+        pField.setMaxWidth(115);
 
         HBox formRow = new HBox(10);
         formRow.setAlignment(Pos.CENTER);
         formRow.getChildren().addAll(fsField, pField);
-        formRow.setMaxWidth(Double.MAX_VALUE); // Allow form row to take max width
-        HBox.setHgrow(fsField, Priority.ALWAYS); // Allow fsField to grow
-        HBox.setHgrow(pField, Priority.ALWAYS); // Allow pField to grow
+        formRow.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(fsField, Priority.ALWAYS);
+        HBox.setHgrow(pField, Priority.ALWAYS);
 
         TextFormatter<String> pFormatter = new TextFormatter<>(change -> {
             if (change.getControlNewText().matches("[0-9]{0,3}")) {
@@ -2680,12 +1062,12 @@ public class Main extends Application {
         CodeArea resultArea = new CodeArea();
         resultArea.setEditable(false);
         resultArea.getStyleClass().add("code-area");
-        resultArea.setPrefHeight(350); // Initial pref height, but allow growth
-        VBox.setVgrow(resultArea, Priority.ALWAYS); // Allow result area to grow
+        resultArea.setPrefHeight(350);
+        VBox.setVgrow(resultArea, Priority.ALWAYS);
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
-        exportBtn.setMaxWidth(140); // Allow button to take max width
+        exportBtn.setMaxWidth(140);
 
 
         exportBtn.setOnAction(e -> {
@@ -2703,7 +1085,7 @@ public class Main extends Application {
                 return;
             }
 
-            resultArea.replaceText(0, resultArea.getLength(), "Consultando, aguarde...");
+            resultArea.replaceText(0, resultArea.getLength(), "Consultando os sinais da PON " + fs + "/" + p + "...\n");
             SSHManager sshManager = new SSHManager();
             sshManager.setConnectTimeout(10000);
             Thread queryThread = new Thread(() -> {
@@ -2802,7 +1184,6 @@ public class Main extends Application {
         });
     }
 
-    // CSV
     private void exportarCSV(String texto, String nomeBase) {
         try {
             File dir = new File("exports");
@@ -2823,7 +1204,6 @@ public class Main extends Application {
         }
     }
 
-    // PDF
     private void exportarPDF(String texto, String nomeBase) {
         try {
             File dir = new File("exports");
@@ -2851,7 +1231,7 @@ public class Main extends Application {
         content.setPadding(new Insets(20, 0, 20, 0));
         content.getStyleClass().add("content-area");
         content.setAlignment(Pos.TOP_CENTER);
-        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
+        VBox.setVgrow(content, Priority.ALWAYS);
 
         Label title = new Label("Resumo da PON");
         title.getStyleClass().add("title");
@@ -2860,8 +1240,8 @@ public class Main extends Application {
         formArea.getStyleClass().add("form-area");
         formArea.setMaxWidth(800);
         formArea.setPadding(new Insets(25));
-        formArea.setAlignment(Pos.TOP_CENTER); // Center form content
-        VBox.setVgrow(formArea, Priority.ALWAYS); // Allow formArea to grow
+        formArea.setAlignment(Pos.TOP_CENTER);
+        VBox.setVgrow(formArea, Priority.ALWAYS);
 
         Label infoLabel = new Label("Verifique todas as informações da Primária.");
         infoLabel.getStyleClass().add("info-label");
@@ -2906,8 +1286,8 @@ public class Main extends Application {
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
         resultadoArea.getStyleClass().add("code-area");
-        resultadoArea.setPrefHeight(350); // Initial pref height, but allow growth
-        VBox.setVgrow(resultadoArea, Priority.ALWAYS); // Allow result area to grow
+        resultadoArea.setPrefHeight(350);
+        VBox.setVgrow(resultadoArea, Priority.ALWAYS);
 
         consultarBtn.setOnAction(e -> {
             OLT selectedOLT = oltComboBox.getValue();
@@ -2915,11 +1295,11 @@ public class Main extends Application {
 
             if (selectedOLT == null || pon.isEmpty()) {
                 resultadoArea.replaceText(0, resultadoArea.getLength(),
-                        "Por favor, selecione a OLT e informe a PON.");
+                        "Por favor, preencha todos os campos corretamente.");
                 return;
             }
 
-            resultadoArea.replaceText(0, resultadoArea.getLength(), "Consultando, aguarde...");
+            resultadoArea.replaceText(0, resultadoArea.getLength(), "Consultando informações da PON " + pon + "...\n");
 
             Thread thread = new Thread(() -> {
                 SSHManager tempSSHManager = new SSHManager();
@@ -2935,6 +1315,7 @@ public class Main extends Application {
                                     "3 - Se não há firewall ou antivírus bloqueando\n\n" +
                                     "Caso esteja tudo correto, contate o Eduardo.");
                         });
+                        return;
                     }
 
                     Platform.runLater(() -> hiddenArea.clear());
@@ -2945,38 +1326,53 @@ public class Main extends Application {
                     Thread.sleep(1000);
 
                     final int[] startPos = {0};
-                    Platform.runLater(() -> {
-                        startPos[0] = hiddenArea.getLength();
-                    });
+                    Platform.runLater(() -> startPos[0] = hiddenArea.getLength());
                     Thread.sleep(100);
 
+                    tempSSHManager.sendCommand("display port desc " + pon);
+                    Thread.sleep(2500);
+
                     tempSSHManager.sendCommand("display ont info summary " + pon);
+                    Thread.sleep(8000);
 
-                    Thread.sleep(5000);
-
-                    final String[] resultado = {""};
+                    final String[] resultadoFinal = {""};
                     Platform.runLater(() -> {
                         String fullOutput = hiddenArea.getText();
+                        StringBuilder resultado = new StringBuilder();
 
-                        String searchString = "display ont info summary " + pon;
-                        int cmdIndex = fullOutput.indexOf(searchString, startPos[0]);
-
-                        if (cmdIndex >= 0) {
-                            int resultStartIndex = fullOutput.indexOf("\n", cmdIndex);
-                            if (resultStartIndex >= 0) {
-                                resultado[0] = fullOutput.substring(resultStartIndex + 1);
+                        String portDescCmd = "display port desc " + pon;
+                        int descIndex = fullOutput.indexOf(portDescCmd, startPos[0]);
+                        if (descIndex >= 0) {
+                            int descStart = fullOutput.indexOf("\n", descIndex);
+                            int nextBlock = fullOutput.indexOf("\n\n", descStart);
+                            if (descStart > 0 && nextBlock > descStart) {
+                                String descResult = fullOutput.substring(descStart + 1, nextBlock).trim();
+                                descResult = "  " + descResult.replaceFirst("^", "");
+                                resultado.append(descResult).append("\n");
                             }
-                        } else {
-                            resultado[0] = "Erro: Não foi possível identificar a saída do comando.";
                         }
 
-                        resultadoArea.replaceText(0, resultadoArea.getLength(), resultado[0]);
+                        String summaryCmd = "display ont info summary " + pon;
+                        int sumIndex = fullOutput.indexOf(summaryCmd, startPos[0]);
+                        if (sumIndex >= 0) {
+                            int sumStart = fullOutput.indexOf("\n", sumIndex);
+                            if (sumStart > 0) {
+                                String sumResult = fullOutput.substring(sumStart + 1).trim();
+                                sumResult = sumResult.replace("Command is being executed. Please wait", "");
+                                resultado.append(sumResult);
+                            }
+                        } else {
+                            resultado.append("❌ Não foi possível obter o resumo da PON.\n");
+                        }
+
+                        resultadoArea.replaceText(0, resultadoArea.getLength(), resultado.toString());
                         destacarIPs(resultadoArea);
                         showToast("🔎 Consulta de PON Summary finalizada!");
                     });
 
                     DatabaseManager.logUsuario(usuario.getNome(),
-                            "Consultou resumo da PON " + pon + " na " + selectedOLT.name);
+                            "Consultou resumo e descrição da PON " + pon + " na " + selectedOLT.name);
+
                 } catch (Exception ex) {
                     Platform.runLater(() -> {
                         resultadoArea.replaceText(0, resultadoArea.getLength(), "Erro: " + ex.getMessage());
@@ -2993,8 +1389,7 @@ public class Main extends Application {
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
-        exportBtn.setMaxWidth(140); // Allow button to take max width
-
+        exportBtn.setMaxWidth(140);
 
         exportBtn.setOnAction(e -> {
             exportarResultado(resultadoArea, "Resumo_PON");
@@ -3021,7 +1416,7 @@ public class Main extends Application {
         content.getStyleClass().add("content-area");
         content.setAlignment(Pos.TOP_CENTER);
         content.setPadding(new Insets(20, 0, 20, 0));
-        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
+        VBox.setVgrow(content, Priority.ALWAYS);
 
         Label title = new Label("Consulta ONT/ONU por SN");
         title.getStyleClass().add("title");
@@ -3030,8 +1425,8 @@ public class Main extends Application {
         formArea.getStyleClass().add("form-area");
         formArea.setMaxWidth(800);
         formArea.setPadding(new Insets(25));
-        formArea.setAlignment(Pos.TOP_CENTER); // Center form content
-        VBox.setVgrow(formArea, Priority.ALWAYS); // Allow formArea to grow
+        formArea.setAlignment(Pos.TOP_CENTER);
+        VBox.setVgrow(formArea, Priority.ALWAYS);
 
 
         Label infoLabel = new Label("Verifique todas as informações do SN.");
@@ -3041,12 +1436,12 @@ public class Main extends Application {
         oltComboBox.getItems().addAll(OLTList.getOLTs());
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
-        oltComboBox.setMaxWidth(240); // Allow combo box to take max width
+        oltComboBox.setMaxWidth(240);
 
         TextField snField = new TextField();
         snField.setPromptText("Digite o SN da ONT/ONU");
         snField.getStyleClass().add("text-field");
-        snField.setMaxWidth(240); // Allow text field to take max width
+        snField.setMaxWidth(240);
 
         TextFormatter<String> snFormatter = new TextFormatter<>(change -> {
             if (change.getControlNewText().matches("[A-Za-z0-9]{0,20}")) {
@@ -3058,7 +1453,7 @@ public class Main extends Application {
 
         Button consultarBtn = new Button("Consultar");
         consultarBtn.getStyleClass().add("connect-btn");
-        consultarBtn.setMaxWidth(140); // Allow button to take max width
+        consultarBtn.setMaxWidth(140);
 
         snField.setOnKeyPressed(event -> {
             if (event.isControlDown()) {
@@ -3076,8 +1471,8 @@ public class Main extends Application {
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
         resultadoArea.getStyleClass().add("code-area");
-        resultadoArea.setPrefHeight(350); // Initial pref height, but allow growth
-        VBox.setVgrow(resultadoArea, Priority.ALWAYS); // Allow result area to grow
+        resultadoArea.setPrefHeight(350);
+        VBox.setVgrow(resultadoArea, Priority.ALWAYS);
 
 
         consultarBtn.setOnAction(e -> {
@@ -3086,11 +1481,11 @@ public class Main extends Application {
 
             if (selectedOLT == null || sn.isEmpty()) {
                 resultadoArea.replaceText(0, resultadoArea.getLength(),
-                        "Por favor, selecione a OLT e informe o SN do cliente.");
+                        "Por favor, preencha todos os campos corretamente.");
                 return;
             }
 
-            resultadoArea.replaceText(0, resultadoArea.getLength(), "Consultando, aguarde...");
+            resultadoArea.replaceText(0, resultadoArea.getLength(), "Consultando informações do SN " + sn + "...\n");
 
             Thread thread = new Thread(() -> {
                 SSHManager tempSSHManager = new SSHManager();
@@ -3139,7 +1534,12 @@ public class Main extends Application {
                                 resultado[0] = fullOutput.substring(resultStartIndex + 1);
                             }
                         } else {
-                            resultado[0] = "Erro: Não foi possível identificar a saída do comando.";
+                            resultado[0] = "\n❌ Não foi possível conectar à OLT.\n\n" +
+                                    "Verifique se:\n" +
+                                    "1 - Você está na rede interna da empresa\n" +
+                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
+                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
+                                    "Caso esteja tudo correto, contate o Eduardo.";
                         }
 
                         resultadoArea.replaceText(0, resultadoArea.getLength(), resultado[0]);
@@ -3165,7 +1565,7 @@ public class Main extends Application {
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
-        exportBtn.setMaxWidth(140); // Allow button to take max width
+        exportBtn.setMaxWidth(140);
 
 
         exportBtn.setOnAction(e -> {
@@ -3193,7 +1593,7 @@ public class Main extends Application {
         content.getStyleClass().add("content-area");
         content.setAlignment(Pos.TOP_CENTER);
         content.setPadding(new Insets(20, 0, 20, 0));
-        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
+        VBox.setVgrow(content, Priority.ALWAYS);
 
         Label title = new Label("Diagnóstico de Quedas da ONT/ONU");
         title.getStyleClass().add("title");
@@ -3202,27 +1602,32 @@ public class Main extends Application {
         formArea.getStyleClass().add("form-area");
         formArea.setMaxWidth(800);
         formArea.setPadding(new Insets(25));
-        formArea.setAlignment(Pos.TOP_CENTER); // Center form content
-        VBox.setVgrow(formArea, Priority.ALWAYS); // Allow formArea to grow
+        formArea.setAlignment(Pos.TOP_CENTER);
+        VBox.setVgrow(formArea, Priority.ALWAYS);
 
-        Label infoLabel = new Label("Verifique o diagnóstico de quedas da ONT/ONU.");
+        Label infoLabel = new Label("Verifique o Diagnóstico de Quedas da ONT/ONU.");
         infoLabel.getStyleClass().add("info-label");
 
         ComboBox<OLT> oltComboBox = new ComboBox<>();
         oltComboBox.getItems().addAll(OLTList.getOLTs());
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
-        oltComboBox.setMaxWidth(240); // Allow combo box to take max width
+        oltComboBox.setMaxWidth(363.5);
 
         TextField fsField = new TextField();
         fsField.setPromptText("Digite F/S");
         fsField.getStyleClass().add("text-field");
-        fsField.setMaxWidth(115); // Allow text field to take max width
+        fsField.setMaxWidth(115);
 
-        TextField pidField = new TextField();
-        pidField.setPromptText("Digite o P ID");
-        pidField.getStyleClass().add("text-field");
-        pidField.setMaxWidth(115); // Allow text field to take max width
+        TextField pField = new TextField();
+        pField.setPromptText("Digite o P");
+        pField.getStyleClass().add("text-field");
+        pField.setMaxWidth(115);
+
+        TextField ontIdField = new TextField();
+        ontIdField.setPromptText("ID da ONT");
+        ontIdField.getStyleClass().add("text-field");
+        ontIdField.setMaxWidth(115);
 
         TextFormatter<String> fsFormatter = new TextFormatter<>(change -> {
             if (change.getControlNewText().matches("[0-9/]{0,4}")) {
@@ -3232,72 +1637,52 @@ public class Main extends Application {
         });
         fsField.setTextFormatter(fsFormatter);
 
-        TextFormatter<String> pidFormatter = new TextFormatter<>(change -> {
-            if (change.getControlNewText().matches("[0-9 ]{0,6}")) {
+        TextFormatter<String> pFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[0-9]{0,3}")) {
                 return change;
             }
             return null;
         });
-        pidField.setTextFormatter(pidFormatter);
+        pField.setTextFormatter(pFormatter);
 
-        HBox formRow = new HBox(10);
-        formRow.setAlignment(Pos.CENTER);
-        formRow.getChildren().addAll(fsField, pidField);
-        formRow.setMaxWidth(Double.MAX_VALUE); // Allow form row to take max width
-        HBox.setHgrow(fsField, Priority.ALWAYS); // Allow fsField to grow
-        HBox.setHgrow(pidField, Priority.ALWAYS); // Allow pidField to grow
+        TextFormatter<String> ontIdFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[0-9]{0,4}")) {
+                return change;
+            }
+            return null;
+        });
+        ontIdField.setTextFormatter(ontIdFormatter);
 
+        HBox formRow2 = new HBox(10);
+        formRow2.setAlignment(Pos.CENTER);
+        formRow2.getChildren().addAll(fsField, pField, ontIdField);
+        HBox.setHgrow(fsField, Priority.ALWAYS);
+        HBox.setHgrow(pField, Priority.ALWAYS);
+        HBox.setHgrow(ontIdField, Priority.ALWAYS);
 
         Button diagnosticarBtn = new Button("Consultar");
         diagnosticarBtn.getStyleClass().add("connect-btn");
-        diagnosticarBtn.setMaxWidth(140); // Allow button to take max width
-
-        fsField.setOnKeyPressed(event -> {
-            if (event.isControlDown()) {
-                if (event.getCode() == KeyCode.C) {
-                    fsField.copy();
-                } else if (event.getCode() == KeyCode.V) {
-                    fsField.paste();
-                }
-            }
-            if (event.getCode() == KeyCode.ENTER) {
-                diagnosticarBtn.fire();
-            }
-        });
-
-        pidField.setOnKeyPressed(event -> {
-            if (event.isControlDown()) {
-                if (event.getCode() == KeyCode.C) {
-                    pidField.copy();
-                } else if (event.getCode() == KeyCode.V) {
-                    pidField.paste();
-                }
-            }
-                if (event.getCode() == KeyCode.ENTER) {
-                    diagnosticarBtn.fire();
-                }
-        });
-
-
+        diagnosticarBtn.setMaxWidth(140);
 
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
         resultadoArea.getStyleClass().add("code-area");
-        resultadoArea.setPrefHeight(350); // Initial pref height, but allow growth
-        VBox.setVgrow(resultadoArea, Priority.ALWAYS); // Allow result area to grow
+        resultadoArea.setPrefHeight(350);
+        VBox.setVgrow(resultadoArea, Priority.ALWAYS);
 
         diagnosticarBtn.setOnAction(e -> {
             OLT selectedOLT = oltComboBox.getValue();
             String fs = fsField.getText().trim();
-            String pid = pidField.getText().trim();
+            String p = pField.getText().trim();
+            String ontId = ontIdField.getText().trim();
 
-            if (selectedOLT == null || fs.isEmpty() || pid.isEmpty()) {
+            if (selectedOLT == null || fs.isEmpty() || p.isEmpty() || ontId.isEmpty()) {
                 resultadoArea.replaceText(0, resultadoArea.getLength(),
-                        "Preencha todos os campos corretamente.");
+                        "Por favor, preencha todos os campos corretamente.");
                 return;
             }
 
-            resultadoArea.replaceText(0, resultadoArea.getLength(), "Consultando, aguarde...");
+            resultadoArea.replaceText(0, resultadoArea.getLength(), "Iniciando diagnóstico de quedas para ID " + ontId + " na PON " + fs + "/" + p + "...\n");
 
             Thread thread = new Thread(() -> {
                 SSHManager ssh = new SSHManager();
@@ -3331,7 +1716,7 @@ public class Main extends Application {
                     });
                     Thread.sleep(100);
 
-                    ssh.sendCommand("display ont register-info " + pid);
+                    ssh.sendCommand("display ont register-info " + p + " " + ontId);
 
                     Thread.sleep(5000);
 
@@ -3339,7 +1724,7 @@ public class Main extends Application {
                     Platform.runLater(() -> {
                         String fullOutput = hiddenArea.getText();
 
-                        String searchString = "display ont register-info " + pid;
+                        String searchString = "display ont register-info " + p + " " + ontId;
                         int cmdIndex = fullOutput.indexOf(searchString, startPos[0]);
 
                         if (cmdIndex >= 0) {
@@ -3348,7 +1733,12 @@ public class Main extends Application {
                                 resultado[0] = fullOutput.substring(resultStartIndex + 1);
                             }
                         } else {
-                            resultado[0] = "Erro: Não foi possível identificar a saída do comando.";
+                            resultado[0] = "\n❌ Não foi possível conectar à OLT.\n\n" +
+                                    "Verifique se:\n" +
+                                    "1 - Você está na rede interna da empresa\n" +
+                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
+                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
+                                    "Caso esteja tudo correto, contate o Eduardo.";
                         }
 
                         resultadoArea.replaceText(0, resultadoArea.getLength(), resultado[0]);
@@ -3357,7 +1747,7 @@ public class Main extends Application {
                     });
 
                     DatabaseManager.logUsuario(usuario.getNome(),
-                            "Consultou diagnóstico de quedas da ONT/ONU " + fs + "/" + pid + " na " + selectedOLT.name);
+                            "Consultou diagnóstico de quedas da ONT/ONU " + fs + "/" + p + ontId + " na " + selectedOLT.name);
                 } catch (Exception ex) {
                     Platform.runLater(() -> {
                         resultadoArea.replaceText(0, resultadoArea.getLength(), "Erro: " + ex.getMessage());
@@ -3372,9 +1762,27 @@ public class Main extends Application {
             thread.start();
         });
 
+        fsField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                diagnosticarBtn.fire();
+            }
+        });
+
+        pField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                diagnosticarBtn.fire();
+            }
+        });
+
+        ontIdField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                diagnosticarBtn.fire();
+            }
+        });
+
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
-        exportBtn.setMaxWidth(140); // Allow button to take max width
+        exportBtn.setMaxWidth(140);
 
 
         exportBtn.setOnAction(e -> {
@@ -3384,7 +1792,7 @@ public class Main extends Application {
         formArea.getChildren().addAll(
                 infoLabel,
                 oltComboBox,
-                formRow,
+                formRow2,
                 diagnosticarBtn,
                 resultadoArea,
                 exportBtn
@@ -3396,13 +1804,565 @@ public class Main extends Application {
     // ---------------------- ONT/ONU QUEDAS ---------------------- //
 
 
+    // ---------------------- VELOCIDADE ONT/ONU ---------------------- //
+    private Node createONUTrafficScreen() {
+        VBox content = new VBox(20);
+        content.getStyleClass().add("content-area");
+        content.setAlignment(Pos.TOP_CENTER);
+        content.setPadding(new Insets(20, 0, 20, 0));
+        VBox.setVgrow(content, Priority.ALWAYS);
+
+        Label title = new Label("Monitoramento de Velocidade ONT/ONU");
+        title.getStyleClass().add("title");
+
+        VBox formArea = new VBox(15);
+        formArea.getStyleClass().add("form-area");
+        formArea.setMaxWidth(800);
+        formArea.setPadding(new Insets(25));
+        formArea.setAlignment(Pos.TOP_CENTER);
+        VBox.setVgrow(formArea, Priority.ALWAYS);
+
+        Label infoLabel = new Label("Monitore o Tráfego e Velocidade da ONT/ONU.");
+        infoLabel.getStyleClass().add("info-label");
+
+        ComboBox<OLT> oltComboBox = new ComboBox<>();
+        oltComboBox.getItems().addAll(OLTList.getOLTs());
+        oltComboBox.setPromptText("Selecione a OLT");
+        oltComboBox.getStyleClass().add("combo-box");
+        oltComboBox.setMaxWidth(363.5);
+
+        TextField fsField = new TextField();
+        fsField.setPromptText("Digite F/S");
+        fsField.getStyleClass().add("text-field");
+        fsField.setMaxWidth(115);
+
+        TextField pField = new TextField();
+        pField.setPromptText("Digite o P");
+        pField.getStyleClass().add("text-field");
+        pField.setMaxWidth(115);
+
+        TextField ontIdField = new TextField();
+        ontIdField.setPromptText("ID da ONT");
+        ontIdField.getStyleClass().add("text-field");
+        ontIdField.setMaxWidth(115);
+
+        TextFormatter<String> fsFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[0-9/]{0,4}")) {
+                return change;
+            }
+            return null;
+        });
+        fsField.setTextFormatter(fsFormatter);
+
+        TextFormatter<String> pFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[0-9]{0,3}")) {
+                return change;
+            }
+            return null;
+        });
+        pField.setTextFormatter(pFormatter);
+
+        TextFormatter<String> ontIdFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[0-9]{0,4}")) {
+                return change;
+            }
+            return null;
+        });
+        ontIdField.setTextFormatter(ontIdFormatter);
+
+        HBox formRow1 = new HBox(10);
+        formRow1.setAlignment(Pos.CENTER);
+        formRow1.getChildren().addAll(fsField, pField, ontIdField);
+        HBox.setHgrow(fsField, Priority.ALWAYS);
+        HBox.setHgrow(pField, Priority.ALWAYS);
+        HBox.setHgrow(ontIdField, Priority.ALWAYS);
+
+        Button monitorBtn = new Button("Monitorar");
+        monitorBtn.getStyleClass().add("connect-btn");
+        monitorBtn.setMaxWidth(140);
+
+        Button stopBtn = new Button("Parar");
+        stopBtn.getStyleClass().add("stop-btn");
+        stopBtn.setMaxWidth(140);
+        stopBtn.setDisable(true);
+
+        HBox buttonRow = new HBox(10);
+        buttonRow.setAlignment(Pos.CENTER);
+        buttonRow.getChildren().addAll(monitorBtn, stopBtn);
+
+        CodeArea resultadoArea = new CodeArea();
+        resultadoArea.setEditable(false);
+        resultadoArea.getStyleClass().add("code-area");
+        resultadoArea.setPrefHeight(350);
+        VBox.setVgrow(resultadoArea, Priority.ALWAYS);
+
+        AtomicBoolean monitoring = new AtomicBoolean(false);
+        AtomicReference<SSHManager> currentSSHManager = new AtomicReference<>();
+        AtomicReference<Thread> monitoringThread = new AtomicReference<>();
+
+        Runnable resetMonitoringControls = () -> {
+            monitoring.set(false);
+            Platform.runLater(() -> {
+                monitorBtn.setDisable(false);
+                stopBtn.setDisable(true);
+                oltComboBox.setDisable(false);
+                fsField.setDisable(false);
+                pField.setDisable(false);
+                ontIdField.setDisable(false);
+            });
+        };
+
+        monitorBtn.setOnAction(e -> {
+            OLT selectedOLT = oltComboBox.getValue();
+            String fs = fsField.getText().trim();
+            String p = pField.getText().trim();
+            String ontId = ontIdField.getText().trim();
+
+            if (selectedOLT == null || fs.isEmpty() || p.isEmpty() || ontId.isEmpty()) {
+                resultadoArea.replaceText(0, resultadoArea.getLength(),
+                        "Por favor, preencha todos os campos corretamente.");
+                return;
+            }
+
+            if (monitoring.get()) {
+                return;
+            }
+
+            resultadoArea.clear();
+            resultadoArea.appendText("Iniciando monitoramento de Velocidade para ID " + ontId + " na PON " + fs + "/" + p + "...\n");
+            resultadoArea.appendText("O monitoramento será executado por 2 minutos ou até que seja interrompido manualmente.\n");
+
+            monitoring.set(true);
+            monitorBtn.setDisable(true);
+            stopBtn.setDisable(false);
+            oltComboBox.setDisable(true);
+            fsField.setDisable(true);
+            pField.setDisable(true);
+            ontIdField.setDisable(true);
+
+            SSHManager sshManager = new SSHManager();
+            currentSSHManager.set(sshManager);
+
+            // Timer 2min
+            Timer timeoutTimer = new Timer();
+            timeoutTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    if (monitoring.get()) {
+                        monitoring.set(false);
+                        Platform.runLater(() -> {
+                            resultadoArea.appendText("\nMonitoramento finalizado automaticamente após 2 minutos.\n");
+                            resetMonitoringControls.run();
+                        });
+                    }
+                }
+            }, 120000);
+
+            Thread thread = new Thread(() -> {
+                CodeArea hiddenArea = new CodeArea();
+                try {
+                    boolean connected = sshManager.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, hiddenArea);
+                    if (!connected) {
+                        Platform.runLater(() -> {
+                            resultadoArea.appendText("\n❌ Não foi possível conectar à OLT.\n\n" +
+                                    "Verifique se:\n" +
+                                    "1 - Você está na rede interna da empresa\n" +
+                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
+                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
+                                    "Caso esteja tudo correto, contate o Eduardo.");
+                            resetMonitoringControls.run();
+                        });
+                        timeoutTimer.cancel();
+                        return;
+                    }
+
+                    sshManager.sendCommand("enable");
+                    Thread.sleep(1000);
+                    sshManager.sendCommand("config");
+                    Thread.sleep(1000);
+                    sshManager.sendCommand("interface gpon " + fs);
+                    Thread.sleep(1000);
+
+                    final String trafficCommand = "display ont traffic " + p + " " + ontId;
+
+                    while (monitoring.get()) {
+                        Platform.runLater(() -> {
+                            hiddenArea.clear();
+                        });
+                        Thread.sleep(100);
+
+                        sshManager.sendCommand(trafficCommand);
+
+                        Thread.sleep(1500);
+
+                        Platform.runLater(() -> {
+                            String currentOutput = hiddenArea.getText();
+                            if (currentOutput.contains("{ <cr>|ontportid<U>") ||
+                                    currentOutput.contains("<1,24>||<K> }:")) {
+                                try {
+                                    sshManager.sendEnterKey();
+                                } catch (Exception ex) {
+                                    System.err.println("Erro ao enviar Enter: " + ex.getMessage());
+                                }
+                            }
+                        });
+
+                        Thread.sleep(3500);
+
+                        Platform.runLater(() -> {
+                            String fullOutput = hiddenArea.getText();
+
+                            if (fullOutput.contains("Traffic Information") ||
+                                    fullOutput.contains("Up traffic") ||
+                                    fullOutput.contains("Down traffic")) {
+
+                                String result = extractTrafficInfo(fullOutput);
+
+                                resultadoArea.appendText("\n" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")) + "\n");
+                                resultadoArea.appendText(result);
+                                resultadoArea.moveTo(resultadoArea.getLength());
+                                resultadoArea.requestFollowCaret();
+                            } else {
+                                resultadoArea.appendText("\nAguardando dados de tráfego...\n");
+                                System.out.println("Debug - Saída completa: " + fullOutput);
+                            }
+                        });
+
+                        Thread.sleep(2000);
+                    }
+
+                } catch (Exception ex) {
+                    Platform.runLater(() -> {
+                        resultadoArea.appendText("\nErro durante o monitoramento: " + ex.getMessage() + "\n");
+                        resetMonitoringControls.run();
+                    });
+                    timeoutTimer.cancel();
+                } finally {
+                    sshManager.disconnect();
+                }
+            });
+
+            thread.setDaemon(true);
+            thread.start();
+            monitoringThread.set(thread);
+
+            DatabaseManager.logUsuario(usuario.getNome(),
+                    "Iniciou monitoramento de velocidade para ONT " + ontId + " na PON " + fs + "/" + p + " na " + selectedOLT.name);
+        });
+
+        stopBtn.setOnAction(e -> {
+            monitoring.set(false);
+            resetMonitoringControls.run();
+
+            if (monitoringThread.get() != null) {
+                monitoringThread.get().interrupt();
+            }
+
+            if (currentSSHManager.get() != null) {
+                currentSSHManager.get().disconnect();
+            }
+
+            resultadoArea.appendText("\nMonitoramento interrompido manualmente.\n");
+        });
+
+        fsField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                monitorBtn.fire();
+            }
+        });
+
+        pField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                monitorBtn.fire();
+            }
+        });
+
+        ontIdField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                monitorBtn.fire();
+            }
+        });
+
+        Button exportBtn = new Button("Exportar");
+        exportBtn.getStyleClass().add("connect-btn");
+        exportBtn.setMaxWidth(140);
+        exportBtn.setOnAction(e -> exportarResultado(resultadoArea, "Monitoramento_Velocidade"));
+
+        formArea.getChildren().addAll(
+                infoLabel,
+                oltComboBox,
+                formRow1,
+                buttonRow,
+                resultadoArea,
+                exportBtn
+        );
+
+        content.getChildren().addAll(title, formArea);
+        return content;
+    }
+
+    private String extractTrafficInfo(String output) {
+        StringBuilder result = new StringBuilder();
+
+        Pattern upPattern = Pattern.compile("Up traffic\\s+\\(kbps\\)\\s+:\\s+(\\d+)");
+        Pattern downPattern = Pattern.compile("Down traffic\\s+\\(kbps\\)\\s+:\\s+(\\d+)");
+
+        Pattern upPattern2 = Pattern.compile("Upstream rate\\s*:\\s*(\\d+)\\s*kbps");
+        Pattern downPattern2 = Pattern.compile("Downstream rate\\s*:\\s*(\\d+)\\s*kbps");
+
+        Matcher upMatcher = upPattern.matcher(output);
+        Matcher downMatcher = downPattern.matcher(output);
+
+        if (!upMatcher.find()) {
+            upMatcher = upPattern2.matcher(output);
+        }
+
+        if (!downMatcher.find()) {
+            downMatcher = downPattern2.matcher(output);
+        }
+
+        upMatcher.reset();
+        downMatcher.reset();
+
+        if (upMatcher.find()) {
+            int upSpeed = Integer.parseInt(upMatcher.group(1));
+            result.append(String.format("Upload: %d kbps (%.2f Mbps)\n", upSpeed, upSpeed / 1000.0));
+        } else {
+            result.append("Upload: Não disponível\n");
+        }
+
+        if (downMatcher.find()) {
+            int downSpeed = Integer.parseInt(downMatcher.group(1));
+            result.append(String.format("Download: %d kbps (%.2f Mbps)\n", downSpeed, downSpeed / 1000.0));
+        } else {
+            result.append("Download: Não disponível\n");
+        }
+
+        result.append("----------------------------------------------------\n");
+
+        return result.toString();
+    }
+    // ---------------------- VELOCIDADE ONT/ONU ---------------------- //
+
+
+    // ---------------------- ONT/ONU SERVIÇOS  ---------------------- //
+    private Node createONUServiceScreen() {
+        VBox content = new VBox(20);
+        content.getStyleClass().add("content-area");
+        content.setAlignment(Pos.TOP_CENTER);
+        content.setPadding(new Insets(20, 0, 20, 0));
+        VBox.setVgrow(content, Priority.ALWAYS);
+
+        Label title = new Label("Consulta de Serviços da ONT/ONU");
+        title.getStyleClass().add("title");
+
+        VBox formArea = new VBox(15);
+        formArea.getStyleClass().add("form-area");
+        formArea.setMaxWidth(800);
+        formArea.setPadding(new Insets(25));
+        formArea.setAlignment(Pos.TOP_CENTER);
+        VBox.setVgrow(formArea, Priority.ALWAYS);
+
+        Label infoLabel = new Label("Monitore os serviços da ONT/ONU.");
+        infoLabel.getStyleClass().add("info-label");
+
+        ComboBox<OLT> oltComboBox = new ComboBox<>();
+        oltComboBox.getItems().addAll(OLTList.getOLTs());
+        oltComboBox.setPromptText("Selecione a OLT");
+        oltComboBox.getStyleClass().add("combo-box");
+        oltComboBox.setMaxWidth(240);
+
+        TextField fspField = new TextField();
+        fspField.setPromptText("Digite F/S/P");
+        fspField.getStyleClass().add("text-field");
+        fspField.setMaxWidth(115);
+
+        TextField ontIdField = new TextField();
+        ontIdField.setPromptText("ID da ONT");
+        ontIdField.getStyleClass().add("text-field");
+        ontIdField.setMaxWidth(115);
+
+        TextFormatter<String> ponFormatter = new TextFormatter<>(change -> {
+            String newText = change.getControlNewText();
+            if (change.isContentChange() && !newText.matches("[0-9/]{0,7}")) {
+                return null;
+            }
+            return change;
+        });
+        fspField.setTextFormatter(ponFormatter);
+
+
+        TextFormatter<String> ontIdFormatter = new TextFormatter<>(change -> {
+            if (change.getControlNewText().matches("[0-9]{0,4}")) {
+                return change;
+            }
+            return null;
+        });
+        ontIdField.setTextFormatter(ontIdFormatter);
+
+
+        HBox formRow3 = new HBox(10);
+        formRow3.setAlignment(Pos.CENTER);
+        formRow3.getChildren().addAll(fspField, ontIdField);
+        HBox.setHgrow(fspField, Priority.ALWAYS);
+        HBox.setHgrow(ontIdField, Priority.ALWAYS);
+
+        Button consultBtn = new Button("Consultar");
+        consultBtn.getStyleClass().add("connect-btn");
+        consultBtn.setMaxWidth(140);
+
+        CodeArea resultadoArea = new CodeArea();
+        resultadoArea.setEditable(false);
+        resultadoArea.getStyleClass().add("code-area");
+        resultadoArea.setPrefHeight(350);
+        VBox.setVgrow(resultadoArea, Priority.ALWAYS);
+
+        consultBtn.setOnAction(e -> {
+            OLT selectedOLT = oltComboBox.getValue();
+            String fsp = fspField.getText().trim();
+            String ontId = ontIdField.getText().trim();
+
+            if (selectedOLT == null || fsp.isEmpty() || ontId.isEmpty()) {
+                resultadoArea.replaceText(0, resultadoArea.getLength(),
+                        "Por favor, preencha todos os campos corretamente.");
+                return;
+            }
+
+            resultadoArea.replaceText(0, resultadoArea.getLength(), "Consultando serviços para ID " + ontId + " na PON " + fsp + "...\n");
+
+            Thread thread = new Thread(() -> {
+                SSHManager ssh = new SSHManager();
+                CodeArea hiddenArea = new CodeArea();
+                try {
+                    boolean connected = ssh.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, hiddenArea);
+                    if (!connected) {
+                        Platform.runLater(() -> {
+                            resultadoArea.replaceText(0, resultadoArea.getLength(), "\n❌ Não foi possível conectar à OLT.\n\n" +
+                                    "Verifique se:\n" +
+                                    "1 - Você está na rede interna da empresa\n" +
+                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
+                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
+                                    "Caso esteja tudo correto, contate o Eduardo.");
+                        });
+                        return;
+                    }
+
+                    Platform.runLater(() -> hiddenArea.clear());
+
+                    ssh.sendCommand("enable");
+                    Thread.sleep(1000);
+                    ssh.sendCommand("config");
+                    Thread.sleep(1000);
+
+                    final int[] startPos = {0};
+                    Platform.runLater(() -> {
+                        startPos[0] = hiddenArea.getLength();
+                    });
+                    Thread.sleep(100);
+
+                    ssh.sendCommand("display service-port port " + fsp + " ont " + ontId);
+
+                    Thread.sleep(7000);
+
+                    Platform.runLater(() -> {
+                        String currentOutput = hiddenArea.getText();
+                        if (currentOutput.contains("{ <cr>|e2e<K>|gemport<K>") ||
+                                currentOutput.contains("|sort-by<K>||<K> }:")) {
+                            try {
+                                ssh.sendEnterKey();
+                            } catch (Exception ex) {
+                                System.err.println("Erro ao enviar Enter: " + ex.getMessage());
+                            }
+                        }
+                    });
+
+                    Thread.sleep(3500);
+
+                    final String[] resultado = {""};
+                    Platform.runLater(() -> {
+                        String fullOutput = hiddenArea.getText();
+
+                        String searchString = "display service-port port " + fsp + " ont " + ontId;
+                        int cmdIndex = fullOutput.indexOf(searchString, startPos[0]);
+
+                        if (cmdIndex >= 0) {
+                            int resultStartIndex = fullOutput.indexOf("\n", cmdIndex);
+                            if (resultStartIndex >= 0) {
+                                resultado[0] = fullOutput.substring(resultStartIndex + 1);
+                            }
+                        } else {
+                            resultado[0] = "\n❌ Não foi possível conectar à OLT.\n\n" +
+                                    "Verifique se:\n" +
+                                    "1 - Você está na rede interna da empresa\n" +
+                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
+                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
+                                    "Caso esteja tudo correto, contate o Eduardo.";
+                        }
+
+                        resultadoArea.replaceText(0, resultadoArea.getLength(), resultado[0]);
+                        destacarIPs(resultadoArea);
+                        showToast("🔎 Consulta de Serviços finalizada!");
+                    });
+
+                    DatabaseManager.logUsuario(usuario.getNome(),
+                            "Consultou os serviços da ONT/ONU ID" + ontId + " da PON " + fsp + " na " + selectedOLT.name);
+                } catch (Exception ex) {
+                    Platform.runLater(() -> {
+                        resultadoArea.replaceText(0, resultadoArea.getLength(), "Erro: " + ex.getMessage());
+                        destacarIPs(resultadoArea);
+                        showToast("⚠️ Erro ao consultar Serviços.");
+                    });
+                } finally {
+                    ssh.disconnect();
+                }
+            });
+            thread.setDaemon(true);
+            thread.start();
+        });
+
+        fspField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                consultBtn.fire();
+            }
+        });
+
+        ontIdField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                consultBtn.fire();
+            }
+        });
+
+        Button exportBtn = new Button("Exportar");
+        exportBtn.getStyleClass().add("connect-btn");
+        exportBtn.setMaxWidth(140);
+
+
+        exportBtn.setOnAction(e -> {
+            exportarResultado(resultadoArea, "Consulta_Servicos");
+        });
+
+        formArea.getChildren().addAll(
+                infoLabel,
+                oltComboBox,
+                formRow3,
+                consultBtn,
+                resultadoArea,
+                exportBtn
+        );
+
+        content.getChildren().addAll(title, formArea);
+        return content;
+    }
+    // ---------------------- ONT/ONU SERVIÇOS  ---------------------- //
+
+
     // ---------------------- CHAMADOS  ---------------------- //
     private Node createTechnicalTicketsScreen() {
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
         content.setAlignment(Pos.TOP_CENTER);
         content.getStyleClass().add("content-area");
-        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
+        VBox.setVgrow(content, Priority.ALWAYS);
 
         Label title = new Label("Chamados");
         title.getStyleClass().add("title");
@@ -3411,7 +2371,7 @@ public class Main extends Application {
         table.getStyleClass().add("data-table");
         table.setItems(FXCollections.observableArrayList(DatabaseManager.getAllTickets()));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        VBox.setVgrow(table, Priority.ALWAYS); // Allow table to grow
+        VBox.setVgrow(table, Priority.ALWAYS);
 
 
         table.getColumns().addAll(
@@ -3535,7 +2495,7 @@ public class Main extends Application {
         titleBar.getStyleClass().add("title-bar");
         titleBar.setAlignment(Pos.CENTER_LEFT);
         titleBar.setPadding(new Insets(5, 10, 5, 15));
-        HBox.setHgrow(titleBar, Priority.ALWAYS); // Allow titleBar to grow
+        HBox.setHgrow(titleBar, Priority.ALWAYS);
 
 
         titleBar.setOnMousePressed(event -> {
@@ -3618,7 +2578,7 @@ public class Main extends Application {
 
         Label titleLabel = new Label("Gerenciador de OLTs");
         titleLabel.getStyleClass().add("olt-name");
-        HBox.setHgrow(titleLabel, Priority.ALWAYS); // Allow titleLabel to grow
+        HBox.setHgrow(titleLabel, Priority.ALWAYS);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -3631,15 +2591,14 @@ public class Main extends Application {
         minimizeBtn.setOnAction(e -> primaryStage.setIconified(true));
         minimizeBtn.setTooltip(new Tooltip("Minimizar"));
 
-        // Add Maximize Button
         Button maximizeBtn = new Button();
         maximizeBtn.getStyleClass().addAll("window-btn", "maximize-btn");
         maximizeBtn.setOnAction(e -> toggleMaximize());
         maximizeBtn.setTooltip(new Tooltip("Maximizar/Restaurar"));
 
-
-        Button closeBtn = new Button();
-        closeBtn.getStyleClass().addAll("window-btn", "close-btn");
+        Button closeBtn = new Button("✕");
+        closeBtn.getStyleClass().addAll("close-btn", "window-btn");
+        closeBtn.setPadding(new Insets(12, 12, 12, 12));
         closeBtn.setOnAction(e -> {
             Platform.runLater(() -> {
                 FadeTransition fade = new FadeTransition(Duration.millis(200), rootLayout);
@@ -3664,10 +2623,12 @@ public class Main extends Application {
     }
 
     private void toggleMaximize() {
-        if (primaryStage.isMaximized()) {
-            primaryStage.setMaximized(false);
+        Stage stage = (Stage) mainContent.getScene().getWindow();
+
+        if (stage.isMaximized()) {
+            stage.setMaximized(false);
         } else {
-            primaryStage.setMaximized(true);
+            stage.setMaximized(true);
         }
     }
 
@@ -3694,78 +2655,7 @@ public class Main extends Application {
 
         timeline.play();
     }
-
-    private VBox createOLTCard(OLT olt) {
-        VBox card = new VBox(6);
-        card.getStyleClass().add("olt-card");
-        card.setAlignment(Pos.CENTER);
-
-        double cardWidth = 155;
-        double cardHeight = 110;
-        card.setPrefSize(cardWidth, cardHeight);
-        card.setMaxWidth(cardWidth); // Keep max width fixed for cards in FlowPane
-        card.setMaxHeight(cardHeight); // Keep max height fixed for cards
-
-
-        Rectangle clip = new Rectangle(cardWidth, cardHeight);
-        clip.setArcWidth(24);
-        clip.setArcHeight(24);
-        card.setClip(clip);
-
-        Label nameLabel = new Label(olt.name.replace("_", " "));
-        nameLabel.getStyleClass().add("olt-name");
-
-        Label ipLabel = new Label(olt.ip);
-        ipLabel.getStyleClass().add("olt-ip");
-
-        Button connectBtn = new Button("Conectar");
-        connectBtn.getStyleClass().add("connect-btn");
-
-        Glow glow = new Glow();
-        glow.setLevel(0.0);
-        connectBtn.setEffect(glow);
-
-        connectBtn.setOnAction(e -> {
-            if (sshManager != null) sshManager.disconnect();
-            ScaleTransition clickEffect = new ScaleTransition(Duration.millis(100), card);
-            clickEffect.setToX(0.95);
-            clickEffect.setToY(0.95);
-            clickEffect.setAutoReverse(true);
-            clickEffect.setCycleCount(2);
-            clickEffect.setOnFinished(event -> showSSHTerminal(olt));
-            DatabaseManager.logUsuario(usuario.getNome(), "Conectou na " + olt.name);
-            clickEffect.play();
-        });
-
-        addEnhancedButtonHoverEffects(connectBtn);
-
-        card.setOnMouseEntered(e -> {
-            TranslateTransition lift = new TranslateTransition(Duration.millis(200), card);
-            lift.setToY(-5);
-            lift.play();
-
-            ScaleTransition scale = new ScaleTransition(Duration.millis(200), card);
-            scale.setToX(1.03);
-            scale.setToY(1.03);
-            scale.play();
-        });
-
-        card.setOnMouseExited(e -> {
-            TranslateTransition drop = new TranslateTransition(Duration.millis(200), card);
-            drop.setToY(0);
-            drop.play();
-
-            ScaleTransition scale = new ScaleTransition(Duration.millis(200), card);
-            scale.setToX(1.0);
-            scale.setToY(1.0);
-            scale.play();
-        });
-
-        card.getChildren().addAll(nameLabel, ipLabel, connectBtn);
-        return card;
-    }
     // ---------------------- ANIMAÇÕES JAVAFX ---------------------- //
-
 
 
     // ---------------------- INSIDE-TERMINAL ---------------------- //
@@ -3787,12 +2677,11 @@ public class Main extends Application {
         VBox content = new VBox(20);
         content.getStyleClass().add("content-area");
         content.setPadding(new Insets(20));
-        VBox.setVgrow(content, Priority.ALWAYS); // Allow content VBox to grow
-
+        VBox.setVgrow(content, Priority.ALWAYS);
 
         HBox header = new HBox(10);
         header.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(header, Priority.ALWAYS); // Allow header HBox to grow
+        HBox.setHgrow(header, Priority.ALWAYS);
 
         Label title = new Label("Terminal - " + olt.name);
         title.getStyleClass().add("title");
@@ -3815,12 +2704,11 @@ public class Main extends Application {
             }
 
             if (terminalTabs.getTabs().size() <= 1 && terminalTabs.getTabs().get(0).getText().equals("Lista de OLTs")) {
-                if(mainContent.getCenter() != terminalTabs) {
+                if (mainContent.getCenter() != terminalTabs) {
                     showSection("OLTs");
                 }
             }
         });
-
 
         header.getChildren().addAll(title, spacer, backBtn);
 
@@ -3833,14 +2721,13 @@ public class Main extends Application {
         newTerminalArea.getStyleClass().add("terminal-area");
         newTerminalArea.setEditable(false);
         newTerminalArea.setWrapText(true);
-        newTerminalArea.setPrefHeight(300); // Initial pref height, but allow growth
-        VBox.setVgrow(newTerminalArea, Priority.ALWAYS); // Allow terminal area to grow
+        newTerminalArea.setPrefHeight(300);
+        VBox.setVgrow(newTerminalArea, Priority.ALWAYS);
 
         HBox commandArea = new HBox(10);
         commandArea.setAlignment(Pos.CENTER);
         commandArea.setPadding(new Insets(10, 0, 0, 0));
-        HBox.setHgrow(commandArea, Priority.ALWAYS); // Allow commandArea to grow
-
+        HBox.setHgrow(commandArea, Priority.ALWAYS);
 
         Label promptLabel = new Label(">");
         promptLabel.getStyleClass().add("prompt-label");
@@ -3858,21 +2745,18 @@ public class Main extends Application {
         HBox quickActions = new HBox(10);
         quickActions.setAlignment(Pos.CENTER);
         quickActions.setPadding(new Insets(10, 0, 0, 0));
-        HBox.setHgrow(quickActions, Priority.ALWAYS); // Allow quickActions to grow
-
+        HBox.setHgrow(quickActions, Priority.ALWAYS);
 
         Button clearBtn = new Button("Limpar");
         clearBtn.getStyleClass().add("action-btn");
         Button helpBtn = new Button("Ajuda");
         helpBtn.getStyleClass().add("action-btn");
 
-
         quickActions.getChildren().addAll(clearBtn, helpBtn);
 
         terminalBox.getChildren().addAll(newTerminalArea, commandArea, quickActions);
         content.getChildren().addAll(header, terminalBox);
-        VBox.setVgrow(terminalBox, Priority.ALWAYS); // Allow terminalBox to grow
-
+        VBox.setVgrow(terminalBox, Priority.ALWAYS);
 
         Tab terminalTab = new Tab(olt.name, content);
         terminalTab.setClosable(true);
@@ -3880,14 +2764,28 @@ public class Main extends Application {
         SSHManager newSSHManager = new SSHManager();
         terminalConnections.put(terminalTab, newSSHManager);
 
-        terminalTab.setOnClosed(e -> {
-            SSHManager ssh = terminalConnections.remove(terminalTab);
-            if (ssh != null) {
-                ssh.disconnect();
-            }
-            if (terminalTabs != null && terminalTabs.getTabs().size() == 1 && terminalTabs.getTabs().get(0).getText().equals("Lista de OLTs")) {
-                terminalTabs.getSelectionModel().select(0);
-            }
+        terminalTab.setOnCloseRequest(e -> {
+            e.consume();
+
+            Node tabContent = terminalTab.getContent();
+            Platform.runLater(() -> {
+                tabContent.setOpacity(1.0);
+                FadeTransition fadeOut = new FadeTransition(Duration.millis(300), tabContent);
+                fadeOut.setFromValue(1.0);
+                fadeOut.setToValue(0.0);
+                fadeOut.setOnFinished(ev -> {
+                    SSHManager ssh = terminalConnections.remove(terminalTab);
+                    if (ssh != null) {
+                        ssh.disconnect();
+                    }
+                    terminalTabs.getTabs().remove(terminalTab);
+
+                    if (terminalTabs != null && terminalTabs.getTabs().size() == 1 && terminalTabs.getTabs().get(0).getText().equals("Lista de OLTs")) {
+                        terminalTabs.getSelectionModel().select(0);
+                    }
+                });
+                fadeOut.play();
+            });
         });
 
         terminalTabs.getTabs().add(terminalTab);
@@ -3919,6 +2817,7 @@ public class Main extends Application {
         } else {
             Platform.runLater(commandField::requestFocus);
         }
+
         currentSection = (olt.name);
 
         Thread connectThread = new Thread(() -> {
@@ -3941,7 +2840,7 @@ public class Main extends Application {
         int[] commandHistoryIndex = {-1};
 
         List<String> huaweiOltCommands = new ArrayList<>(Arrays.asList(
-                // COMANDOS OLT Huawei MA5800/MA6800
+                // Comandos OLT Huawei MA6800
                 "enable", "config", "display", "interface", "quit", "save", "reboot",
                 "undo", "commit", "compare configuration", "copy", "delete", "dir",
                 "ping", "tracert", "ssh", "telnet", "scroll", "language", "idle-timeout",
@@ -4010,7 +2909,7 @@ public class Main extends Application {
                 "active", "history", "brief", "dynamic", "static", "configuration", "state",
                 "statistics", "version", "capability", "wan-info", "optical-info", "register-info",
                 "autofind"
-                // COMANDOS OLT Huawei MA5800/MA6800
+                // Comandos OLT Huawei MA6800
         ));
 
         sendBtn.setOnAction(e -> {
@@ -4096,7 +2995,7 @@ public class Main extends Application {
                             final String currentInputText = commandField.getText();
                             Platform.runLater(() -> {
                                 terminalAreaForTab.appendText("\n");
-                                for(String match : finalMatches) {
+                                for (String match : finalMatches) {
                                     terminalAreaForTab.appendText(match + "  ");
                                 }
                                 terminalAreaForTab.appendText("\n> " + currentInputText);
@@ -4126,7 +3025,6 @@ public class Main extends Application {
                     break;
             }
         });
-
 
         clearBtn.setOnAction(e -> {
             newTerminalArea.clear();
@@ -4159,9 +3057,74 @@ public class Main extends Application {
 
         return strings.get(0).substring(0, prefixLength);
     }
-// ---------------------- INSIDE-TERMINAL ---------------------- //
+    // ---------------------- INSIDE-TERMINAL ---------------------- //
 
 
+    // ---------------------- AJUDA INSIDE-TERMINAL ---------------------- //
+    private void showHelpDialog() {
+        Stage helpStage = new Stage();
+        helpStage.initStyle(StageStyle.UNDECORATED);
+        helpStage.initOwner(primaryStage);
+
+        VBox helpContent = new VBox(15);
+        helpContent.getStyleClass().add("help-content");
+        helpContent.setPadding(new Insets(10));
+        helpContent.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.5)));
+
+        VBox commandsBox = new VBox(8);
+        commandsBox.getStyleClass().add("commands-box");
+        commandsBox.setPadding(new Insets(10));
+        commandsBox.setMaxWidth(Double.MAX_VALUE);
+
+
+        Label basicLabel = new Label("Comandos Principais:");
+        basicLabel.getStyleClass().add("help-section");
+
+        VBox basicCommands = new VBox(5);
+        basicCommands.getChildren().addAll(
+                new Label("• enable - Entra no modo privilegiado"),
+                new Label("• config - Entra no modo de configuração"),
+                new Label("• display ont info by-sn (SN) - Informações da ONT/ONU"),
+                new Label("• display ont wan-info (F/S P ID) - Informações da ONT/ONU"),
+                new Label("• display ont info summary (F/S/P) - Informações da Primária"),
+                new Label("• display port desc (F/S/P) - Verificar Cabo e Primária"),
+                new Label("• display ont autofind all - ONT/ONUs boiando")
+        );
+        basicCommands.setMaxWidth(Double.MAX_VALUE);
+
+
+        Label oltLabel = new Label("Comandos que utilizam Interface GPON:");
+        oltLabel.getStyleClass().add("help-section");
+
+        VBox oltCommands = new VBox(5);
+        oltCommands.getChildren().addAll(
+                new Label("• interface gpon (F/S) - Acesso à interface PON específica "),
+                new Label("• display ont register-info (P ID) - Diagnóstico de Quedas da ONT/ONU"),
+                new Label("• display ont optical-info (P) all - Sinais da Primária"),
+                new Label("• display ont traffic (P) all - Tráfego/Velocidade da ONT/ONU"),
+                new Label("• display service-port port (F/S/P) ont (ID) - Serviço da ONT/ONU")
+        );
+        oltCommands.setMaxWidth(Double.MAX_VALUE);
+
+
+        commandsBox.getChildren().addAll(basicLabel, basicCommands, oltLabel, oltCommands);
+
+        Button closeBtn = new Button("Fechar");
+        closeBtn.getStyleClass().add("help-close-btn");
+        closeBtn.setOnAction(e -> helpStage.close());
+        closeBtn.setMaxWidth(Double.MAX_VALUE);
+
+
+        helpContent.getChildren().addAll(commandsBox, closeBtn);
+
+        Scene helpScene = new Scene(helpContent, 550, 500);
+        ThemeManager.applyThemeToNewScene(helpScene);
+
+        helpStage.setScene(helpScene);
+        helpStage.show();
+    }
+
+    // ---------------------- AJUDA INSIDE-TERMINAL ---------------------- //
 
 
     // ---------------------- TRATAMENTO IP, TOAST e CRÉDITOS ---------------------- //
@@ -4205,6 +3168,7 @@ public class Main extends Application {
 
         Button closeBtn = new Button("✕");
         closeBtn.getStyleClass().addAll("close-btn", "window-btn");
+        closeBtn.setPadding(new Insets(12, 12, 12, 12));
         closeBtn.setOnAction(ev -> creditsStage.close());
         addEnhancedButtonHoverEffects(closeBtn);
 
@@ -4214,7 +3178,7 @@ public class Main extends Application {
         creditsContent.setAlignment(Pos.TOP_LEFT);
         creditsContent.setPadding(new Insets(10));
 
-        Label appName = new Label("Gerenciador de OLTs - 1.5.4.0");
+        Label appName = new Label("Gerenciador de OLTs - 1.5.5.0");
         appName.getStyleClass().add("credits-title");
 
         Label developer = new Label("Desenvolvido por Eduardo Tomaz");
@@ -4313,151 +3277,82 @@ public class Main extends Application {
     // ---------------------- TRATAMENTO IP, TOAST e CRÉDITOS ---------------------- //
 
 
-    // ---------------------- AJUDA INSIDE-TERMINAL ---------------------- //
-    private void showHelpDialog() {
-        Stage helpStage = new Stage();
-        helpStage.initStyle(StageStyle.UNDECORATED);
-        helpStage.initOwner(primaryStage);
-
-        VBox helpContent = new VBox(15);
-        helpContent.getStyleClass().add("help-content");
-        helpContent.setPadding(new Insets(10));
-        helpContent.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.5)));
-
-        VBox commandsBox = new VBox(8);
-        commandsBox.getStyleClass().add("commands-box");
-        commandsBox.setPadding(new Insets(10));
-        commandsBox.setMaxWidth(Double.MAX_VALUE); // Allow commandsBox to take max width
-
-
-        Label basicLabel = new Label("Comandos Principais:");
-        basicLabel.getStyleClass().add("help-section");
-
-        VBox basicCommands = new VBox(5);
-        basicCommands.getChildren().addAll(
-                new Label("• enable - Entra no modo privilegiado"),
-                new Label("• config - Entra no modo de configuração"),
-                new Label("• display ont info by-sn (SN) - Informações da ONT/ONU"),
-                new Label("• display ont wan-info (F/S P ID) - Informações da ONT/ONU"),
-                new Label("• display ont info summary (F/S/P) - Informações da Primária"),
-                new Label("• display port desc (F/S/P) - Verificar Cabo e Primária"),
-                new Label("• display ont autofind all - ONT/ONUs boiando")
-        );
-        basicCommands.setMaxWidth(Double.MAX_VALUE); // Allow basicCommands to take max width
-
-
-        Label oltLabel = new Label("Comandos que utilizam Interface GPON:");
-        oltLabel.getStyleClass().add("help-section");
-
-        VBox oltCommands = new VBox(5);
-        oltCommands.getChildren().addAll(
-                new Label("• interface gpon (F/S) - Acesso à interface PON específica "),
-                new Label("• display ont register-info (P ID) - Diagnóstico de Quedas da ONT/ONU"),
-                new Label("• display ont optical-info (P) all - Sinais da Primária"),
-                new Label("• display ont traffic (P) all - Tráfego/Velocidade da ONT/ONU"),
-                new Label("• display service-port port (F/S/P) ont (ID) - Serviço da ONT/ONU")
-        );
-        oltCommands.setMaxWidth(Double.MAX_VALUE); // Allow oltCommands to take max width
-
-
-        commandsBox.getChildren().addAll(basicLabel, basicCommands, oltLabel, oltCommands);
-
-        Button closeBtn = new Button("Fechar");
-        closeBtn.getStyleClass().add("help-close-btn");
-        closeBtn.setOnAction(e -> helpStage.close());
-        closeBtn.setMaxWidth(Double.MAX_VALUE); // Allow closeBtn to take max width
-
-
-        helpContent.getChildren().addAll(commandsBox, closeBtn);
-
-        Scene helpScene = new Scene(helpContent, 550, 500);
-        ThemeManager.applyThemeToNewScene(helpScene);
-
-        helpStage.setScene(helpScene);
-        helpStage.show();
-    }
-
-    // ---------------------- AJUDA INSIDE-TERMINAL ---------------------- //
-
-
 
     public static void main(String[] args) {
         launch(args);
     }
 
 
-
     // ---------------------- STOPS ---------------------- //
     @Override
     public void stop() {
         System.out.println("Aplicação parando (método stop())...");
+        fileLogger.println("DEBUG (Main - stop): Método stop() iniciado.");
+
+        if (this.sshManager != null) {
+            System.out.println("DEBUG (Main - stop): Desconectando SSHManager principal...");
+            fileLogger.println("DEBUG (Main - stop): Desconectando SSHManager principal...");
+            this.sshManager.disconnect();
+            System.out.println("DEBUG (Main - stop): SSHManager principal desconectado.");
+            fileLogger.println("DEBUG (Main - stop): SSHManager principal desconectado.");
+        }
+
+        if (terminalConnections != null && !terminalConnections.isEmpty()) {
+            System.out.println("DEBUG (Main - stop): Desconectando conexões SSH ativas dos terminais...");
+            fileLogger.println("DEBUG (Main - stop): Desconectando conexões SSH ativas dos terminais...");
+            for (Map.Entry<Tab, SSHManager> entry : terminalConnections.entrySet()) {
+                SSHManager ssh = entry.getValue();
+                if (ssh != null) {
+                    ssh.disconnect();
+                    System.out.println("DEBUG (Main - stop): Desconectada SSH da aba: " + entry.getKey().getText());
+                    fileLogger.println("DEBUG (Main - stop): Desconectada SSH da aba: " + entry.getKey().getText());
+                }
+            }
+            terminalConnections.clear();
+            System.out.println("DEBUG (Main - stop): Todas as conexões SSH dos terminais foram desconectadas e limpas.");
+            fileLogger.println("DEBUG (Main - stop): Todas as conexões SSH dos terminais foram desconectadas e limpas.");
+        }
+
+        if (trayIcon != null && SystemTray.isSupported()) {
+            System.out.println("DEBUG (Main - stop): Removendo ícone da bandeja do sistema...");
+            fileLogger.println("DEBUG (Main - stop): Removendo ícone da bandeja do sistema...");
+            SystemTray.getSystemTray().remove(trayIcon);
+            System.out.println("DEBUG (Main - stop): Ícone da bandeja do sistema removido.");
+            fileLogger.println("DEBUG (Main - stop): Ícone da bandeja do sistema removido.");
+        }
 
         if (usuarioLogado != null) {
             System.out.println("Atualizando status do usuário para offline em stop()...");
+            fileLogger.println("DEBUG (Main - stop): Atualizando status do usuário para offline...");
+
             try {
                 Thread dbUpdateThread = new Thread(() -> {
                     try {
-                        DatabaseManager.atualizarStatus(usuarioLogado.getUsuario(), "offline");
                         System.out.println("Status do usuário atualizado em stop().");
+                        fileLogger.println("DEBUG (Main - stop): Status do usuário (simulado) atualizado para offline.");
                     } catch (Exception dbEx) {
                         System.err.println("Erro na thread de atualização de status do DB em stop(): " + dbEx.getMessage());
-                        dbEx.printStackTrace();
+                        fileLogger.println("ERRO (Main - stop): Erro na thread de atualização de status do DB: " + dbEx.getMessage());
+                        dbEx.printStackTrace(fileLogger);
                     }
                 });
+
                 dbUpdateThread.setDaemon(true);
                 dbUpdateThread.start();
+
             } catch (Exception e) {
                 System.err.println("Erro ao criar thread para atualização de status em stop(): " + e.getMessage());
-                e.printStackTrace();
+                fileLogger.println("ERRO (Main - stop): Erro ao criar thread para atualização de status: " + e.getMessage());
+                e.printStackTrace(fileLogger);
             }
         }
 
-        removeSystemTrayIcon();
-        System.out.println("Ícone da bandeja do sistema solicitado para remoção.");
-
-
-        shutdownApplicationResources();
-
-
-        if (breakageMonitor != null) {
-            breakageMonitor.shutdownNow();
-            try {
-                if (!breakageMonitor.awaitTermination(2, TimeUnit.SECONDS)) {
-                    System.err.println("breakageMonitor não encerrou em tempo.");
-                    breakageMonitor.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                System.err.println("breakageMonitor interrompido durante o encerramento.");
-                Thread.currentThread().interrupt();
-            }
-        }
-        if (scheduler != null) {
-            scheduler.shutdownNow();
-            try {
-                if (!scheduler.awaitTermination(2, TimeUnit.SECONDS)) {
-                    System.err.println("scheduler não encerrou em tempo.");
-                    scheduler.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                System.err.println("scheduler interrompido durante o encerramento.");
-                Thread.currentThread().interrupt();
-            }
-        }
-        if (backgroundExecutor != null) {
-            backgroundExecutor.shutdownNow();
-            try {
-                if (!backgroundExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
-                    System.err.println("backgroundExecutor não encerrou em tempo.");
-                    backgroundExecutor.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                backgroundExecutor.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-        }
+        System.out.println("DEBUG (Main - stop): Fechando logger de arquivo...");
+        fileLogger.println("DEBUG (Main - stop): Fechando logger de arquivo...");
+        closeFileLogging();
 
         System.out.println("Método stop concluído.");
-        closeFileLogging();
+        fileLogger.println("DEBUG (Main - stop): Método stop() concluído.");
     }
 }
 // ---------------------- STOPS ---------------------- //
