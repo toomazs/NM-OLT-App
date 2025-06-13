@@ -2,17 +2,20 @@ package screens;
 
 import database.DatabaseManager;
 import javafx.animation.*;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.Glow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -41,17 +44,19 @@ public class ChangePasswordScreen {
         BorderPane mainLayout = new BorderPane();
         mainLayout.getStyleClass().add("change-password-background");
 
+        Rectangle clip = new Rectangle();
+        clip.widthProperty().bind(mainLayout.widthProperty());
+        clip.heightProperty().bind(mainLayout.heightProperty());
+        clip.setArcWidth(30);
+        clip.setArcHeight(30);
+        mainLayout.setClip(clip);
+
         HBox titleBar = createTitleBar(stage, iconFileName);
 
         VBox root = new VBox(20);
         root.setPadding(new Insets(30));
         root.setAlignment(Pos.CENTER);
         root.setOpacity(0);
-
-        FadeTransition fadeIn = new FadeTransition(Duration.millis(400), root);
-        fadeIn.setFromValue(0);
-        fadeIn.setToValue(1);
-        fadeIn.setDelay(Duration.millis(100));
 
         ImageView icon = createIcon(iconFileName);
         Label headerLabel = new Label("Alteração de Senha");
@@ -60,7 +65,7 @@ public class ChangePasswordScreen {
         VBox headerBox = new VBox(10, icon, headerLabel);
         headerBox.setAlignment(Pos.CENTER);
 
-        VBox formFields = createFormFields(stage);
+        VBox formFields = createFormFields(stage, root);
 
         root.getChildren().addAll(headerBox, formFields);
 
@@ -70,12 +75,30 @@ public class ChangePasswordScreen {
         Scene scene = new Scene(mainLayout, 400, 550);
         ThemeManager.applyThemeToNewScene(scene);
 
-        scene.getRoot().setEffect(new DropShadow(15, Color.rgb(0, 0, 0, 0.6)));
+        DropShadow shadow = new DropShadow();
+        shadow.setRadius(25);
+        shadow.setOffsetX(0);
+        shadow.setOffsetY(10);
+        shadow.setColor(Color.rgb(0, 0, 0, 0.3));
+        scene.getRoot().setEffect(shadow);
 
         stage.setScene(scene);
-        stage.initStyle(StageStyle.UNDECORATED);
+        stage.initStyle(StageStyle.TRANSPARENT);
+        scene.setFill(Color.TRANSPARENT);
         stage.centerOnScreen();
-        stage.setOnShown(e -> fadeIn.play());
+
+        Timeline fadeIn = new Timeline(
+                new KeyFrame(Duration.ZERO,
+                        new KeyValue(root.opacityProperty(), 0),
+                        new KeyValue(root.translateYProperty(), 30)
+                ),
+                new KeyFrame(Duration.millis(1000),
+                        new KeyValue(root.opacityProperty(), 1, Interpolator.EASE_OUT),
+                        new KeyValue(root.translateYProperty(), 0, Interpolator.SPLINE(0.25, 0.46, 0.45, 0.94))
+                )
+        );
+        fadeIn.play();
+
         stage.showAndWait();
     }
 
@@ -83,43 +106,36 @@ public class ChangePasswordScreen {
         try {
             InputStream iconStream = ChangePasswordScreen.class.getResourceAsStream(iconFileName);
             if (iconStream == null) {
-                System.err.println("Stream nulo para ícone da janela (ChangePwd): " + iconFileName + ". Tentando fallback.");
                 iconStream = ChangePasswordScreen.class.getResourceAsStream("/oltapp-icon.png");
             }
             if (iconStream != null) {
                 stage.getIcons().add(new Image(iconStream));
-            } else {
-                System.err.println("Ícone de fallback da janela (ChangePwd) também não encontrado.");
             }
         } catch (Exception e) {
-            System.err.println("Erro ao carregar ícone da janela (ChangePwd): " + iconFileName + " - " + e.getMessage());
         }
     }
 
     private static HBox createTitleBar(Stage stage, String iconFileName) {
         HBox titleBar = new HBox();
         titleBar.getStyleClass().add("title-bar");
-        titleBar.setPrefHeight(30);
+        titleBar.setPrefHeight(35);
         titleBar.setAlignment(Pos.CENTER_LEFT);
 
         try {
             InputStream iconStream = ChangePasswordScreen.class.getResourceAsStream(iconFileName);
             if (iconStream == null) {
-                System.err.println("Stream nulo para ícone da barra de título (ChangePwd): " + iconFileName + ". Tentando fallback.");
                 iconStream = ChangePasswordScreen.class.getResourceAsStream("/oltapp-icon.png");
             }
             if (iconStream != null) {
                 titleBarIconView = new ImageView(new Image(iconStream));
-                titleBarIconView.setFitHeight(18);
-                titleBarIconView.setFitWidth(18);
+                titleBarIconView.setFitHeight(20);
+                titleBarIconView.setFitWidth(20);
                 titleBarIconView.setPreserveRatio(true);
-                HBox.setMargin(titleBarIconView, new Insets(0, 5, 0, 10));
+                HBox.setMargin(titleBarIconView, new Insets(0, 8, 0, 15));
             } else {
-                System.err.println("Ícone de fallback da barra de título (ChangePwd) também não encontrado.");
                 titleBarIconView = new ImageView();
             }
         } catch (Exception e) {
-            System.err.println("Erro ao carregar ícone da barra de título (ChangePwd): " + iconFileName + " - " + e.getMessage());
             titleBarIconView = new ImageView();
         }
 
@@ -130,22 +146,28 @@ public class ChangePasswordScreen {
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         Region buttonSpacer = new Region();
-        buttonSpacer.setPrefWidth(5);
+        buttonSpacer.setPrefWidth(8);
 
-        Button closeBtn = new Button("✕");
-        closeBtn.getStyleClass().addAll("close-btn", "window-btn");
-        closeBtn.setPadding(new Insets(12, 12, 12, 12));
+        Button closeBtn = createModernWindowButton("✕", "close-btn");
         closeBtn.setOnAction(e -> {
-            Node rootNode = stage.getScene().getRoot();
-            FadeTransition fadeOut = new FadeTransition(Duration.millis(200), rootNode);
-            fadeOut.setFromValue(rootNode.getOpacity());
-            fadeOut.setToValue(0.0);
-            fadeOut.setOnFinished(event -> stage.close());
-            fadeOut.play();
+            ScaleTransition scale = new ScaleTransition(Duration.millis(100), closeBtn);
+            scale.setFromX(1.0); scale.setFromY(1.0);
+            scale.setToX(0.9); scale.setToY(0.9);
+            scale.setAutoReverse(true);
+            scale.setCycleCount(2);
+            scale.setOnFinished(event -> {
+                Node rootNode = stage.getScene().getRoot();
+                FadeTransition fadeOut = new FadeTransition(Duration.millis(250), rootNode);
+                fadeOut.setFromValue(rootNode.getOpacity());
+                fadeOut.setToValue(0.0);
+                fadeOut.setOnFinished(finishEvent -> stage.close());
+                fadeOut.play();
+            });
+            scale.play();
         });
 
         titleBar.getChildren().addAll(titleBarIconView, titleLabel, spacer, buttonSpacer, closeBtn);
-        HBox.setMargin(closeBtn, new Insets(0, 10, 0, 0));
+        HBox.setMargin(closeBtn, new Insets(0, 15, 0, 0));
 
         titleBar.setOnMousePressed(event -> {
             xOffset = event.getSceneX();
@@ -159,11 +181,34 @@ public class ChangePasswordScreen {
         return titleBar;
     }
 
+    private static Button createModernWindowButton(String text, String styleClass) {
+        Button button = new Button(text);
+        button.getStyleClass().addAll("window-btn", styleClass);
+        button.setPadding(new Insets(8, 12, 8, 12));
+
+        button.setOnMouseEntered(e -> {
+            ScaleTransition scaleIn = new ScaleTransition(Duration.millis(150), button);
+            scaleIn.setToX(1.1);
+            scaleIn.setToY(1.1);
+            scaleIn.setInterpolator(Interpolator.EASE_OUT);
+            scaleIn.play();
+        });
+
+        button.setOnMouseExited(e -> {
+            ScaleTransition scaleOut = new ScaleTransition(Duration.millis(150), button);
+            scaleOut.setToX(1.0);
+            scaleOut.setToY(1.0);
+            scaleOut.setInterpolator(Interpolator.EASE_OUT);
+            scaleOut.play();
+        });
+
+        return button;
+    }
+
     private static ImageView createIcon(String iconFileName) {
         try {
             InputStream iconStream = ChangePasswordScreen.class.getResourceAsStream(iconFileName);
             if (iconStream == null) {
-                System.err.println("Stream nulo para ícone principal (ChangePwd): " + iconFileName + ". Tentando fallback.");
                 iconStream = ChangePasswordScreen.class.getResourceAsStream("/oltapp-icon.png");
             }
             if (iconStream != null) {
@@ -172,33 +217,29 @@ public class ChangePasswordScreen {
                 mainIconView.setFitWidth(48);
                 mainIconView.setPreserveRatio(true);
 
-                ScaleTransition pulse = new ScaleTransition(Duration.millis(2000), mainIconView);
-                pulse.setFromX(1.0); pulse.setFromY(1.0);
-                pulse.setToX(1.05); pulse.setToY(1.05);
-                pulse.setCycleCount(Animation.INDEFINITE);
-                pulse.setAutoReverse(true);
-                pulse.play();
+                mainIconView.getStyleClass().add("icon-shadow");
+
             } else {
-                System.err.println("Ícone de fallback principal (ChangePwd) também não encontrado.");
                 mainIconView = new ImageView();
             }
         } catch (Exception e) {
-            System.err.println("Erro ao carregar ícone principal (ChangePwd): " + iconFileName + " - " + e.getMessage());
             mainIconView = new ImageView();
         }
         return mainIconView;
     }
 
-    private static VBox createFormFields(Stage stage) {
+    private static VBox createFormFields(Stage stage, Node... fieldsToDisable) {
         TextField userField = new TextField();
         userField.setPromptText("Usuário");
         userField.setMaxWidth(260);
         userField.getStyleClass().add("modern-text-field");
+        addFieldFocusEffects(userField);
 
         PasswordField currentPassHidden = new PasswordField();
         currentPassHidden.setPromptText("Senha Atual");
         currentPassHidden.getStyleClass().add("modern-text-field");
         currentPassHidden.setPrefWidth(230);
+        addFieldFocusEffects(currentPassHidden);
 
         TextField currentPassVisible = new TextField();
         currentPassVisible.setPromptText("Senha Atual");
@@ -206,20 +247,45 @@ public class ChangePasswordScreen {
         currentPassVisible.setPrefWidth(230);
         currentPassVisible.setVisible(false);
         currentPassVisible.setManaged(false);
+        addFieldFocusEffects(currentPassVisible);
 
-        Button toggleCurrentPassBtn = new Button("\uD83D\uDC41");
-        toggleCurrentPassBtn.getStyleClass().add("eye-button");
+        currentPassHidden.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null && !newValue.isEmpty()) {
+                if (!currentPassHidden.getStyleClass().contains("has-text")) {
+                    currentPassHidden.getStyleClass().add("has-text");
+                }
+            } else {
+                currentPassHidden.getStyleClass().remove("has-text");
+            }
+        });
 
-        toggleCurrentPassBtn.setOnAction(e -> togglePasswordVisibility(currentPassHidden, currentPassVisible, toggleCurrentPassBtn));
+        Button toggleCurrentPassBtn = new Button("👁");
+        toggleCurrentPassBtn.getStyleClass().add("floating-btn");
+        toggleCurrentPassBtn.setOnAction(e -> togglePasswordVisibility(currentPassHidden, currentPassVisible));
 
-        HBox currentPassBox = new HBox(5, currentPassHidden, currentPassVisible, toggleCurrentPassBtn);
+        HBox currentPassBox = new HBox(5, currentPassHidden, toggleCurrentPassBtn);
         currentPassBox.setAlignment(Pos.CENTER_LEFT);
         currentPassBox.setMaxWidth(260);
+        StackPane currentPassPane = new StackPane(currentPassHidden, currentPassVisible);
+        HBox currentPassLayout = new HBox(5, currentPassPane, toggleCurrentPassBtn);
+        currentPassLayout.setAlignment(Pos.CENTER_LEFT);
+        currentPassLayout.setMaxWidth(260);
 
         PasswordField newPassHidden = new PasswordField();
         newPassHidden.setPromptText("Nova Senha");
         newPassHidden.getStyleClass().add("modern-text-field");
         newPassHidden.setPrefWidth(230);
+        addFieldFocusEffects(newPassHidden);
+
+        newPassHidden.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null && !newValue.isEmpty()) {
+                if (!newPassHidden.getStyleClass().contains("has-text")) {
+                    newPassHidden.getStyleClass().add("has-text");
+                }
+            } else {
+                newPassHidden.getStyleClass().remove("has-text");
+            }
+        });
 
         TextField newPassVisible = new TextField();
         newPassVisible.setPromptText("Nova Senha");
@@ -227,20 +293,32 @@ public class ChangePasswordScreen {
         newPassVisible.setPrefWidth(230);
         newPassVisible.setVisible(false);
         newPassVisible.setManaged(false);
+        addFieldFocusEffects(newPassVisible);
 
-        Button toggleNewPassBtn = new Button("\uD83D\uDC41");
-        toggleNewPassBtn.getStyleClass().add("eye-button");
+        Button toggleNewPassBtn = new Button("👁");
+        toggleNewPassBtn.getStyleClass().add("floating-btn");
+        toggleNewPassBtn.setOnAction(e -> togglePasswordVisibility(newPassHidden, newPassVisible));
 
-        toggleNewPassBtn.setOnAction(e -> togglePasswordVisibility(newPassHidden, newPassVisible, toggleNewPassBtn));
-
-        HBox newPassBox = new HBox(5, newPassHidden, newPassVisible, toggleNewPassBtn);
-        newPassBox.setAlignment(Pos.CENTER_LEFT);
-        newPassBox.setMaxWidth(260);
+        StackPane newPassPane = new StackPane(newPassHidden, newPassVisible);
+        HBox newPassLayout = new HBox(5, newPassPane, toggleNewPassBtn);
+        newPassLayout.setAlignment(Pos.CENTER_LEFT);
+        newPassLayout.setMaxWidth(260);
 
         PasswordField confirmPassHidden = new PasswordField();
-        confirmPassHidden.setPromptText("Confirmação");
+        confirmPassHidden.setPromptText("Confirme a Nova Senha");
         confirmPassHidden.getStyleClass().add("modern-text-field");
         confirmPassHidden.setPrefWidth(230);
+        addFieldFocusEffects(confirmPassHidden);
+
+        confirmPassHidden.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null && !newValue.isEmpty()) {
+                if (!confirmPassHidden.getStyleClass().contains("has-text")) {
+                    confirmPassHidden.getStyleClass().add("has-text");
+                }
+            } else {
+                confirmPassHidden.getStyleClass().remove("has-text");
+            }
+        });
 
         TextField confirmPassVisible = new TextField();
         confirmPassVisible.setPromptText("Confirme a Nova Senha");
@@ -248,15 +326,16 @@ public class ChangePasswordScreen {
         confirmPassVisible.setPrefWidth(230);
         confirmPassVisible.setVisible(false);
         confirmPassVisible.setManaged(false);
+        addFieldFocusEffects(confirmPassVisible);
 
-        Button toggleConfirmPassBtn = new Button("\uD83D\uDC41");
-        toggleConfirmPassBtn.getStyleClass().add("eye-button");
+        Button toggleConfirmPassBtn = new Button("👁");
+        toggleConfirmPassBtn.getStyleClass().add("floating-btn");
+        toggleConfirmPassBtn.setOnAction(e -> togglePasswordVisibility(confirmPassHidden, confirmPassVisible));
 
-        toggleConfirmPassBtn.setOnAction(e -> togglePasswordVisibility(confirmPassHidden, confirmPassVisible, toggleConfirmPassBtn));
-
-        HBox confirmPassBox = new HBox(5, confirmPassHidden, confirmPassVisible, toggleConfirmPassBtn);
-        confirmPassBox.setAlignment(Pos.CENTER_LEFT);
-        confirmPassBox.setMaxWidth(260);
+        StackPane confirmPassPane = new StackPane(confirmPassHidden, confirmPassVisible);
+        HBox confirmPassLayout = new HBox(5, confirmPassPane, toggleConfirmPassBtn);
+        confirmPassLayout.setAlignment(Pos.CENTER_LEFT);
+        confirmPassLayout.setMaxWidth(260);
 
         Label status = new Label();
         status.getStyleClass().add("status-label");
@@ -269,20 +348,12 @@ public class ChangePasswordScreen {
         alterarBtn.getStyleClass().add("modern-button");
         alterarBtn.setId("change-password-button");
         alterarBtn.setDefaultButton(true);
+        addModernButtonEffects(alterarBtn);
 
         Button voltarBtn = new Button("Voltar");
         voltarBtn.setPrefWidth(260);
         voltarBtn.getStyleClass().add("secondary-button");
-
-
-        ProgressIndicator progressIndicator = new ProgressIndicator();
-        progressIndicator.setMaxSize(20, 20);
-        progressIndicator.setVisible(false);
-
-        HBox progressBox = new HBox(10, progressIndicator);
-        progressBox.setAlignment(Pos.CENTER);
-        progressBox.setMinHeight(20);
-
+        addModernButtonEffects(voltarBtn);
 
         alterarBtn.setOnAction(e -> {
             String usuario = userField.getText().trim();
@@ -291,55 +362,59 @@ public class ChangePasswordScreen {
             String confirmPassword = confirmPassHidden.isVisible() ? confirmPassHidden.getText() : confirmPassVisible.getText();
 
             if (usuario.isEmpty()) {
-                showStatusMessage(status, "Nome de usuário é obrigatório.", true);
-                return;
+                showStatusMessage(status, "Nome de usuário é obrigatório.", true); return;
             }
             if (currentPassword.isEmpty()) {
-                showStatusMessage(status, "A senha atual é obrigatória.", true);
-                return;
+                showStatusMessage(status, "A senha atual é obrigatória.", true); return;
             }
             if (newPassword.isEmpty() || confirmPassword.isEmpty()) {
-                showStatusMessage(status, "Preencha e confirme a nova senha.", true);
-                return;
+                showStatusMessage(status, "Preencha e confirme a nova senha.", true); return;
             }
             if (!newPassword.equals(confirmPassword)) {
-                showStatusMessage(status, "As senhas não coincidem.", true);
-                return;
+                showStatusMessage(status, "As novas senhas não coincidem.", true); return;
             }
-
             if (!DatabaseManager.verifyCurrentPassword(usuario, currentPassword)) {
-                showStatusMessage(status, "Senha atual incorreta.", true);
-                return;
+                showStatusMessage(status, "Senha atual incorreta.", true); return;
             }
 
             alterarBtn.setDisable(true);
             voltarBtn.setDisable(true);
-            progressIndicator.setVisible(true);
-            status.setText("Alterando senha...");
-            status.getStyleClass().removeAll("error-label", "success-label");
+            userField.setDisable(true);
 
-            PauseTransition pause = new PauseTransition(Duration.millis(600));
-            pause.setOnFinished(event -> {
+            ProgressIndicator progressIndicator = new ProgressIndicator();
+            progressIndicator.setMaxSize(22, 22);
+            String originalText = alterarBtn.getText();
+            Label loadingLabel = new Label("Alterando...");
+            loadingLabel.getStyleClass().add("loading-label");
+            HBox loadingBox = new HBox(8, progressIndicator, loadingLabel);
+            loadingBox.setAlignment(Pos.CENTER);
+            alterarBtn.setGraphic(loadingBox);
+            alterarBtn.setText("");
+            status.setText("");
+
+            Thread changePassThread = new Thread(() -> {
                 boolean success = DatabaseManager.changePassword(usuario, newPassword);
 
-                progressIndicator.setVisible(false);
-                alterarBtn.setDisable(false);
-                voltarBtn.setDisable(false);
+                Platform.runLater(() -> {
+                    alterarBtn.setGraphic(null);
+                    alterarBtn.setText(originalText);
+                    alterarBtn.setDisable(false);
+                    voltarBtn.setDisable(false);
+                    userField.setDisable(false);
 
-                if (success) {
-                    showStatusMessage(status, "Senha alterada com sucesso!", false);
-                    userField.clear();
-                    currentPassHidden.clear();
-                    currentPassVisible.clear();
-                    newPassHidden.clear();
-                    newPassVisible.clear();
-                    confirmPassHidden.clear();
-                    confirmPassVisible.clear();
-                } else {
-                    showStatusMessage(status, "Erro ao alterar senha.", true);
-                }
+                    if (success) {
+                        showStatusMessage(status, "Senha alterada com sucesso!", false);
+                        userField.clear();
+                        currentPassHidden.clear(); currentPassVisible.clear();
+                        newPassHidden.clear(); newPassVisible.clear();
+                        confirmPassHidden.clear(); confirmPassVisible.clear();
+                    } else {
+                        showStatusMessage(status, "Erro ao alterar senha.", true);
+                    }
+                });
             });
-            pause.play();
+            changePassThread.setDaemon(true);
+            changePassThread.start();
         });
 
         voltarBtn.setOnAction(e -> {
@@ -351,46 +426,35 @@ public class ChangePasswordScreen {
             fadeOut.play();
         });
 
-        userField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) newPassHidden.requestFocus();
-        });
-        newPassHidden.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) confirmPassHidden.requestFocus();
-        });
-        newPassVisible.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) confirmPassHidden.requestFocus();
-        });
-        confirmPassHidden.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) alterarBtn.fire();
-        });
-        confirmPassVisible.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) alterarBtn.fire();
-        });
+        userField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER) currentPassHidden.requestFocus(); });
+        currentPassHidden.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER) newPassHidden.requestFocus(); });
+        newPassHidden.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER) confirmPassHidden.requestFocus(); });
+        confirmPassHidden.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER) alterarBtn.fire(); });
 
         VBox formFieldsVBox = new VBox(15);
         formFieldsVBox.setAlignment(Pos.CENTER);
         formFieldsVBox.getChildren().addAll(
                 userField,
-                currentPassBox,
-                newPassBox,
-                confirmPassBox,
+                currentPassLayout,
+                newPassLayout,
+                confirmPassLayout,
+                status,
                 alterarBtn,
-                voltarBtn,
-                progressBox,
-                status
+                voltarBtn
         );
+        VBox.setMargin(status, new Insets(0, 0, 5, 0));
+
 
         return formFieldsVBox;
     }
 
-    private static void togglePasswordVisibility(PasswordField hiddenField, TextField visibleField, Button toggleButton) {
+    private static void togglePasswordVisibility(PasswordField hiddenField, TextField visibleField) {
         if (hiddenField.isVisible()) {
             visibleField.setText(hiddenField.getText());
             hiddenField.setVisible(false);
             hiddenField.setManaged(false);
             visibleField.setVisible(true);
             visibleField.setManaged(true);
-            toggleButton.setText("\uD83D\uDC41");
             visibleField.requestFocus();
             visibleField.positionCaret(visibleField.getText().length());
         } else {
@@ -399,27 +463,81 @@ public class ChangePasswordScreen {
             visibleField.setManaged(false);
             hiddenField.setVisible(true);
             hiddenField.setManaged(true);
-            toggleButton.setText("\uD83D\uDC40");
             hiddenField.requestFocus();
             hiddenField.positionCaret(hiddenField.getText().length());
         }
     }
 
+    private static void addFieldFocusEffects(Control field) {
+        field.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (isNowFocused) {
+                ScaleTransition scaleIn = new ScaleTransition(Duration.millis(200), field);
+                scaleIn.setToX(1.02); scaleIn.setToY(1.02);
+                scaleIn.setInterpolator(Interpolator.EASE_OUT);
+                scaleIn.play();
+                field.setEffect(new Glow(0.3));
+            } else {
+                ScaleTransition scaleOut = new ScaleTransition(Duration.millis(200), field);
+                scaleOut.setToX(1.0); scaleOut.setToY(1.0);
+                scaleOut.setInterpolator(Interpolator.EASE_OUT);
+                scaleOut.play();
+                field.setEffect(null);
+            }
+        });
+    }
+
+    private static void addModernButtonEffects(Button button) {
+        button.setOnMouseEntered(e -> {
+            ScaleTransition scale = new ScaleTransition(Duration.millis(150), button);
+            scale.setToX(1.05); scale.setToY(1.05);
+            scale.setInterpolator(Interpolator.EASE_OUT);
+            scale.play();
+            DropShadow shadow = new DropShadow(12, Color.rgb(100, 150, 255, 0.4));
+            shadow.setOffsetY(4);
+            button.setEffect(shadow);
+        });
+
+        button.setOnMouseExited(e -> {
+            ScaleTransition scale = new ScaleTransition(Duration.millis(150), button);
+            scale.setToX(1.0); scale.setToY(1.0);
+            scale.setInterpolator(Interpolator.EASE_OUT);
+            scale.play();
+            button.setEffect(null);
+        });
+
+        button.setOnMousePressed(e -> {
+            ScaleTransition press = new ScaleTransition(Duration.millis(50), button);
+            press.setToX(0.98); press.setToY(0.98);
+            press.play();
+        });
+
+        button.setOnMouseReleased(e -> {
+            ScaleTransition release = new ScaleTransition(Duration.millis(100), button);
+            release.setToX(1.05); release.setToY(1.05);
+            release.play();
+        });
+    }
 
     private static void showStatusMessage(Label statusLabel, String message, boolean isError) {
         statusLabel.setText(message);
         statusLabel.getStyleClass().removeAll("error-label", "success-label");
+        statusLabel.setAlignment(Pos.CENTER);
+
         if (isError) {
             statusLabel.getStyleClass().add("error-label");
-
-            TranslateTransition shake = new TranslateTransition(Duration.millis(60), statusLabel);
+            TranslateTransition shake = new TranslateTransition(Duration.millis(50), statusLabel);
             shake.setFromX(0);
-            shake.setByX(6);
-            shake.setCycleCount(4);
+            shake.setByX(8);
+            shake.setCycleCount(6);
             shake.setAutoReverse(true);
+            shake.setInterpolator(Interpolator.EASE_BOTH);
             shake.play();
         } else {
             statusLabel.getStyleClass().add("success-label");
+            FadeTransition fadeIn = new FadeTransition(Duration.millis(300), statusLabel);
+            fadeIn.setFromValue(0);
+            fadeIn.setToValue(1);
+            fadeIn.play();
         }
     }
 }

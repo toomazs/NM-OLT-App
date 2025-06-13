@@ -1,14 +1,12 @@
-/* style-pink.css - Tema Rosa Escuro */
-@import url('https://fonts.googleapis.com/css2?family=Cascadia+Code:ital,wght@0,200..700;1,200..700&family=Chivo:ital,wght@0,100..900;1,100..900&display=swap');
-
 * {
-    -fx-font-family: 'Chivo', sans-serif;
+    -fx-font-family: 'Rubik', sans-serif;
     -fx-font-smoothing-type: gray;
 }
 
 .root {
     -fx-background-color: #2c071a; /* Rosa muito escuro / Púrpura */
     -fx-background-size: 400px;
+    -fx-background-radius: 15;
 }
 
 .label {
@@ -115,6 +113,9 @@
     -fx-cursor: hand;
     -fx-border-width: 0 0 0 3px;
     -fx-border-color: transparent;
+    -fx-effect: null;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
 }
 
 .nav-button .icon {
@@ -137,13 +138,12 @@
     -fx-border-color: #f48fb1; /* Rosa claro (borda selecionado) */
     -fx-font-weight: bold;
     -fx-text-fill: #ffffff; /* Branco */
-    -fx-effect: dropshadow(three-pass-box, rgba(240, 98, 146, 0.3), 10, 0, 0, 0);
+    -fx-effect: dropshadow(gaussian, rgba(240, 98, 146, 0.4), 8, 0.5, 0, 0);
 }
 
 .nav-button:selected .icon {
     -fx-fill: #f48fb1; /* Rosa claro */
 }
-
 .content-area {
     -fx-background-color: #2c071a; /* Rosa muito escuro */
     -fx-padding: 25px;
@@ -218,8 +218,8 @@
 /* Terminal Area - Usando -fx-fill para RichTextFX */
 .terminal-area {
     -fx-control-inner-background: #3b0a24;
-    -fx-background-color: #3b0a24;
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-background-color: #2c071a;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-size: 12px;
     -fx-padding: 10px;
     -fx-border-width: 0;
@@ -241,7 +241,7 @@
 
 /* Prompt Label - Usando -fx-fill */
 .prompt-label {
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-size: 14px;
     -fx-font-weight: bold;
     -fx-fill: #f48fb1; /* Rosa claro */
@@ -253,7 +253,7 @@
     -fx-text-fill: #f8bbd0; /* Rosa claro */
     -fx-prompt-text-fill: #f48fb1; /* Placeholder */
     -fx-padding: 10px;
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-size: 14px;
     -fx-background-radius: 4px;
     -fx-border-width: 1px;
@@ -361,7 +361,7 @@
     -fx-background-color: #3b0a24; /* Rosa escuro */
     -fx-background-radius: 8px;
     -fx-padding: 10px;
-    -fx-font-family: "Cascadia Code";
+    -fx-font-family: "Jetbrains Mono";
 }
 
 .code-area .content {
@@ -369,14 +369,14 @@
 }
 
 .code-area .text {
-    -fx-font-family: "Cascadia Code";
+    -fx-font-family: "Jetbrains Mono";
     -fx-fill: #f8bbd0; /* Rosa claro - COR DO TEXTO */
 }
 
 .code-area .text.ip-address {
     -fx-fill: #ff80ab !important; /* Rosa mais vibrante (ou outra cor) */
-    -fx-font-weight: 630;
-    -fx-font-family: "Cascadia Code";
+    -fx-font-family: "Jetbrains Mono";
+    -fx-font-weight: bold;
 }
 
 .code-area .caret {
@@ -483,7 +483,7 @@
     -fx-text-fill: #ffffff; /* Branco */
     -fx-background-radius: 24px;
     -fx-cursor: hand;
-    -fx-font-size: 16.5px;
+    -fx-font-size: 13px;
     -fx-font-weight: bold;
     -fx-effect: dropshadow(gaussian, rgba(240, 98, 146, 0.4), 15, 0, 0, 5);
     -fx-min-width: 25px;
@@ -547,13 +547,6 @@
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 6, 0, 0, 2);
 }
 
-.user-info-box:hover {
-    -fx-background-color: linear-gradient(to bottom right, rgba(194, 24, 91, 0.9), rgba(136, 14, 79, 0.8));
-    -fx-border-color: #ec407a; /* Rosa médio (borda hover) */
-    -fx-translate-x: 2px;
-    -fx-effect: dropshadow(three-pass-box, rgba(240, 98, 146, 0.2), 8, 0, 0, 3);
-}
-
 .user-name {
     -fx-text-fill: #ffffff; /* Branco */
     -fx-font-size: 13px;
@@ -584,6 +577,7 @@
 }
 
 .dropdown-arrow-active {
+    -fx-text: "▴" !important; }
     -fx-background-color: transparent;
     -fx-font-weight: bold;
     -fx-rotate: 180;
@@ -660,6 +654,8 @@
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 3);
     -fx-border-width: 1px;
     -fx-border-color: rgba(136, 14, 79, 0.4); /* Borda rosa sutil */
+        -fx-background-radius: 15;
+        -fx-border-radius: 15;
 }
 
 .help-section {
@@ -689,57 +685,163 @@
 }
 
 .command-highlight {
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-weight: bold;
     -fx-text-fill: #f48fb1; /* Rosa claro */
     -fx-effect: dropshadow(gaussian, rgba(255, 128, 171, 0.5), 3, 0, 0, 0);
 }
 
+/* ===== TAB PANE BASE ===== */
 .tab-pane {
     -fx-background-color: transparent;
-    -fx-tab-min-width: 100px; -fx-tab-max-width: 200px;
-    -fx-tab-min-height: 35px;
+    -fx-tab-min-width: 120px;
+    -fx-tab-max-width: 220px;
+    -fx-tab-min-height: 40px;
+    -fx-open-tab-animation: GROW;
+    -fx-close-tab-animation: GROW;
 }
 
-.tab-pane .tab-header-area { -fx-padding: 5px 0 0 0; }
+/* ===== HEADER AREA ===== */
+.tab-pane .tab-header-area {
+    -fx-padding: 5px 0 0 0;
+    -fx-background-color: transparent;
+}
 
 .tab-pane .tab-header-background {
-    -fx-background-color: #2c071a; /* Rosa muito escuro */
-    -fx-effect: innershadow(gaussian, rgba(0,0,0,0.3), 3, 0, 0, 1);
+    -fx-background-color: linear-gradient(to bottom, #3b0a24, #2c071a);
+    -fx-effect: innershadow(gaussian, rgba(0,0,0,0.4), 4, 0, 0, 2);
+    -fx-border-width: 0 0 1px 0;
+    -fx-border-color: #880e4f;
 }
 
+/* ===== TABS NORMAIS ===== */
 .tab-pane .tab {
-    -fx-background-color: #3b0a24; /* Rosa escuro */
-    -fx-background-radius: 8px 8px 0 0;
+    -fx-background-color: linear-gradient(to bottom, #880e4f, #5e0a3a);
+    -fx-background-radius: 10px 10px 0 0;
     -fx-border-width: 1px 1px 0 1px;
-    -fx-border-color: #880e4f; /* Rosa mais escuro (borda) */
-    -fx-border-radius: 8px 8px 0 0;
-    -fx-padding: 5px 15px;
+    -fx-border-color: #880e4f;
+    -fx-border-radius: 10px 10px 0 0;
+    -fx-padding: 8px 18px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 2, 0, 0, 1);
 }
 
+/* Hover effect para tabs não selecionadas */
+.tab-pane .tab:hover {
+    -fx-background-color: linear-gradient(to bottom, #c2185b, #880e4f);
+    -fx-border-color: #ec407a;
+    -fx-effect: dropshadow(gaussian, rgba(236, 64, 122, 0.3), 4, 0, 0, 1);
+}
+
+/* ===== TAB SELECIONADA ===== */
 .tab-pane .tab:selected {
-    -fx-background-color: linear-gradient(to bottom, #c2185b, #880e4f); /* Rosa escuro -> mais escuro (selecionado) */
-    -fx-border-color: #ec407a #ec407a transparent #ec407a; /* Borda rosa média */
-    -fx-effect: dropshadow(gaussian, rgba(240, 98, 146, 0.3), 8, 0, 0, -3);
+    -fx-background-color: linear-gradient(to bottom, #d81b60, #c2185b, #880e4f);
+    -fx-border-color: #f48fb1 #f48fb1 transparent #f48fb1;
+    -fx-border-width: 2px 2px 0 2px;
 }
 
+/* ===== LABELS DAS TABS ===== */
 .tab-pane .tab .tab-label {
-    -fx-text-fill: #f8bbd0; /* Rosa claro */
+    -fx-text-fill: #f8bbd0;
     -fx-font-size: 13px;
     -fx-font-weight: 600;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 1, 0, 0, 1);
+}
+
+.tab-pane .tab:hover .tab-label {
+    -fx-text-fill: #f48fb1;
 }
 
 .tab-pane .tab:selected .tab-label {
-    -fx-text-fill: #ffffff; /* Branco */
-    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.1), 1, 0, 0, 0);
+    -fx-text-fill: #ffffff;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 2, 0, 0, 0);
 }
 
-.tab-pane .tab-content-area {
-    -fx-background-color: #2c071a; /* Rosa muito escuro */
-    -fx-border-width: 1px;
-    -fx-border-color: #880e4f; /* Rosa mais escuro (borda) */
-    -fx-border-radius: 0 0 8px 8px;
-    -fx-padding: 15px;
+/* ===== BOTÃO DE FECHAR ===== */
+.tab-pane .tab .tab-close-button {
+    -fx-background-color: rgba(248, 187, 208, 0.3);
+    -fx-background-radius: 50%;
+    -fx-padding: 0;
+    -fx-pref-width: 14px;
+    -fx-pref-height: 14px;
+    -fx-min-width: 14px;
+    -fx-min-height: 14px;
+    -fx-max-width: 14px;
+    -fx-max-height: 14px;
+}
+
+.tab-pane .tab:selected .tab-close-button {
+    -fx-background-color: rgba(255, 255, 255, 0.4);
+}
+
+.tab-pane .tab .tab-close-button:hover {
+    -fx-background-color: rgba(255, 100, 100, 0.7) !important;
+    -fx-effect: dropshadow(gaussian, rgba(255, 100, 100, 0.5), 3, 0, 0, 0);
+}
+
+/* Estilo do X dentro do botão */
+.tab-pane .tab .tab-close-button > .graphic {
+    -fx-background-color: #f8bbd0;
+    -fx-background-radius: 0;
+    -fx-padding: 0;
+    -fx-shape: "M 0,0 L 1,1 M 0,1 L 1,0";
+    -fx-scale-shape: true;
+    -fx-pref-width: 8px;
+    -fx-pref-height: 8px;
+}
+
+.tab-pane .tab:selected .tab-close-button > .graphic {
+    -fx-background-color: white;
+}
+
+.tab-pane .tab .tab-close-button:hover > .graphic {
+    -fx-background-color: white !important;
+}
+
+/* ===== CONTROLES DE NAVEGAÇÃO ===== */
+.tab-pane .control-buttons-tab {
+    -fx-background-color: transparent;
+}
+
+.tab-pane .tab-down-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 4px;
+}
+
+.tab-pane .tab-down-button .arrow {
+    -fx-background-color: white;
+    -fx-shape: "M 0 0 L 4 4 L 8 0 Z";
+}
+
+.tab-pane .tab-down-button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+    -fx-background-radius: 4px;
+    -fx-effect: dropshadow(gaussian, rgba(255, 255, 255, 0.3), 3, 0, 0, 0);
+}
+
+/* ===== ANIMAÇÕES E TRANSIÇÕES ===== */
+.tab-pane .tab {
+    -fx-cursor: hand;
+}
+
+/* Melhora a aparência quando há muitas tabs */
+.tab-pane:many-tabs .tab {
+    -fx-tab-min-width: 80px;
+    -fx-padding: 6px 12px;
+}
+
+.tab-pane:many-tabs .tab .tab-label {
+    -fx-font-size: 12px;
+}
+
+/* ===== DISABLED STATE ===== */
+.tab-pane:disabled .tab {
+    -fx-opacity: 0.5;
+}
+
+.tab-pane:disabled .tab .tab-label {
+    -fx-text-fill: #666666;
 }
 
 .badge {
@@ -832,13 +934,6 @@
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 6, 0, 0, 2);
 }
 
-.user-info-box:hover {
-    -fx-background-color: linear-gradient(to bottom right, rgba(194, 24, 91, 0.9), rgba(136, 14, 79, 0.8)); /* Rosa mais claro semi-transparente */
-    -fx-border-color: #ec407a; /* Rosa médio */
-    -fx-translate-x: 2px;
-    -fx-effect: dropshadow(three-pass-box, rgba(240, 98, 146, 0.2), 8, 0, 0, 3); /* Sombra rosa */
-}
-
 /* Reduzir tamanho dos textos nas abas de usuário (mantido) */
 .user-name {
     -fx-text-fill: #ffffff; /* Branco */
@@ -863,4 +958,138 @@
     -fx-background-color: transparent;
     -fx-padding: 5px;
     -fx-cursor: hand;
+}
+
+/* === Context Menu Pink Theme === */
+.context-menu {
+    -fx-background-color: #2c071a; /* Rosa muito escuro / Púrpura (Root background) */
+    -fx-border-color: #880e4f;    /* Rosa mais escuro (de gradiente do botão ou user-info-box) */
+    -fx-border-width: 1px;
+    -fx-padding: 5px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 10, 0, 0, 2);
+}
+
+.context-menu .label {
+    -fx-text-fill: #f8bbd0; /* Rosa claro (Label text) */
+}
+
+.context-menu .menu-item:focused {
+    -fx-background-color: #880e4f; /* Rosa mais escuro para seleção */
+}
+
+.context-menu .menu-item:focused .label {
+    -fx-text-fill: #fce4ec; /* Rosa ainda mais claro para destaque no foco */
+}
+
+.context-menu .separator .line {
+    -fx-border-style: solid;
+    -fx-border-width: 1px 0 0 0;
+    -fx-border-color: #880e4f;
+}
+
+.status-label {
+    -fx-font-size: 10px;
+    -fx-text-fill: #f8bbd0;
+    /* Add other styling as needed, e.g., text color based on theme */
+}
+
+.olt-card .label { /* Ensure labels in card don't overflow if text is long */
+    -fx-text-overrun: ellipsis;
+}
+
+.logout-btn {
+    -fx-background-color: linear-gradient(to bottom, #EF5350, #E53935); /* Vibrant red */
+    -fx-text-fill: #f8bbd0; /* Theme's light pink text */
+    -fx-background-radius: 6px;
+    -fx-padding: 6px 12px;
+    -fx-cursor: hand;
+    -fx-font-weight: 700;
+    -fx-border-width: 1px;
+    -fx-border-color: #D32F2F; /* Darker red border */
+    -fx-border-radius: 6px;
+    -fx-effect: innershadow(gaussian, rgba(40,0,0,0.4), 1, 0, 0, 1); /* Subtle shadow */
+}
+
+/* Efeito de hover para quando o mouse passar por cima */
+.logout-btn:hover {
+    -fx-background-color: linear-gradient(to bottom, #A52A2A, #8B0000); /* Inverte o gradiente ou usa tons mais escuros */
+    -fx-border-color: #CD5C5C; /* Borda um pouco mais clara no hover */
+}
+
+/* Efeito quando o botão é pressionado */
+.logout-btn:pressed {
+    -fx-background-color: #8B0000; /* Cor sólida mais escura ao clicar */
+    -fx-effect: innershadow(gaussian, #CD5C5C, 1, 0, 0, 1); /* Sombra inversa ou mais proeminente */
+}
+
+/* Estilo para mensagens de erro */
+.error-label {
+    -fx-text-fill: linear-gradient(to bottom, #EF5350, #E53935); /* Vermelho para erro */
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-padding: 8px 12px;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-effect: dropshadow(gaussian, rgba(220, 53, 69, 0.2), 2, 0, 0, 1);
+}
+
+/* Estilo para mensagens de sucesso */
+.success-label {
+    -fx-text-fill: #28a745; /* Verde para sucesso */
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-padding: 8px 12px;
+    -fx-border-radius: 4px;
+    -fx-effect: dropshadow(gaussian, rgba(40, 167, 69, 0.2), 2, 0, 0, 1);
+}
+
+.progress-indicator {
+    -fx-progress-color: #f48fb1; /* Rosa claro */
+}
+
+.error-label {
+    -fx-text-fill: #cd5c5c; /* Vermelho para erro */
+}
+
+.success-label {
+    -fx-text-fill: #90ee90; /* Verde para sucesso */
+}
+
+.separator {
+    -fx-fill: linear-gradient(to right,
+        rgba(255, 192, 203, 0.0),
+        rgba(255, 105, 180, 0.8), /* Hot Pink */
+        rgba(255, 192, 203, 0.0)
+    );
+    -fx-effect: dropshadow(gaussian, rgba(255, 105, 180, 0.6), 8, 0, 0, 2);
+}
+
+.admin-separator {
+    -fx-background-color: linear-gradient(to right,
+        rgba(236, 64, 122, 0.0),
+        rgba(236, 64, 122, 0.8),
+        rgba(236, 64, 122, 0.0)
+    );
+    -fx-pref-height: 1;
+    -fx-effect: dropshadow(gaussian, rgba(236, 64, 122, 0.6), 8, 0, 0, 2);
+}
+
+.admin-section-label {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: rgba(236, 64, 122, 0.9);
+    -fx-opacity: 0.8;
+}
+
+.icon-shadow {
+    -fx-effect: dropshadow(gaussian, rgba(236, 64, 122, 0.4), 15, 0, 0, 5);
+}
+
+
+.password-field.modern-text-field {
+    -fx-font-family: 'Rubik', sans-serif;
+}
+
+.password-field.modern-text-field.has-text {
+    -fx-font-family: "monospaced";
 }

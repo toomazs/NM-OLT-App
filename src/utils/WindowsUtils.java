@@ -14,13 +14,8 @@ public class WindowsUtils {
                 WString wAppId = new WString(appId);
                 INSTANCE.SetCurrentProcessExplicitAppUserModelID(wAppId);
             } catch (UnsatisfiedLinkError | NoClassDefFoundError e) {
-                System.err.println("Failed to set AppUserModelID using JNA: " + e.getMessage());
             } catch (Exception e) {
-                System.err.println("Unexpected error setting AppUserModelID: " + e.getMessage());
-                e.printStackTrace();
             }
-        } else {
-            System.out.println("AppUserModelID not set (not running on Windows).");
         }
     }
 }

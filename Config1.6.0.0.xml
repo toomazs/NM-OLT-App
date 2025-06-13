@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch4jConfig>
+  <dontWrapJar>false</dontWrapJar>
+  <headerType>gui</headerType>
+  <jar>C:\Users\N-Multifibra\Documents\GitHub\NM-OLT-AppCasa\OLTApp.jar</jar>
+  <outfile>C:\Users\N-Multifibra\Documents\GitHub\NM-OLT-AppCasa\OLTApp.exe</outfile>
+  <errTitle></errTitle>
+  <cmdLine></cmdLine>
+  <chdir></chdir>
+  <priority>normal</priority>
+  <downloadUrl></downloadUrl>
+  <supportUrl></supportUrl>
+  <stayAlive>false</stayAlive>
+  <restartOnCrash>false</restartOnCrash>
+  <manifest></manifest>
+  <icon>C:\Users\N-Multifibra\Documents\GitHub\NM-OLT-AppCasa\resources\oltapp-icon.ico</icon>
+  <classPath>
+    <mainClass>Main</mainClass>
+    <cp>./lib/javafx-sdk-24/lib/javafx.base.jar</cp>
+    <cp>./lib/javafx-sdk-24/lib/javafx.controls.jar</cp>
+    <cp>./lib/javafx-sdk-24/lib/javafx.fxml.jar</cp>
+    <cp>./lib/javafx-sdk-24/lib/javafx.graphics.jar</cp>
+    <cp>./lib/javafx-sdk-24/lib/javafx.media.jar</cp>
+    <cp>./lib/javafx-sdk-24/lib/javafx.swing.jar</cp>
+    <cp>./lib/javafx-sdk-24/lib/javafx.web.jar</cp>
+    <cp>./lib/javafx-sdk-24/lib/javafx-swt.jar</cp>
+    <cp>./lib/javafx-sdk-24/lib/jdk.jsobject.jar</cp>
+    <cp>./lib/javafx-sdk-24/lib/jfx.incubator.input.jar</cp>
+    <cp>./lib/javafx-sdk-24/lib/jfx.incubator.richtext.jar</cp>
+    <cp>./lib/jsch-0.1.55.jar</cp>
+    <cp>./lib/openpdf-1.3.32.jar</cp>
+    <cp>./lib/richtextfx-fat-0.11.5.jar</cp>
+    <cp>./lib/json-20140107.jar</cp>
+    <cp>./lib/ikonli-core-12.3.1.jar</cp>
+    <cp>./lib/ikonli-fontawesome5-pack-12.3.1.jar</cp>
+    <cp>./lib/ikonli-javafx-12.3.1.jar</cp>
+    <cp>./lib/jna-5.17.0.jar</cp>
+    <cp>./lib/jna-platform-5.17.0.jar</cp>
+    <cp>./lib/commons-codec-1.18.0.jar</cp>
+    <cp>./lib/commons-collections4-4.5.0.jar</cp>
+    <cp>./lib/commons-compress-1.27.1.jar</cp>
+    <cp>./lib/commons-io-2.19.0.jar</cp>
+    <cp>./lib/log4j-api-3.0.0-beta2.jar</cp>
+    <cp>./lib/log4j-core-3.0.0-beta3.jar</cp>
+    <cp>./lib/poi-5.4.1.jar</cp>
+    <cp>./lib/poi-excelant-5.4.1.jar</cp>
+    <cp>./lib/poi-ooxml-5.4.1.jar</cp>
+    <cp>./lib/poi-ooxml-full-5.4.1.jar</cp>
+    <cp>./lib/poi-ooxml-schemas-4.1.2.jar</cp>
+    <cp>./lib/poi-scratchpad-5.4.1.jar</cp>
+    <cp>./lib/postgresql-42.7.6.jar</cp>
+    <cp>./lib/SparseBitSet-1.3.jar</cp>
+    <cp>./lib/xmlbeans-5.3.0.jar</cp>
+  </classPath>
+  <jre>
+    <path>%JAVA_HOME%</path>
+    <requiresJdk>false</requiresJdk>
+    <requires64Bit>false</requires64Bit>
+    <minVersion>22</minVersion>
+    <maxVersion></maxVersion>
+    <opt>--module-path &quot;./lib/javafx-sdk-24/lib&quot; --add-modules javafx.controls,javafx.fxml,javafx.graphics --enable-native-access=javafx.graphics</opt>
+  </jre>
+  <versionInfo>
+    <fileVersion>1.6.0.0</fileVersion>
+    <txtFileVersion>1.6.0.0</txtFileVersion>
+    <fileDescription>NM OLT App</fileDescription>
+    <copyright>N-Multifibra</copyright>
+    <productVersion>1.6.0.0</productVersion>
+    <txtProductVersion>1.6.0.0</txtProductVersion>
+    <productName>NM OLT App</productName>
+    <companyName>N-Multifibra</companyName>
+    <internalName>NMOLTApp</internalName>
+    <originalFilename>OLTApp.exe</originalFilename>
+    <trademarks>N-Multifibra</trademarks>
+    <language>PORTUGUESE_BRAZIL</language>
+  </versionInfo>
+</launch4jConfig>

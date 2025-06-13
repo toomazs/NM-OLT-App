@@ -19,7 +19,7 @@ public class DatabaseManager {
     }
 
 
-    // ---------------------- LOGIN E ALTERAR SENHA ---------------------- //
+    // ---------------------- Login & Alterar Senha ---------------------- //
     private static String hashPassword(String password) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -109,7 +109,7 @@ public class DatabaseManager {
     }
 
     public static Optional<Usuario> getUsuarioByUsername(String username) {
-        String sql = "SELECT nome, usuario, cargo FROM usuarios WHERE usuario = ?";
+        String sql = "SELECT nome, usuario, cargo, is_admin FROM usuarios WHERE usuario = ?";
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, username);
@@ -118,7 +118,8 @@ public class DatabaseManager {
                 return Optional.of(new Usuario(
                         rs.getString("nome"),
                         rs.getString("usuario"),
-                        rs.getString("cargo")
+                        rs.getString("cargo"),
+                        rs.getBoolean("is_admin")
                 ));
             }
         } catch (SQLException e) {
@@ -127,10 +128,10 @@ public class DatabaseManager {
         }
         return Optional.empty();
     }
-    // ---------------------- LOGIN E ALTERAR SENHA ---------------------- //
+    // ---------------------- Login & Alterar Senha ---------------------- //
 
 
-    // ---------------------- TICKETS ---------------------- //
+    // ---------------------- Tickets ---------------------- //
     public static void criarTicket(String nome, String cargo, String descricao, String previsao) {
         String sql = "INSERT INTO tickets (criado_por, cargo, olt_nome, descricao, previsao, status) VALUES (?, ?, ?, ?, ?, 'Pendente')";
         try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -156,12 +157,14 @@ public class DatabaseManager {
              ResultSet rs = stmt.executeQuery()) {
             while (rs.next()) {
                 tickets.add(new Ticket(
+                        rs.getInt("id"),
                         rs.getString("criado_por"),
                         rs.getString("cargo"),
                         rs.getString("descricao"),
                         rs.getString("previsao"),
                         rs.getTimestamp("data_hora").toString(),
-                        rs.getString("status")
+                        rs.getString("status"),
+                        rs.getString("resposta")
                 ));
             }
         } catch (SQLException e) {
@@ -171,38 +174,67 @@ public class DatabaseManager {
         return tickets;
     }
 
-    public static void excluirTicket(Ticket ticket) {
-        String sql = "DELETE FROM tickets WHERE criado_por = ? AND descricao = ? AND data_hora = ?";
+    public static List<Ticket> getTicketsByUsuario(String nomeUsuario) {
+        List<Ticket> tickets = new ArrayList<>();
+        String sql = "SELECT * FROM tickets WHERE criado_por = ? ORDER BY data_hora DESC";
 
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, ticket.getCriadoPor());
-            stmt.setString(2, ticket.getDescricao());
-
-            try {
-                Timestamp dataHora = Timestamp.valueOf(ticket.getDataHora());
-                stmt.setTimestamp(3, dataHora);
-            } catch (IllegalArgumentException e) {
-                System.err.println("Formato de data/hora inválido: " + ticket.getDataHora());
-                return;
+            stmt.setString(1, nomeUsuario);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    tickets.add(new Ticket(
+                            rs.getInt("id"),
+                            rs.getString("criado_por"),
+                            rs.getString("cargo"),
+                            rs.getString("descricao"),
+                            rs.getString("previsao"),
+                            rs.getTimestamp("data_hora").toString(),
+                            rs.getString("status"),
+                            rs.getString("resposta")
+                    ));
+                }
             }
+        } catch (SQLException e) {
+            System.err.println("Erro ao buscar tickets por usuário: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return tickets;
+    }
 
+    public static void updateTicket(int ticketId, String resposta, String status) {
+        String sql = "UPDATE tickets SET resposta = ?, status = ? WHERE id = ?";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, resposta);
+            stmt.setString(2, status);
+            stmt.setInt(3, ticketId);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Erro ao atualizar ticket: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static void excluirTicket(Ticket ticket) {
+        String sql = "DELETE FROM tickets WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, ticket.getId());
             int rowsAffected = stmt.executeUpdate();
             if (rowsAffected > 0) {
-                System.out.println("Ticket excluído com sucesso. (" + rowsAffected + " linhas afetadas)");
+                System.out.println("Ticket excluído com sucesso.");
             } else {
-                System.out.println("Nenhum ticket encontrado para exclusão.");
+                System.out.println("Nenhum ticket encontrado para exclusão com o ID: " + ticket.getId());
             }
-
         } catch (SQLException e) {
             System.err.println("Erro ao excluir ticket: " + e.getMessage());
             e.printStackTrace();
         }
     }
-    // ---------------------- TICKETS ---------------------- //
+    // ---------------------- Tickets ---------------------- //
 
 
-    // ---------------------- LOGS USUARIOS ---------------------- //
+    // ---------------------- Logs Usuarios ---------------------- //
     public static void logUsuario(String usuario, String acao) {
         String sql = "INSERT INTO logs_usuario (usuario, acao) VALUES (?, ?)";
         try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -213,6 +245,6 @@ public class DatabaseManager {
             e.printStackTrace();
         }
     }
-    // ---------------------- LOGS USUARIOS ---------------------- //
+    // ---------------------- Logs Usuarios ---------------------- //
 
 }

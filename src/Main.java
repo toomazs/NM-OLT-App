@@ -1,202 +1,221 @@
-import java.io.*;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.DialogPane;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ButtonBar;
+import javafx.animation.*;
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.animation.*;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.input.KeyCode;
-import javafx.scene.layout.*;
-import javafx.stage.Stage;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.stage.StageStyle;
-import javafx.util.Duration;
-import javafx.scene.effect.DropShadow;
-import javafx.scene.effect.Glow;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
-import javafx.scene.Node;
-import javafx.collections.ObservableList;
+import javafx.beans.value.ChangeListener;
 import javafx.collections.FXCollections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
-import java.util.ArrayList;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import javafx.scene.control.Button;
-import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
-import javafx.scene.layout.HBox;
-import javafx.scene.control.Label;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.animation.FadeTransition;
+import javafx.scene.CacheHint;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.Glow;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.TransferMode;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
+import javafx.util.Duration;
+import models.OLT;
+import models.OLTList;
 import models.Ticket;
 import models.Usuario;
 import database.DatabaseManager;
+import org.fxmisc.flowless.VirtualizedScrollPane;
 import screens.LoginScreen;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import utils.ConfigManager;
-import java.awt.Desktop;
-import java.net.URI;
 import utils.ThemeManager;
-import java.nio.file.Files;
+import utils.WindowsUtils;
+import java.awt.Desktop;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
+import java.io.File;
 import java.io.FileOutputStream;
-import java.io.PrintStream;
-import javafx.scene.control.Tooltip;
-import javafx.scene.layout.StackPane;
-import java.nio.file.Paths;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.stream.Collectors;
-import utils.WindowsUtils;
-import javafx.beans.value.ChangeListener;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.TimerTask;
-import java.util.Timer;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.TextField;
-import javafx.scene.control.TextFormatter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import javafx.scene.shape.Circle;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import javafx.scene.text.Font;
 
 
 public class Main extends Application {
-    private static final String APP_ID = "YourCompanyName.GerenciadorOLTs";
+    private static final String APP_ID = "NMultiFibra.OLTApp";
     private double xOffset = 0;
     private double yOffset = 0;
     private Usuario usuario;
     private Usuario usuarioLogado;
     private VBox rootLayout;
     private Stage primaryStage;
-    private static CodeArea terminalArea;
-    private SSHManager sshManager;
     private BorderPane mainContent;
     private ToggleGroup navGroup;
     private String currentSection = null;
-    private Map<String, Node> contentCache = new HashMap<>();
-    private boolean isConnectedToOLT = false;
-    private OLT connectedOLT;
-    private ConfigManager configManager = ConfigManager.getInstance();
+    private final Map<String, Node> contentCache = new HashMap<>();
+    private final ConfigManager configManager = ConfigManager.getInstance();
     private TabPane terminalTabs;
-    private Map<Tab, SSHManager> terminalConnections = new HashMap<>();
+    private final Map<Tab, SSHManager> terminalConnections = new HashMap<>();
     private ImageView titleBarIconView;
-    private Node statusSidebar;
     private TrayIcon trayIcon;
     private String iconFileName;
-    private PrintStream fileLogger;
-    private static final String DEBUG_LOG_FILE = "debug.log";
-    private static final String LOG_DIRECTORY = "logs";
+    private final AtomicBoolean isQueryInProgress = new AtomicBoolean(false);
+    private Label currentWaitingToast = null;
+    private final Map<OLT, VBox> oltCardNodes = new HashMap<>();
+    private final Map<OLT, Circle> oltStatusIndicators = new HashMap<>();
+    private final Map<OLT, Label> oltStatusLabels = new HashMap<>();
+    private StackPane mainContentPlaceholder;
+    private FlowPane oltCardsPane;
+    private TextField oltSearchField;
+    private ComboBox<String> oltStatusFilter;
+    private ComboBox<String> oltSortBy;
+    private HBox statsBar;
+    private Label onlineCountLabel;
+    private Label offlineCountLabel;
+    private Tab draggingTab;
 
 
-    // ---------------------- START ---------------------- //
+    // 60FPS Configs
+    public static void optimizeJavaFXFor60FPS() {
+        System.setProperty("prism.vsync", "true");
+        System.setProperty("prism.lcdtext", "false");
+        System.setProperty("prism.subpixeltext", "false");
+        System.setProperty("prism.text", "t2k");
+        System.setProperty("javafx.animation.fullspeed", "true");
+        System.setProperty("javafx.animation.pulse", "60");
+        System.setProperty("prism.forceGPU", "true");
+    }
+
+
+    private void loadLocalFonts() {
+        try {
+            // DM Sans
+//            Font.loadFont(getClass().getResourceAsStream("/fonts/DMSans-Regular.ttf"), 10);
+//            Font.loadFont(getClass().getResourceAsStream("/fonts/DMSans-Bold.ttf"), 10);
+//            Font.loadFont(getClass().getResourceAsStream("/fonts/DMSans-Italic.ttf"), 10);
+//            Font.loadFont(getClass().getResourceAsStream("/fonts/DMSans-BoldItalic.ttf"), 10);
+
+            Font.loadFont(getClass().getResourceAsStream("/fonts/Rubik-Regular.ttf"), 10);
+            Font.loadFont(getClass().getResourceAsStream("/fonts/Rubik-Bold.ttf"), 10);
+            Font.loadFont(getClass().getResourceAsStream("/fonts/Rubik-Italic.ttf"), 10);
+            Font.loadFont(getClass().getResourceAsStream("/fonts/Rubik-BoldItalic.ttf"), 10);
+
+            // Jetbrains
+            Font.loadFont(getClass().getResourceAsStream("/fonts/JetBrainsMono-Regular.ttf"), 10);
+            Font.loadFont(getClass().getResourceAsStream("/fonts/JetBrainsMono-Bold.ttf"), 10);
+            Font.loadFont(getClass().getResourceAsStream("/fonts/JetBrainsMono-Italic.ttf"), 10);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    // ---------------------- Start ---------------------- //
     @Override
     public void start(Stage primaryStage) {
+            Platform.runLater(() -> {
+                loadLocalFonts();
+                WindowsUtils.setAppUserModelId(APP_ID);
 
-        WindowsUtils.setAppUserModelId(APP_ID);
-        setupFileLogging();
+                LoginScreen loginScreen = new LoginScreen();
+                Usuario loggedInUser = loginScreen.showLogin(new Stage());
 
-        if (configManager != null) {
-            configManager.setLogger(fileLogger);
-            fileLogger.println("DEBUG (Main): Logger passado para ConfigManager.");
-        } else {
-            fileLogger.println("ERRO (Main): configManager é nulo ao tentar setar o logger.");
-        }
+                if (loggedInUser != null) {
+                    this.usuario = loggedInUser;
+                    setupMainApplicationWindow(primaryStage);
+                } else {
+                    Platform.exit();
+                    System.exit(0);
+                }
+            });
+    }
 
+    private void setupMainApplicationWindow(Stage primaryStage) {
         try {
             if (this.usuario == null) {
                 LoginScreen loginScreen = new LoginScreen();
                 this.usuario = loginScreen.showLogin(new Stage());
                 if (this.usuario == null) {
-                    System.out.println("Login cancelled or failed. Exiting.");
                     Platform.exit();
                     return;
                 }
             }
-
             this.usuarioLogado = this.usuario;
-
             String usernameToSave = this.usuarioLogado.getUsuario();
-            fileLogger.println("DEBUG: Tentando salvar o usuário: '" + usernameToSave + "'");
             configManager.setLastUser(usernameToSave);
 
             this.primaryStage = primaryStage;
-            primaryStage.initStyle(StageStyle.UNDECORATED);
+            primaryStage.initStyle(StageStyle.TRANSPARENT);
 
             String initialTheme = configManager.getTheme();
-            fileLogger.println("DEBUG (Main): Tema inicial configurado: " + initialTheme);
-
             this.iconFileName = ThemeManager.getIconFileNameForTheme(initialTheme);
-            fileLogger.println("DEBUG (Main): Nome do arquivo do ícone inicial: " + this.iconFileName);
 
             try {
                 InputStream iconStream = getClass().getResourceAsStream(this.iconFileName);
                 if (iconStream == null) {
-                    System.err.println("Stream nulo para ícone da janela: " + this.iconFileName + ". Usando fallback.");
                     iconStream = getClass().getResourceAsStream("/oltapp-icon.png");
                 }
                 if (iconStream != null) {
                     primaryStage.getIcons().add(new Image(iconStream));
-                    fileLogger.println("DEBUG (Main): Ícone da janela definido: " + this.iconFileName);
-                } else {
-                    fileLogger.println("ERRO (Main): Ícone da janela (incluindo fallback) não encontrado.");
                 }
             } catch (Exception e) {
-                fileLogger.println("ERRO (Main): Erro ao carregar o ícone inicial da janela: " + e.getMessage());
-                e.printStackTrace(fileLogger);
             }
 
             rootLayout = new VBox();
             rootLayout.setAlignment(Pos.TOP_CENTER);
             rootLayout.getStyleClass().add("root");
 
+            Rectangle clip = new Rectangle();
+            clip.setArcWidth(30);
+            clip.setArcHeight(30);
+            clip.widthProperty().bind(rootLayout.widthProperty());
+            clip.heightProperty().bind(rootLayout.heightProperty());
+            rootLayout.setClip(clip);
+
             HBox titleBar = createTitleBar();
             rootLayout.getChildren().add(titleBar);
 
             mainContent = new BorderPane();
-
             VBox.setVgrow(mainContent, Priority.ALWAYS);
             mainContent.setLeft(createSideNavigation());
-            mainContent.setRight(statusSidebar);
 
-            terminalTabs = new TabPane();
-            terminalTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
-            terminalTabs.setTabMinWidth(150);
-
-            Tab oltsTab = new Tab("Lista de OLTs");
-            oltsTab.setClosable(false);
-            Node oltsContent = createOLTScreen();
-            oltsTab.setContent(oltsContent);
-
-            terminalTabs.getTabs().add(oltsTab);
-            mainContent.setCenter(terminalTabs);
-            currentSection = "OLTs";
             rootLayout.getChildren().add(mainContent);
 
             Button criarTicketBtn = new Button("!");
             criarTicketBtn.getStyleClass().add("floating-btn");
-            criarTicketBtn.setPrefSize(48, 48);
+            criarTicketBtn.setPrefSize(42, 42);
 
             criarTicketBtn.setOnMouseEntered(e -> {
                 Timeline timeline = new Timeline();
@@ -235,22 +254,26 @@ public class Main extends Application {
                 });
                 fadeOut.play();
 
-                KeyValue widthValue = new KeyValue(criarTicketBtn.prefWidthProperty(), 48, Interpolator.EASE_BOTH);
+                KeyValue widthValue = new KeyValue(criarTicketBtn.prefWidthProperty(), 42, Interpolator.EASE_BOTH);
                 KeyFrame keyFrame = new KeyFrame(Duration.millis(300), widthValue);
                 timeline.getKeyFrames().add(keyFrame);
                 timeline.play();
             });
 
             criarTicketBtn.setOnAction(e -> {
-                Stage ticketStage = new Stage();
-                ticketStage.initStyle(StageStyle.UNDECORATED);
-                ticketStage.initOwner(primaryStage);
+                Stage stage = new Stage();
+                stage.initStyle(StageStyle.TRANSPARENT);
+                stage.initOwner(primaryStage);
+                stage.initModality(Modality.APPLICATION_MODAL);
 
                 VBox content = new VBox(15);
                 content.getStyleClass().add("glass-pane");
                 content.setPadding(new Insets(15));
                 content.setPrefSize(500, 450);
                 content.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.3)));
+
+                content.setCache(true);
+                content.setCacheHint(CacheHint.SPEED);
 
                 HBox ticketTitleBar = new HBox();
                 ticketTitleBar.setAlignment(Pos.CENTER_LEFT);
@@ -265,7 +288,21 @@ public class Main extends Application {
                 Button closeBtn = new Button("✕");
                 closeBtn.getStyleClass().addAll("close-btn", "window-btn");
                 closeBtn.setPadding(new Insets(12, 12, 12, 12));
-                closeBtn.setOnAction(ev -> ticketStage.close());
+                closeBtn.setOnAction(ev -> {
+                    FadeTransition fadeOut = new FadeTransition(Duration.millis(200), content);
+                    fadeOut.setFromValue(1.0);
+                    fadeOut.setToValue(0.0);
+
+                    ScaleTransition scaleOut = new ScaleTransition(Duration.millis(200), content);
+                    scaleOut.setFromX(1.0);
+                    scaleOut.setFromY(1.0);
+                    scaleOut.setToX(0.9);
+                    scaleOut.setToY(0.9);
+
+                    ParallelTransition parallelOut = new ParallelTransition(fadeOut, scaleOut);
+                    parallelOut.setOnFinished(event -> stage.close());
+                    parallelOut.play();
+                });
                 addEnhancedButtonHoverEffects(closeBtn);
 
                 ticketTitleBar.getChildren().addAll(title, spacer, closeBtn);
@@ -283,16 +320,23 @@ public class Main extends Application {
                 prioridadeBox.getItems().addAll("Baixa", "Média", "Alta", "Crítica");
                 prioridadeBox.setPromptText("Selecione");
                 prioridadeBox.getStyleClass().add("combo-box");
+                addComboBoxFocusEffects(prioridadeBox);
 
-                Label infoLabel = new Label("Esse ticket vai direto ao Eduardo Tomaz.");
+                Label infoLabel = new Label("Esse ticket vai direto ao Desenvolvedor.");
                 infoLabel.getStyleClass().add("info-label");
 
                 HBox btnRow = new HBox(10);
                 btnRow.setAlignment(Pos.CENTER_RIGHT);
                 btnRow.setPadding(new Insets(10, 0, 0, 0));
 
+                Button meusChamadosBtn = new Button("Ver Meus Chamados");
+                meusChamadosBtn.getStyleClass().add("cancel-btn");
+                addEnhancedButtonHoverEffects(meusChamadosBtn);
+                meusChamadosBtn.setOnAction(event -> showMeusChamadosModal());
+
                 Button okBtn = new Button("Criar");
                 okBtn.getStyleClass().add("connect-btn");
+                addEnhancedButtonHoverEffects(okBtn);
 
                 okBtn.setOnAction(ev -> {
                     if (descricaoArea.getText().isEmpty() || prioridadeBox.getValue() == null) return;
@@ -303,19 +347,63 @@ public class Main extends Application {
                             descricaoArea.getText(),
                             prioridadeBox.getValue()
                     );
-                    ticketStage.close();
-                    showToast("✅ Ticket criado com sucesso!");
+
+                    FadeTransition fadeOut = new FadeTransition(Duration.millis(200), content);
+                    fadeOut.setFromValue(1.0);
+                    fadeOut.setToValue(0.0);
+
+                    ScaleTransition scaleOut = new ScaleTransition(Duration.millis(200), content);
+                    scaleOut.setFromX(1.0);
+                    scaleOut.setFromY(1.0);
+                    scaleOut.setToX(0.9);
+                    scaleOut.setToY(0.9);
+
+                    ParallelTransition parallelOut = new ParallelTransition(fadeOut, scaleOut);
+                    parallelOut.setOnFinished(event -> {
+                        stage.close();
+                        animateModalClose(stage, content, () -> showToast("✅ Ticket criado com sucesso!"));
+                    });
+                    parallelOut.play();
                 });
 
-                btnRow.getChildren().addAll(okBtn);
+                Region btnSpacer = new Region();
+                HBox.setHgrow(btnSpacer, Priority.ALWAYS);
+
+                btnRow.getChildren().addAll(meusChamadosBtn, btnSpacer, okBtn);
                 content.getChildren().addAll(ticketTitleBar, descLabel, descricaoArea, prioridadeLabel, prioridadeBox, infoLabel, btnRow);
 
                 Scene scene = new Scene(content);
+                scene.setFill(Color.TRANSPARENT);
                 ThemeManager.applyThemeToNewScene(scene);
 
-                ticketStage.setScene(scene);
-                ticketStage.show();
+                stage.setScene(scene);
+                stage.setOpacity(0);
+                content.setScaleX(0.9);
+                content.setScaleY(0.9);
 
+                stage.show();
+                stage.centerOnScreen();
+
+                animateModalOpen(stage, content);
+
+                FadeTransition fadeIn = new FadeTransition(Duration.millis(300), content);
+                fadeIn.setFromValue(0.0);
+                fadeIn.setToValue(1.0);
+
+                ScaleTransition scaleIn = new ScaleTransition(Duration.millis(300), content);
+                scaleIn.setFromX(0.9);
+                scaleIn.setFromY(0.9);
+                scaleIn.setToX(1.0);
+                scaleIn.setToY(1.0);
+
+                Timeline stageOpacity = new Timeline(
+                        new KeyFrame(Duration.ZERO, new KeyValue(stage.opacityProperty(), 0)),
+                        new KeyFrame(Duration.millis(300), new KeyValue(stage.opacityProperty(), 1))
+                );
+
+                ParallelTransition parallelIn = new ParallelTransition(fadeIn, scaleIn, stageOpacity);
+                parallelIn.setInterpolator(Interpolator.EASE_OUT);
+                parallelIn.play();
             });
 
             StackPane rootStack = new StackPane();
@@ -323,97 +411,83 @@ public class Main extends Application {
             StackPane.setAlignment(criarTicketBtn, Pos.BOTTOM_RIGHT);
             StackPane.setMargin(criarTicketBtn, new Insets(0, 20, 20, 0));
 
-            Scene scene = new Scene(rootStack, 1360, 720);
-            ThemeManager.applyTheme(scene, configManager.getTheme());
+            Scene scene = new Scene(rootStack, 1300, 760);
+            scene.setFill(Color.TRANSPARENT);
+            ThemeManager.applyTheme(scene, initialTheme);
 
             primaryStage.setScene(scene);
-            primaryStage.setTitle("Gerenciador de OLTs");
+            primaryStage.setTitle("NM OLT App");
             primaryStage.setOnCloseRequest(event -> {
-                System.out.println("Window close requested.");
                 event.consume();
             });
+
+            primaryStage.setMinWidth(760);
+            primaryStage.setMinHeight(670);
+            new StageResizer(primaryStage);
+
+            primaryStage.setOpacity(0);
             primaryStage.show();
 
             if (SystemTray.isSupported()) {
                 SystemTray tray = SystemTray.getSystemTray();
                 java.awt.Image image = Toolkit.getDefaultToolkit().getImage(getClass().getResource("/oltapp-icon-taskbar.png"));
 
-                trayIcon = new TrayIcon(image, "Gerenciador de OLTs");
+                trayIcon = new TrayIcon(image, "NM OLT App");
                 trayIcon.setImageAutoSize(true);
                 try {
                     tray.add(trayIcon);
                 } catch (Exception e) {
-                    System.err.println("Erro ao adicionar TrayIcon: " + e.getMessage());
                 }
             }
 
-            primaryStage.setOpacity(0);
+
             Timeline fadeIn = new Timeline(
                     new KeyFrame(Duration.ZERO, new KeyValue(primaryStage.opacityProperty(), 0)),
                     new KeyFrame(Duration.millis(400), new KeyValue(primaryStage.opacityProperty(), 1))
             );
+            fadeIn.setOnFinished(e -> {
+                Platform.runLater(this::loadInitialMainContent);
+            });
             fadeIn.play();
 
             setupWindowDrag(rootLayout.getChildren().get(0));
 
-            scene.setOnKeyPressed(event -> {
-                if (event.isControlDown() && event.getCode() == KeyCode.F) {
-                    showSection("ONT/ONU By-SN");
-
-                    Platform.runLater(() -> {
-                        Node contentNode = contentCache.get("ONT/ONU By-SN");
-                        if (contentNode != null) {
-                            TextField snField = (TextField) contentNode.lookup(".text-field");
-                            if (snField != null && "Digite o SN da ONT/ONU".equals(snField.getPromptText())) {
-                                snField.requestFocus();
-                            } else {
-                                System.err.println("SN Field not found or not unique in ONT/ONU By-SN screen for Ctrl+F focus.");
-                            }
-                        }
-                    });
-
-                    event.consume();
-                }
-            });
-
         } catch (Exception e) {
-            fileLogger.println("ERRO (Main): Exceção geral no método start: " + e.getMessage());
-            e.printStackTrace(fileLogger);
-
+            e.printStackTrace();
+            System.out.println("❌ Erro ao iniciar o aplicativo: " + e.getMessage());
             Platform.exit();
         }
     }
 
-    // Debug log
-    private void setupFileLogging() {
-        try {
-            Path logDir = Paths.get(LOG_DIRECTORY);
-            Files.createDirectories(logDir);
-
-            Path logFile = logDir.resolve(DEBUG_LOG_FILE);
-            fileLogger = new PrintStream(new FileOutputStream(logFile.toFile(), true));
-
-            System.setOut(fileLogger);
-            System.setErr(fileLogger);
-
-            fileLogger.println("--- Aplicativo Iniciado: " + LocalDateTime.now() + " ---");
-        } catch (IOException e) {
-            System.err.println("Erro ao configurar o log em arquivo: " + e.getMessage());
-            e.printStackTrace();
-            fileLogger = new PrintStream(System.out);
-        }
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
     }
 
-    private void closeFileLogging() {
-        if (fileLogger != null && fileLogger != System.out && fileLogger != System.err) {
-            fileLogger.println("--- Aplicativo Encerrado: " + LocalDateTime.now() + " ---");
-            fileLogger.close();
+    private void loadInitialMainContent() {
+        terminalTabs = new TabPane();
+        terminalTabs.setStyle("-fx-background-color: transparent;");
+        terminalTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
+        terminalTabs.setTabMinWidth(150);
+
+        Tab oltsTab = new Tab("Lista de OLTs");
+        standardizeTabText(oltsTab);
+        oltsTab.setClosable(false);
+
+        Node oltsContent = createOLTScreen();
+        oltsTab.setContent(oltsContent);
+
+        terminalTabs.getTabs().add(oltsTab);
+
+        if (mainContent != null) {
+            mainContent.setCenter(terminalTabs);
         }
+        currentSection = "OLTs";
+
     }
-    // ---------------------- START ---------------------- //
+    // ---------------------- Start ---------------------- //
 
 
-    // ---------------------- BARRA VERTICAL ---------------------- //
+    // ---------------------- Barra Vertical (Abas) ---------------------- //
     private VBox createSideNavigation() {
         VBox sideNav = new VBox(10);
         sideNav.getStyleClass().add("side-nav");
@@ -425,7 +499,7 @@ public class Main extends Application {
         versionBox.setAlignment(Pos.CENTER_LEFT);
         versionBox.setPadding(new Insets(0, 0, 10, 15));
 
-        Label versionLabel = new Label("v1.5.5.0 • ");
+        Label versionLabel = new Label("v1.6.0.0 • ");
         versionLabel.getStyleClass().add("version-text");
 
         Label creditsLink = new Label("créditos");
@@ -434,31 +508,25 @@ public class Main extends Application {
         Glow glowEffect = new Glow(0.0);
         creditsLink.setEffect(glowEffect);
 
-        creditsLink.setOnMouseEntered(e -> {
-            glowEffect.setLevel(0.8);
-        });
-
-        creditsLink.setOnMouseExited(e -> {
-            glowEffect.setLevel(0.0);
-        });
-
+        creditsLink.setOnMouseEntered(e -> glowEffect.setLevel(0.8));
+        creditsLink.setOnMouseExited(e -> glowEffect.setLevel(0.0));
         creditsLink.setOnMouseClicked(e -> showCreditsSection());
         versionBox.getChildren().addAll(versionLabel, creditsLink);
         navGroup = new ToggleGroup();
 
-        ToggleButton oltBtn = createNavButton("OLTs", false);
-        ToggleButton signalBtn = createNavButton("PON Consulta de Sinal", false);
-        ToggleButton ponSummaryBtn = createNavButton("PON Summary", false);
-        ToggleButton onuBySNBtn = createNavButton("ONT/ONU By-SN", false);
-        ToggleButton diagnosisBtn = createNavButton("ONT/ONU Quedas", false);
-        ToggleButton trafficBtn = createNavButton("ONT/ONU Velocidade", false);
-        ToggleButton serviceBtn = createNavButton("ONT/ONU Serviços", false);
+        ToggleButton oltBtn = createNavButton("OLTs", true);
+        ToggleButton signalBtn = createNavButton("Consulta de Sinal", false);
+        ToggleButton ponSummaryBtn = createNavButton("Summary", false);
+        ToggleButton onuBySNBtn = createNavButton("By-SN", false);
+        ToggleButton diagnosisBtn = createNavButton("Quedas", false);
+        ToggleButton trafficBtn = createNavButton("Tráfego", false);
+        ToggleButton serviceBtn = createNavButton("Serviços", false);
 
         sideNav.getChildren().addAll(oltBtn, signalBtn, ponSummaryBtn, onuBySNBtn, diagnosisBtn, trafficBtn, serviceBtn);
 
-        if (usuario.getUsuario().equalsIgnoreCase("Eduardo")) {
-            ToggleButton pendenciasBtn = createNavButton("Chamados", false);
-            sideNav.getChildren().add(pendenciasBtn);
+        if (usuario.isAdmin()) {
+            VBox adminSection = createAdminSection();
+            sideNav.getChildren().add(adminSection);
         }
 
         Region spacer = new Region();
@@ -478,11 +546,12 @@ public class Main extends Application {
         HBox userRoleBox = new HBox(5);
         userRoleBox.setAlignment(Pos.CENTER_LEFT);
 
-        Label roleLabel = new Label("ㅤ(" + usuario.getCargo() + ")");
+        Label roleLabel = new Label("ㅤ " + usuario.getCargo());
         roleLabel.getStyleClass().add("user-role");
 
         Button dropdownBtn = new Button("▾");
         dropdownBtn.getStyleClass().add("dropdown-arrow");
+        addEnhancedButtonHoverEffects(dropdownBtn);
 
         userRoleBox.getChildren().addAll(roleLabel, dropdownBtn);
         userInfoBox.getChildren().addAll(usernameLabel, userRoleBox);
@@ -492,50 +561,88 @@ public class Main extends Application {
         logoutContainer.setVisible(false);
         logoutContainer.setManaged(false);
 
-
-        Button themeBtn = new Button("🎨 Temas");
-        themeBtn.getStyleClass().add("logout-button");
-        themeBtn.setMaxWidth(Double.MAX_VALUE);
-        logoutContainer.getChildren().add(themeBtn);
-
         ComboBox<String> themeCombo = new ComboBox<>();
         themeCombo.getItems().addAll(
-                "Roxo (Padrão)", "All Black", "All White", "Dracula", "Night Owl", "Light Owl", "Creme", "Azul", "Verde", "Vermelho", "Rosa"
+                "Roxo", "All Black", "All White", "Dracula", "GitHub Dark", "Shades", "Night Owl", "Light Owl", "Creme", "Terminal", "Azul", "Verde", "Vermelho", "Rosa"
         );
-        themeCombo.setPromptText("Escolha o tema");
-        themeCombo.setVisible(false);
-        themeCombo.setManaged(false);
+        themeCombo.setPromptText("Temas");
         themeCombo.getStyleClass().add("theme-combobox");
-        logoutContainer.getChildren().add(themeCombo);
+        themeCombo.setPrefWidth(120);
+        themeCombo.setMaxWidth(120);
+        addComboBoxFocusEffects(themeCombo);
+
+        Button logoutBtn = new Button("🚪");
+        logoutBtn.getStyleClass().add("logout-btn");
+        logoutBtn.setPrefWidth(40);
+        logoutBtn.setMaxWidth(40);
+        logoutBtn.setPrefHeight(43);
+        logoutBtn.setTooltip(new Tooltip("Deslogar"));
+        addEnhancedButtonHoverEffects(logoutBtn);
+
+        HBox themeLogoutBox = new HBox(5);
+        themeLogoutBox.setAlignment(Pos.CENTER);
+        themeLogoutBox.getChildren().addAll(themeCombo, logoutBtn);
+
+        logoutContainer.getChildren().add(themeLogoutBox);
 
         dropdownBtn.setOnAction(e -> {
-            boolean isVisible = !logoutContainer.isVisible();
-            logoutContainer.setVisible(isVisible);
-            logoutContainer.setManaged(isVisible);
-            dropdownBtn.setText(isVisible ? "▴" : "▾");
+            boolean isLogoutContainerCurrentlyVisible = logoutContainer.isVisible();
 
-            dropdownBtn.getStyleClass().remove("dropdown-arrow-active");
-            if (isVisible) {
+            if (!isLogoutContainerCurrentlyVisible) {
+                dropdownBtn.setText("▴");
                 dropdownBtn.getStyleClass().add("dropdown-arrow-active");
-            }
-        });
 
-        themeBtn.setOnAction(e -> {
-            boolean visible = !themeCombo.isVisible();
-            themeCombo.setVisible(visible);
-            themeCombo.setManaged(visible);
+                logoutContainer.setOpacity(0.0);
+                logoutContainer.setTranslateY(-10);
+
+                logoutContainer.setManaged(true);
+                logoutContainer.setVisible(true);
+
+                FadeTransition fadeIn = new FadeTransition(Duration.millis(200), logoutContainer);
+                fadeIn.setFromValue(0.0);
+                fadeIn.setToValue(1.0);
+
+                TranslateTransition slideDown = new TranslateTransition(Duration.millis(200), logoutContainer);
+                slideDown.setFromY(-10);
+                slideDown.setToY(0);
+
+                ParallelTransition showAnimation = new ParallelTransition(fadeIn, slideDown);
+                showAnimation.play();
+
+            } else {
+                dropdownBtn.setText("▾");
+                dropdownBtn.getStyleClass().remove("dropdown-arrow-active");
+
+                FadeTransition fadeOut = new FadeTransition(Duration.millis(200), logoutContainer);
+                fadeOut.setFromValue(logoutContainer.getOpacity());
+                fadeOut.setToValue(0.0);
+
+                TranslateTransition slideUp = new TranslateTransition(Duration.millis(200), logoutContainer);
+                slideUp.setFromY(logoutContainer.getTranslateY());
+                slideUp.setToY(-10);
+
+                ParallelTransition hideAnimation = new ParallelTransition(fadeOut, slideUp);
+                hideAnimation.setOnFinished(event -> {
+                    logoutContainer.setVisible(false);
+                    logoutContainer.setManaged(false);
+
+                    logoutContainer.setOpacity(1.0);
+                    logoutContainer.setTranslateY(0);
+                });
+                hideAnimation.play();
+            }
         });
 
         themeCombo.setOnAction(e -> {
             String selected = themeCombo.getValue();
             if (selected != null) {
-                String themeFile = "style.css";
+                String themeFile;
                 String selectedIconFileName;
 
                 switch (selected) {
-                    case "Roxo (Padrão)" -> {
+                    case "Roxo" -> {
                         themeFile = "style.css";
-                        selectedIconFileName = "/oltapp-icon.png";
+                        selectedIconFileName = "oltapp-icon.png";
                     }
                     case "All Black" -> {
                         themeFile = "style-allblack.css";
@@ -549,6 +656,14 @@ public class Main extends Application {
                         themeFile = "style-dracula.css";
                         selectedIconFileName = "/oltapp-icon-dracula.png";
                     }
+                    case "GitHub Dark" -> {
+                        themeFile = "style-gdark.css";
+                        selectedIconFileName = "/oltapp-icon-gdark.png";
+                    }
+                    case "Shades" -> {
+                        themeFile = "style-sop.css";
+                        selectedIconFileName = "/oltapp-icon-sop.png";
+                    }
                     case "Night Owl" -> {
                         themeFile = "style-nightowl.css";
                         selectedIconFileName = "/oltapp-icon-nightowl.png";
@@ -560,6 +675,10 @@ public class Main extends Application {
                     case "Creme" -> {
                         themeFile = "style-creme.css";
                         selectedIconFileName = "/oltapp-icon-creme.png";
+                    }
+                    case "Terminal" -> {
+                        themeFile = "style-terminal.css";
+                        selectedIconFileName = "/oltapp-icon-terminal.png";
                     }
                     case "Azul" -> {
                         themeFile = "style-blue.css";
@@ -583,79 +702,28 @@ public class Main extends Application {
                     }
                 }
 
-                utils.ThemeManager.applyTheme(primaryStage.getScene(), themeFile);
-
+                ThemeManager.applyTheme(primaryStage.getScene(), themeFile);
                 configManager.setTheme(themeFile);
+                this.iconFileName = selectedIconFileName;
 
-                try {
-                    InputStream iconStream = getClass().getResourceAsStream(selectedIconFileName);
-                    if (iconStream == null) {
-                        System.err.println("Stream nulo para ícone da janela (seleção): " + selectedIconFileName + ". Usando fallback.");
-                        iconStream = getClass().getResourceAsStream("/oltapp-icon.png");
-                    }
-                    if (iconStream != null) {
-                        Image windowIcon = new Image(iconStream);
-                        primaryStage.getIcons().clear();
-                        primaryStage.getIcons().add(windowIcon);
-                        titleBarIconView.setFitHeight(20);
-                        titleBarIconView.setFitWidth(20);
-                    } else {
-                        System.err.println("Ícone da janela (seleção/fallback) não encontrado.");
-                    }
-                } catch (Exception ex) {
-                    System.err.println("Erro ao carregar o ícone da janela para o tema " + selected + ": " + ex.getMessage());
-                }
-
-                if (titleBarIconView != null) {
-                    try {
-                        InputStream iconStream = getClass().getResourceAsStream(selectedIconFileName);
-                        if (iconStream == null) {
-                            System.err.println("Stream nulo para ícone da barra de título (seleção): " + selectedIconFileName + ". Usando fallback.");
-                            iconStream = getClass().getResourceAsStream("/oltapp-icon.png");
-                        }
-                        if (iconStream != null) {
-                            Image titleBarImage = new Image(iconStream);
-                            titleBarIconView.setImage(titleBarImage);
-                            titleBarIconView.setFitHeight(20);
-                            titleBarIconView.setFitWidth(20);
-                        } else {
-                            System.err.println("Ícone da barra de título (seleção/fallback) não encontrado.");
-                        }
-                    } catch (Exception ex) {
-                        System.err.println("Erro ao carregar a imagem do ícone da barra de título para o tema " + selected + ": " + ex.getMessage());
-                    }
-                } else {
-                    System.err.println("Erro: Referência titleBarIconView é nula ao tentar atualizar ícone do tema.");
-                }
+                updateApplicationIcons(selectedIconFileName);
             }
-            themeCombo.setVisible(false);
-            themeCombo.setManaged(false);
         });
 
-        Button logoutBtn = new Button("❌ Deslogar");
-        logoutBtn.getStyleClass().add("logout-button");
-        logoutBtn.setMaxWidth(Double.MAX_VALUE);
-        logoutContainer.getChildren().add(logoutBtn);
-
         logoutBtn.setOnAction(e -> {
+            DatabaseManager.logUsuario(usuario.getNome(), "Deslogou do sistema");
+
             primaryStage.close();
 
-            Stage loginStage = new Stage();
-            Usuario novoLogin = new LoginScreen().showLogin(loginStage);
-
-            System.out.println("Usuário retornado: " + (novoLogin != null ? novoLogin.getNome() : "null"));
-
-            if (novoLogin != null) {
-                Platform.runLater(() -> {
-                    Main novoMain = new Main();
-                    novoMain.setUsuario(novoLogin);
-                    try {
-                        novoMain.start(new Stage());
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
-                });
-            }
+            Platform.runLater(() -> {
+                try {
+                    Main novaApp = new Main();
+                    novaApp.start(new Stage());
+                } catch (Exception ex) {
+                    System.err.println("Erro ao reiniciar o aplicativo após o logout.");
+                    ex.printStackTrace();
+                }
+            });
         });
 
         footerBox.getChildren().addAll(versionBox, userInfoBox, logoutContainer);
@@ -663,8 +731,46 @@ public class Main extends Application {
         return sideNav;
     }
 
-    public void setUsuario(Usuario usuario) {
-        this.usuario = usuario;
+    private VBox createAdminSection() {
+        VBox adminSection = new VBox(5);
+        adminSection.setPadding(new Insets(15, 0, 0, 0));
+
+        Region separator = new Region();
+        separator.getStyleClass().add("admin-separator");
+        separator.setPrefWidth(180);
+        separator.setPrefHeight(1);
+
+        Label adminLabel = new Label("🔧 ADMIN & DEVS");
+        adminLabel.getStyleClass().add("admin-section-label");
+        adminLabel.setPadding(new Insets(10, 0, 5, 15));
+
+        ToggleButton pendenciasBtn = createNavButton("Chamados", false);
+
+        adminSection.getChildren().addAll(separator, adminLabel, pendenciasBtn);
+        return adminSection;
+    }
+
+    private void updateApplicationIcons(String iconResourcePath) {
+        try {
+            InputStream iconStream = getClass().getResourceAsStream(iconResourcePath);
+            if (iconStream == null) {
+                iconStream = getClass().getResourceAsStream("/oltapp-icon.png");
+            }
+            if (iconStream != null) {
+                Image windowIcon = new Image(iconStream);
+                primaryStage.getIcons().clear();
+                primaryStage.getIcons().add(windowIcon);
+
+                InputStream titleBarIconStream = getClass().getResourceAsStream(iconResourcePath);
+                if (titleBarIconStream == null) {
+                    titleBarIconStream = getClass().getResourceAsStream("/oltapp-icon.png");
+                }
+                if (titleBarIconStream != null && titleBarIconView != null) {
+                    titleBarIconView.setImage(new Image(titleBarIconStream));
+                }
+            }
+        } catch (Exception ex) {
+        }
     }
 
     private ToggleButton createNavButton(String text, boolean selected) {
@@ -675,6 +781,8 @@ public class Main extends Application {
         btn.setPrefHeight(50);
         btn.setSelected(selected);
 
+        setupButtonAnimations(btn);
+
         btn.setOnAction(e -> {
             if (btn.isSelected()) {
                 showSection(text);
@@ -684,8 +792,167 @@ public class Main extends Application {
         return btn;
     }
 
+    private void setupButtonAnimations(ToggleButton btn) {
+        final double originalScaleX = 1.0;
+        final double originalScaleY = 1.0;
+        final double originalOpacity = 1.0;
+
+        final double hoverScaleX = 1.02;
+        final double hoverScaleY = 1.02;
+        final double hoverOpacity = 0.95;
+
+        final double pressScaleX = 0.98;
+        final double pressScaleY = 0.98;
+
+        DropShadow glowEffect = new DropShadow();
+        glowEffect.setColor(Color.web("#7d4cbd", 0.3));
+        glowEffect.setRadius(8);
+        glowEffect.setSpread(0.3);
+
+        Timeline hoverIn = new Timeline(
+                new KeyFrame(Duration.millis(200),
+                        new KeyValue(btn.scaleXProperty(), hoverScaleX, Interpolator.EASE_OUT),
+                        new KeyValue(btn.scaleYProperty(), hoverScaleY, Interpolator.EASE_OUT),
+                        new KeyValue(btn.opacityProperty(), hoverOpacity, Interpolator.EASE_OUT)
+                )
+        );
+
+        Timeline hoverOut = new Timeline(
+                new KeyFrame(Duration.millis(200),
+                        new KeyValue(btn.scaleXProperty(), originalScaleX, Interpolator.EASE_OUT),
+                        new KeyValue(btn.scaleYProperty(), originalScaleY, Interpolator.EASE_OUT),
+                        new KeyValue(btn.opacityProperty(), originalOpacity, Interpolator.EASE_OUT)
+                )
+        );
+
+        Timeline pressIn = new Timeline(
+                new KeyFrame(Duration.millis(80),
+                        new KeyValue(btn.scaleXProperty(), pressScaleX, Interpolator.EASE_IN),
+                        new KeyValue(btn.scaleYProperty(), pressScaleY, Interpolator.EASE_IN)
+                )
+        );
+
+        Timeline pressOut = new Timeline(
+                new KeyFrame(Duration.millis(120),
+                        new KeyValue(btn.scaleXProperty(), hoverScaleX, Interpolator.EASE_OUT),
+                        new KeyValue(btn.scaleYProperty(), hoverScaleY, Interpolator.EASE_OUT)
+                )
+        );
+
+        Timeline glowIn = new Timeline(
+                new KeyFrame(Duration.millis(250),
+                        new KeyValue(glowEffect.radiusProperty(), 12, Interpolator.EASE_OUT),
+                        new KeyValue(glowEffect.colorProperty(), Color.web("#7d4cbd", 0.4), Interpolator.EASE_OUT)
+                )
+        );
+
+        Timeline glowOut = new Timeline(
+                new KeyFrame(Duration.millis(300),
+                        new KeyValue(glowEffect.radiusProperty(), 0, Interpolator.EASE_OUT),
+                        new KeyValue(glowEffect.colorProperty(), Color.web("#7d4cbd", 0.0), Interpolator.EASE_OUT)
+                )
+        );
+
+        btn.setOnMouseEntered(e -> {
+            if (!btn.isSelected()) {
+                hoverOut.stop();
+                glowOut.stop();
+                hoverIn.play();
+                glowIn.play();
+                btn.setEffect(glowEffect);
+            }
+        });
+
+        btn.setOnMouseExited(e -> {
+            if (!btn.isSelected()) {
+                hoverIn.stop();
+                glowIn.stop();
+                hoverOut.play();
+
+                glowOut.setOnFinished(ev -> {
+                    if (!btn.isHover() && !btn.isSelected()) {
+                        btn.setEffect(null);
+                    }
+                });
+                glowOut.play();
+            }
+        });
+
+        btn.setOnMousePressed(e -> {
+            if (!btn.isSelected()) {
+                pressIn.play();
+
+                Timeline pressGlow = new Timeline(
+                        new KeyFrame(Duration.millis(80),
+                                new KeyValue(glowEffect.radiusProperty(), 15, Interpolator.EASE_IN),
+                                new KeyValue(glowEffect.colorProperty(), Color.web("#7d4cbd", 0.6), Interpolator.EASE_IN)
+                        )
+                );
+                pressGlow.play();
+            }
+        });
+
+        btn.setOnMouseReleased(e -> {
+            if (!btn.isSelected() && btn.isHover()) {
+                pressOut.play();
+
+                Timeline releaseGlow = new Timeline(
+                        new KeyFrame(Duration.millis(120),
+                                new KeyValue(glowEffect.radiusProperty(), 12, Interpolator.EASE_OUT),
+                                new KeyValue(glowEffect.colorProperty(), Color.web("#7d4cbd", 0.4), Interpolator.EASE_OUT)
+                        )
+                );
+                releaseGlow.play();
+            }
+        });
+
+        btn.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal) {
+                hoverIn.stop();
+                hoverOut.stop();
+
+                DropShadow selectedGlow = new DropShadow();
+                selectedGlow.setColor(Color.web("#b387e2", 0.5));
+                selectedGlow.setRadius(10);
+                selectedGlow.setSpread(0.0);
+                btn.setEffect(selectedGlow);
+
+                Timeline selectedPulse = new Timeline(
+                        new KeyFrame(Duration.ZERO,
+                                new KeyValue(selectedGlow.radiusProperty(), 10),
+                                new KeyValue(selectedGlow.colorProperty(), Color.web("#b387e2", 0.5))
+                        ),
+                        new KeyFrame(Duration.millis(1500),
+                                new KeyValue(selectedGlow.radiusProperty(), 12, Interpolator.EASE_BOTH),
+                                new KeyValue(selectedGlow.colorProperty(), Color.web("#b387e2", 0.3), Interpolator.EASE_BOTH)
+                        ),
+                        new KeyFrame(Duration.millis(3000),
+                                new KeyValue(selectedGlow.radiusProperty(), 10, Interpolator.EASE_BOTH),
+                                new KeyValue(selectedGlow.colorProperty(), Color.web("#b387e2", 0.5), Interpolator.EASE_BOTH)
+                        )
+                );
+                selectedPulse.setCycleCount(Timeline.INDEFINITE);
+                selectedPulse.play();
+
+                btn.getProperties().put("selectedPulse", selectedPulse);
+
+            } else {
+                Timeline selectedPulse = (Timeline) btn.getProperties().get("selectedPulse");
+                if (selectedPulse != null) {
+                    selectedPulse.stop();
+                }
+                btn.setEffect(null);
+
+                btn.setScaleX(originalScaleX);
+                btn.setScaleY(originalScaleY);
+                btn.setOpacity(originalOpacity);
+            }
+        });
+    }
+
     private void showSection(String section) {
         if ("OLTs".equals(section) && terminalTabs != null) {
+            refreshAllOLTStatuses();
             if (mainContent.getCenter() == terminalTabs) {
                 for (Tab tab : terminalTabs.getTabs()) {
                     if ("Lista de OLTs".equals(tab.getText())) {
@@ -698,31 +965,10 @@ public class Main extends Application {
                 }
                 return;
             } else {
-                Node currentContent = mainContent.getCenter();
-                mainContent.setCenter(terminalTabs);
+                animateContentSwitch(terminalTabs);
                 if (!section.equals(currentSection)) {
                     currentSection = section;
                 }
-
-                if (currentContent != null) {
-                    FadeTransition fadeOut = new FadeTransition(Duration.millis(200), currentContent);
-                    fadeOut.setFromValue(1.0);
-                    fadeOut.setToValue(0.0);
-                    fadeOut.setOnFinished(e -> {
-                        FadeTransition fadeIn = new FadeTransition(Duration.millis(200), terminalTabs);
-                        fadeIn.setFromValue(0.0);
-                        fadeIn.setToValue(1.0);
-                        fadeIn.play();
-                    });
-                    fadeOut.play();
-                } else {
-                    terminalTabs.setOpacity(0);
-                    FadeTransition fadeIn = new FadeTransition(Duration.millis(200), terminalTabs);
-                    fadeIn.setFromValue(0.0);
-                    fadeIn.setToValue(1.0);
-                    fadeIn.play();
-                }
-
                 for (Tab tab : terminalTabs.getTabs()) {
                     if ("Lista de OLTs".equals(tab.getText())) {
                         terminalTabs.getSelectionModel().select(tab);
@@ -733,142 +979,72 @@ public class Main extends Application {
             }
         }
 
-        Node currentContent = mainContent.getCenter();
-        Node newContent = contentCache.get(section);
-
-        if (newContent == null) {
-            switch (section) {
-                case "PON Consulta de Sinal":
-                    newContent = createSignalQueryScreen();
-                    break;
-                case "PON Summary":
-                    newContent = createPONSummaryScreen();
-                    break;
-                case "ONT/ONU By-SN":
-                    newContent = createONUBySNScreen();
-                    break;
-                case "ONT/ONU Quedas":
-                    newContent = createDropDiagnosisScreen();
-                    break;
-                case "ONT/ONU Velocidade":
-                    newContent = createONUTrafficScreen();
-                    break;
-                case "ONT/ONU Serviços":
-                    newContent = createONUServiceScreen();
-                    break;
-                case "Chamados":
-                    newContent = createTechnicalTicketsScreen();
-                    break;
-                default:
-                    newContent = new VBox();
-                    break;
-            }
-        }
-
-        if (newContent != null && newContent != currentContent) {
-            final Node finalNewContent = newContent;
-            finalNewContent.setOpacity(0);
-            mainContent.setCenter(finalNewContent);
-
-            if (currentContent != null) {
-                FadeTransition fadeOut = new FadeTransition(Duration.millis(200), currentContent);
-                fadeOut.setFromValue(1.0);
-                fadeOut.setToValue(0.0);
-                fadeOut.setOnFinished(e -> {
-                    FadeTransition fadeIn = new FadeTransition(Duration.millis(200), finalNewContent);
-                    fadeIn.setFromValue(0.0);
-                    fadeIn.setToValue(1.0);
-                    fadeIn.play();
-                });
-                fadeOut.play();
-            } else {
-                FadeTransition fadeIn = new FadeTransition(Duration.millis(200), finalNewContent);
-                fadeIn.setFromValue(0.0);
-                fadeIn.setToValue(1.0);
-                fadeIn.play();
-            }
-
-            currentSection = section;
-        }
-    }
-    // ---------------------- BARRA VERTICAl ---------------------- //
-
-
-    // ---------------------- OLTS ---------------------- //
-    private Node createOLTScreen() {
-        VBox content = new VBox(20);
-        content.getStyleClass().add("content-area");
-        content.setAlignment(Pos.TOP_CENTER);
-        content.setPadding(new Insets(20));
-        VBox.setVgrow(content, Priority.ALWAYS);
-
-        FlowPane cardsPane = new FlowPane();
-        cardsPane.setHgap(15);
-        cardsPane.setVgap(15);
-        cardsPane.setPadding(new Insets(20));
-        cardsPane.setAlignment(Pos.CENTER);
-
-        List<VBox> oltCards = new ArrayList<>();
-        final boolean[] isMaximized = {false};
-
-        for (OLT olt : OLTList.getOLTs()) {
-            VBox card = createOLTCard(olt, isMaximized[0]);
-            oltCards.add(card);
-            cardsPane.getChildren().add(card);
-        }
-
-        ChangeListener<Number> widthChangeListener = (obs, oldVal, newVal) -> {
-            if (newVal == null) return;
-            double availableWidth = newVal.doubleValue();
-            double cardWidth = isMaximized[0] ? 185 : 155;
-            int gap = 15;
-            int numColumns = Math.max(1, (int) ((availableWidth - 40) / (cardWidth + gap)));
-            double newPaneWidth = numColumns * (cardWidth + gap);
-            cardsPane.setPrefWidth(newPaneWidth);
-            int itemsPerRow = Math.max(1, numColumns);
-            int totalRows = (int) Math.ceil((double) OLTList.getOLTs().size() / itemsPerRow);
-            int itemsInLastRow = OLTList.getOLTs().size() % itemsPerRow;
-            if (itemsInLastRow == 1 && totalRows > 1 && itemsPerRow > 1) {
-                cardsPane.setPrefWrapLength((itemsPerRow - 1) * (cardWidth + gap));
-            } else {
-                cardsPane.setPrefWrapLength(newPaneWidth);
-            }
-        };
-
-        content.sceneProperty().addListener((obs, oldScene, newScene) -> {
-            if (newScene != null) {
-                Stage stage = (Stage) newScene.getWindow();
-                newScene.widthProperty().addListener(widthChangeListener);
-                stage.maximizedProperty().addListener((obs2, oldMax, newMax) -> {
-                    isMaximized[0] = newMax;
-                    widthChangeListener.changed(null, null, newScene.getWidth());
-                    for (VBox card : oltCards) {
-                        double newWidth = newMax ? 185 : 155;
-                        double newHeight = newMax ? 141.5 : 123;
-                        card.setPrefSize(newWidth, newHeight);
-                        card.setMaxWidth(newWidth);
-                        card.setMaxHeight(newHeight);
-                        Rectangle clip = (Rectangle) card.getClip();
-                        clip.setWidth(newWidth);
-                        clip.setHeight(newHeight);
-                        for (Node child : card.getChildren()) {
-                            if (child instanceof Label && ((Label) child).getStyleClass().contains("olt-name")) {
-                                ((Label) child).setStyle(newMax ? "-fx-font-size: 16px;" : "-fx-font-size: 14px;");
-                            }
-                            if (child instanceof Button && ((Button) child).getText().equals("Conectar")) {
-                                ((Button) child).setStyle(newMax ? "-fx-font-size: 14px; -fx-pref-width: 120px; -fx-pref-height: 35px;" :
-                                        "-fx-font-size: 12px; -fx-pref-width: 100px; -fx-pref-height: 30px;");
-                            }
-                        }
-                    }
-                });
-                Platform.runLater(() -> widthChangeListener.changed(null, null, newScene.getWidth()));
+        Node newContent = contentCache.computeIfAbsent(section, s -> {
+            switch (s) {
+                case "Consulta de Sinal": return createSignalQueryScreen();
+                case "Summary": return createPONSummaryScreen();
+                case "By-SN": return createONUBySNScreen();
+                case "Quedas": return createDropDiagnosisScreen();
+                case "Tráfego": return createONUTrafficScreen();
+                case "Serviços": return createONUServiceScreen();
+                case "Chamados": return createTechnicalTicketsScreen();
+                default: return new VBox(new Label("Conteúdo para " + s));
             }
         });
 
-        VBox scrollContent = new VBox(cardsPane);
+        if (newContent != null && newContent != mainContent.getCenter()) {
+            animateContentSwitch(newContent);
+            currentSection = section;
+        }
+    }
+
+    private void animateContentSwitch(Node newContent) {
+        Node currentCenterContent = mainContent.getCenter();
+        newContent.setOpacity(0);
+
+        if (currentCenterContent != null) {
+            FadeTransition fadeOut = new FadeTransition(Duration.millis(150), currentCenterContent);
+            fadeOut.setFromValue(currentCenterContent.getOpacity());
+            fadeOut.setToValue(0.0);
+            fadeOut.setOnFinished(e -> {
+                mainContent.setCenter(newContent);
+                FadeTransition fadeIn = new FadeTransition(Duration.millis(150), newContent);
+                fadeIn.setFromValue(0.0);
+                fadeIn.setToValue(1.0);
+                fadeIn.play();
+            });
+            fadeOut.play();
+        } else {
+            mainContent.setCenter(newContent);
+            FadeTransition fadeIn = new FadeTransition(Duration.millis(150), newContent);
+            fadeIn.setFromValue(0.0);
+            fadeIn.setToValue(1.0);
+            fadeIn.play();
+        }
+    }
+    // ---------------------- Barra Vertical (Abas) ---------------------- //
+
+
+    // ---------------------- OLTs ---------------------- //
+    private Node createOLTScreen() {
+        VBox content = new VBox(5);
+        content.getStyleClass().add("content-area");
+        content.setAlignment(Pos.TOP_CENTER);
+        content.setPadding(new Insets(15));
+        VBox.setVgrow(content, Priority.ALWAYS);
+
+        HBox combinedHeader = createOltHeaderControls();
+
+        oltCardsPane = new FlowPane();
+        oltCardsPane.setHgap(15);
+        oltCardsPane.setVgap(15);
+        oltCardsPane.setPadding(new Insets(10, 20, 20, 20));
+        oltCardsPane.setAlignment(Pos.CENTER);
+
+        setupResponsiveLayout(content, oltCardsPane);
+
+        VBox scrollContent = new VBox(oltCardsPane);
         scrollContent.setAlignment(Pos.TOP_CENTER);
-        scrollContent.setPadding(new Insets(20, 20, 20, 20));
         scrollContent.setFillWidth(true);
         VBox.setVgrow(scrollContent, Priority.ALWAYS);
 
@@ -881,95 +1057,693 @@ public class Main extends Application {
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         scrollPane.setMaxHeight(Double.MAX_VALUE);
 
-        content.getChildren().addAll(scrollPane);
+        content.getChildren().addAll(combinedHeader, scrollPane);
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
         Platform.runLater(() -> {
-            animateCardsSequentially(cardsPane.getChildren(), 50);
-            cardsPane.toFront();
+            refreshOLTScreen();
+            animateCardsSequentially(oltCardsPane.getChildren(), 50);
         });
 
         return content;
     }
 
-    private VBox createOLTCard(OLT olt, boolean isMaximized) {
-        double cardWidth = isMaximized ? 185 : 155;
-        double cardHeight = isMaximized ? 141.5 : 123;
+    private HBox createOltHeaderControls() {
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setPadding(new Insets(5, 20, 10, 20));
 
-        VBox card = new VBox(8);
+        HBox leftControls = new HBox(10);
+        leftControls.setAlignment(Pos.CENTER_LEFT);
+
+        oltSearchField = new TextField();
+        oltSearchField.setPromptText("🔍 Buscar OLTs");
+        oltSearchField.setPrefWidth(200);
+        oltSearchField.setPrefHeight(43);
+        oltSearchField.textProperty().addListener((obs, oldVal, newVal) -> applyOLTFiltersAndSorting());
+        addFieldFocusEffects(oltSearchField);
+
+        oltStatusFilter = new ComboBox<>();
+        oltStatusFilter.getItems().addAll("Status", "Online", "Offline");
+        oltStatusFilter.setValue("Status");
+        oltStatusFilter.setPrefWidth(120);
+        oltStatusFilter.valueProperty().addListener((obs, oldVal, newVal) -> applyOLTFiltersAndSorting());
+        addComboBoxFocusEffects(oltStatusFilter);
+
+        oltSortBy = new ComboBox<>();
+        oltSortBy.getItems().addAll("Nome A-Z", "Nome Z-A", "Status", "IP");
+        oltSortBy.setValue("Nome A-Z");
+        oltSortBy.setPrefWidth(120);
+        oltSortBy.valueProperty().addListener((obs, oldVal, newVal) -> applyOLTFiltersAndSorting());
+        addComboBoxFocusEffects(oltSortBy);
+
+        leftControls.getChildren().addAll(oltSearchField, oltStatusFilter, oltSortBy);
+
+        Region spacer1 = new Region();
+        HBox.setHgrow(spacer1, Priority.ALWAYS);
+        Region spacer2 = new Region();
+        HBox.setHgrow(spacer2, Priority.ALWAYS);
+
+        statsBar = new HBox(15);
+        statsBar.setAlignment(Pos.CENTER);
+        onlineCountLabel = new Label("\uD83D\uDD34 Online: 0");
+        onlineCountLabel.getStyleClass().add("success-label");
+        onlineCountLabel.setStyle("-fx-font-weight: bold;");
+        offlineCountLabel = new Label("\uD83D\uDD34 Offline: 0");
+        offlineCountLabel.getStyleClass().add("error-label");
+        offlineCountLabel.setStyle("-fx-font-weight: bold;");
+        statsBar.getChildren().addAll(onlineCountLabel, offlineCountLabel);
+
+        HBox rightControls = new HBox(10);
+        rightControls.setAlignment(Pos.CENTER_RIGHT);
+
+        Button addOLTBtn = new Button("➕");
+        addOLTBtn.getStyleClass().add("floating-btn");
+        addOLTBtn.setPrefSize(30, 30);
+        addOLTBtn.setTooltip(new Tooltip("Adicionar OLT"));
+        addOLTBtn.setOnAction(e -> showAddOLTModal());
+        addEnhancedButtonHoverEffects(addOLTBtn);
+
+        Button refreshStatusesBtn = new Button("🔄");
+        refreshStatusesBtn.getStyleClass().add("floating-btn");
+        refreshStatusesBtn.setPrefSize(30, 30);
+        refreshStatusesBtn.setTooltip(new Tooltip("Atualizar Status"));
+        addEnhancedButtonHoverEffects(refreshStatusesBtn);
+        refreshStatusesBtn.setOnAction(e -> {
+            showToast("🔄 Verificando status de todas as OLTs...");
+            refreshAllOLTStatuses();
+        });
+
+        rightControls.getChildren().addAll(addOLTBtn, refreshStatusesBtn);
+
+        header.getChildren().addAll(leftControls, spacer1, statsBar, spacer2, rightControls);
+        return header;
+    }
+
+    private void updateStatsBar() {
+        long onlineCount = oltStatusLabels.values().stream().filter(label -> "Online".equals(label.getText())).count();
+        long offlineCount = oltStatusLabels.values().stream().filter(label -> "Offline".equals(label.getText())).count();
+
+        Platform.runLater(() -> {
+            if (onlineCountLabel != null) {
+                onlineCountLabel.setText("\uD83D\uDD34 Online: " + onlineCount);
+            }
+            if (offlineCountLabel != null) {
+                offlineCountLabel.setText("\uD83D\uDD34 Offline: " + offlineCount);
+            }
+        });
+    }
+
+    private VBox createEnhancedOLTCard(OLT olt, boolean isMaximized) {
+        double cardWidth = isMaximized ? 185 : 165;
+        double cardHeight = isMaximized ? 175 : 155;
+
+        VBox card = new VBox(5);
         card.getStyleClass().add("olt-card");
         card.setAlignment(Pos.CENTER);
         card.setPrefSize(cardWidth, cardHeight);
-        card.setMaxWidth(cardWidth);
-        card.setMaxHeight(cardHeight);
+        card.setMaxSize(cardWidth, cardHeight);
+        card.setUserData(olt);
 
         Rectangle clip = new Rectangle(cardWidth, cardHeight);
-        clip.setArcWidth(24);
-        clip.setArcHeight(24);
+        clip.setArcWidth(20);
+        clip.setArcHeight(20);
         card.setClip(clip);
+
+        HBox cardHeader = new HBox(5);
+        cardHeader.setAlignment(Pos.CENTER);
+        cardHeader.setPadding(new Insets(8, 10, 0, 10));
 
         Label nameLabel = new Label(olt.name.replace("_", " "));
         nameLabel.getStyleClass().add("olt-name");
-        nameLabel.setStyle(isMaximized ? "-fx-font-size: 16px;" : "-fx-font-size: 14px;");
+        nameLabel.setStyle(isMaximized ? "-fx-font-size: 14px; -fx-font-weight: bold;" : "-fx-font-size: 13px; -fx-font-weight: bold;");
+        nameLabel.setMaxWidth(cardWidth - 20);
+        nameLabel.setWrapText(true);
+        nameLabel.setAlignment(Pos.CENTER);
+
+        cardHeader.getChildren().add(nameLabel);
+
+        VBox infoSection = new VBox(3);
+        infoSection.setAlignment(Pos.CENTER);
+        infoSection.setPadding(new Insets(2, 10, 0, 10));
 
         Label ipLabel = new Label(olt.ip);
         ipLabel.getStyleClass().add("olt-ip");
+        ipLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold;");
+
+        infoSection.getChildren().addAll(ipLabel);
+
+        HBox statusBox = new HBox(6);
+        statusBox.setAlignment(Pos.CENTER);
+        statusBox.setPadding(new Insets(5, 0, 5, 0));
+
+        Circle statusIndicator = new Circle(6, Color.GRAY);
+        statusIndicator.setStroke(Color.TRANSPARENT);
+        statusIndicator.setStrokeWidth(0);
+
+        Label statusLabel = new Label("N/A");
+        statusLabel.getStyleClass().add("status-label");
+        statusLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold;");
+
+        statusBox.getChildren().addAll(statusIndicator, statusLabel);
+
+        oltStatusIndicators.put(olt, statusIndicator);
+        oltStatusLabels.put(olt, statusLabel);
+
+        HBox actionButtons = new HBox(6);
+        actionButtons.setAlignment(Pos.CENTER);
+        actionButtons.setPadding(new Insets(0, 10, 8, 10));
 
         Button connectBtn = new Button("Conectar");
         connectBtn.getStyleClass().add("connect-btn");
-        connectBtn.setStyle(isMaximized ? "-fx-font-size: 14px; -fx-pref-width: 120px; -fx-pref-height: 55px;" :
-                "-fx-font-size: 12px; -fx-pref-width: 100px; -fx-pref-height: 30px;");
+        connectBtn.setStyle(isMaximized ? "-fx-font-size: 11px; -fx-pref-width: 85px; -fx-pref-height: 28px;" : "-fx-font-size: 10px; -fx-pref-width: 75px; -fx-pref-height: 26px;");
 
-        Glow glow = new Glow();
-        glow.setLevel(0.0);
-        connectBtn.setEffect(glow);
+        Runnable connectAction = () -> {
+            showSSHTerminal(olt);
+            DatabaseManager.logUsuario(usuario.getNome(), "Conectou na " + olt.name);
+        };
 
         connectBtn.setOnAction(e -> {
-            if (sshManager != null) sshManager.disconnect();
-            ScaleTransition clickEffect = new ScaleTransition(Duration.millis(100), card);
+            ScaleTransition clickEffect = new ScaleTransition(Duration.millis(120), connectBtn);
             clickEffect.setToX(0.95);
             clickEffect.setToY(0.95);
             clickEffect.setAutoReverse(true);
             clickEffect.setCycleCount(2);
-            clickEffect.setOnFinished(event -> showSSHTerminal(olt));
-            DatabaseManager.logUsuario(usuario.getNome(), "Conectou na " + olt.name);
+            clickEffect.setOnFinished(event -> connectAction.run());
+            clickEffect.play();
+        });
+        addEnhancedButtonHoverEffects(connectBtn);
+        actionButtons.getChildren().add(connectBtn);
+
+        if (OLTList.canRemove(olt)) {
+            Button removeBtn = new Button("x");
+            removeBtn.getStyleClass().add("logout-btn");
+            removeBtn.setPrefSize(28, 28);
+            removeBtn.setStyle("-fx-font-size: 10px;");
+            removeBtn.setTooltip(new Tooltip("Remover OLT"));
+            removeBtn.setOnAction(e -> showRemoveOLTConfirmation(olt));
+            addEnhancedButtonHoverEffects(removeBtn);
+            actionButtons.getChildren().add(removeBtn);
+        }
+
+        card.setOnMouseClicked(e -> {
+            if (e.getTarget() instanceof Button ||
+                    (e.getTarget() instanceof Node && ((Node) e.getTarget()).getParent() instanceof Button)) {
+                return;
+            }
+
+            ScaleTransition clickEffect = new ScaleTransition(Duration.millis(120), card);
+            clickEffect.setToX(0.98);
+            clickEffect.setToY(0.98);
+            clickEffect.setAutoReverse(true);
+            clickEffect.setCycleCount(2);
+            clickEffect.setOnFinished(event -> connectAction.run());
             clickEffect.play();
         });
 
-        addEnhancedButtonHoverEffects(connectBtn);
-
         card.setOnMouseEntered(e -> {
             TranslateTransition lift = new TranslateTransition(Duration.millis(200), card);
-            lift.setToY(-5);
-            lift.play();
+            lift.setToY(-6);
             ScaleTransition scale = new ScaleTransition(Duration.millis(200), card);
-            scale.setToX(1.03);
-            scale.setToY(1.03);
-            scale.play();
+            scale.setToX(1.04);
+            scale.setToY(1.04);
+            new ParallelTransition(lift, scale).play();
         });
 
         card.setOnMouseExited(e -> {
             TranslateTransition drop = new TranslateTransition(Duration.millis(200), card);
             drop.setToY(0);
-            drop.play();
             ScaleTransition scale = new ScaleTransition(Duration.millis(200), card);
             scale.setToX(1.0);
             scale.setToY(1.0);
-            scale.play();
+            new ParallelTransition(drop, scale).play();
         });
 
-        Region spacer = new Region();
-        VBox.setVgrow(spacer, Priority.SOMETIMES);
-        spacer.setPrefHeight(10);
+        Region spacer2 = new Region();
+        VBox.setVgrow(spacer2, Priority.SOMETIMES);
 
-        card.getChildren().addAll(nameLabel, ipLabel, spacer, connectBtn);
-        VBox.setMargin(connectBtn, new Insets(0, 0, 5, 0));
+        card.getChildren().addAll(cardHeader, infoSection, statusBox, spacer2, actionButtons);
         return card;
     }
-    // ---------------------- OLTS ---------------------- //
+
+    private void showAddOLTModal() {
+        Stage stage = new Stage();
+        stage.initStyle(StageStyle.TRANSPARENT);
+        stage.initOwner(primaryStage);
+        stage.initModality(Modality.APPLICATION_MODAL);
+
+        VBox content = new VBox(15);
+        content.getStyleClass().add("glass-pane");
+        content.setPadding(new Insets(15));
+        content.setPrefSize(450, 480);
+        content.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.3)));
+
+        content.setCache(true);
+        content.setCacheHint(CacheHint.SPEED);
+
+        HBox titleBar = new HBox();
+        titleBar.setAlignment(Pos.CENTER_LEFT);
+        titleBar.setPadding(new Insets(5, 10, 5, 15));
+
+        Label title = new Label("Adicionar Nova OLT");
+        title.getStyleClass().add("olt-name");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Button closeBtn = new Button("✕");
+        closeBtn.getStyleClass().addAll("close-btn", "window-btn");
+        closeBtn.setPadding(new Insets(12, 12, 12, 12));
+        closeBtn.setOnAction(ev -> animateModalClose(stage, content, () -> {
+            stage.close();
+        }));
+        addEnhancedButtonHoverEffects(closeBtn);
+
+        titleBar.getChildren().addAll(title, spacer, closeBtn);
+
+        Label nameLabel = new Label("Nome da OLT:"); nameLabel.getStyleClass().add("form-label");
+        TextField nameField = new TextField(); nameField.setPromptText("OLT_XXXX_XX"); nameField.getStyleClass().add("text-field");
+        addFieldFocusEffects(nameField);
+
+        Label ipLabel = new Label("Endereço IP:"); ipLabel.getStyleClass().add("form-label");
+        TextField ipField = new TextField(); ipField.setPromptText("10.0.X.XX"); ipField.getStyleClass().add("text-field");
+        addFieldFocusEffects(ipField);
+
+        Label portLabel = new Label("Porta SSH (opcional):"); portLabel.getStyleClass().add("form-label");
+        TextField portField = new TextField(); portField.setPromptText("Deixe em branco para usar a Porta 22 (padrão)"); portField.getStyleClass().add("text-field");
+        addFieldFocusEffects(portField);
+
+        Label userLabel = new Label("Usuário SSH (opcional):");
+        userLabel.getStyleClass().add("form-label");
+        TextField userField = new TextField();
+        userField.setPromptText("Deixe em branco para usar o Usuário do Suporte (padrão)");
+        userField.getStyleClass().add("text-field");
+        addFieldFocusEffects(userField);
+
+        Label passLabel = new Label("Senha SSH (opcional):");
+        passLabel.getStyleClass().add("form-label");
+        PasswordField passField = new PasswordField();
+        passField.setPromptText("Deixe em branco para usar a Senha do Suporte (padrão)");
+        passField.getStyleClass().add("modern-text-field");
+        passField.setPrefWidth(370);
+        addFieldFocusEffects(passField);
+
+        TextField passFieldVisible = new TextField();
+        passFieldVisible.setPromptText("Deixe em branco para usar a Senha do Suporte (padrão)");
+        passFieldVisible.getStyleClass().add("modern-text-field");
+        passFieldVisible.setPrefWidth(370);
+        passFieldVisible.setVisible(false);
+        passFieldVisible.setManaged(false);
+        addFieldFocusEffects(passFieldVisible);
+
+        passField.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null && !newValue.isEmpty()) {
+                if (!passField.getStyleClass().contains("has-text")) {
+                    passField.getStyleClass().add("has-text");
+                }
+            } else {
+                passField.getStyleClass().remove("has-text");
+            }
+        });
+
+        passFieldVisible.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null && !newValue.isEmpty()) {
+                if (!passFieldVisible.getStyleClass().contains("has-text")) {
+                    passFieldVisible.getStyleClass().add("has-text");
+                }
+            } else {
+                passFieldVisible.getStyleClass().remove("has-text");
+            }
+        });
+
+        Button togglePassBtn = new Button("👁");
+        togglePassBtn.getStyleClass().add("floating-btn");
+        togglePassBtn.setOnAction(e -> {
+            if (passField.isVisible()) {
+                passFieldVisible.setText(passField.getText());
+                passField.setVisible(false);
+                passField.setManaged(false);
+                passFieldVisible.setVisible(true);
+                passFieldVisible.setManaged(true);
+                passFieldVisible.requestFocus();
+                passFieldVisible.positionCaret(passFieldVisible.getText().length());
+            } else {
+                passField.setText(passFieldVisible.getText());
+                passFieldVisible.setVisible(false);
+                passFieldVisible.setManaged(false);
+                passField.setVisible(true);
+                passField.setManaged(true);
+                passField.requestFocus();
+                passField.positionCaret(passField.getText().length());
+            }
+        });
+
+        StackPane passPane = new StackPane(passField, passFieldVisible);
+
+        HBox passLayout = new HBox(5, passPane, togglePassBtn);
+        passLayout.setAlignment(Pos.CENTER_LEFT);
+        passLayout.setMaxWidth(470);
+
+        Label infoLabel = new Label("A OLT será adicionada à Lista de OLTs, e ficará salva."); infoLabel.getStyleClass().add("info-label");
+
+        HBox btnRow = new HBox(10); btnRow.setAlignment(Pos.CENTER_RIGHT); btnRow.setPadding(new Insets(10, 0, 0, 0));
+        Button cancelBtn = new Button("Cancelar"); cancelBtn.getStyleClass().add("logout-btn"); addEnhancedButtonHoverEffects(cancelBtn);
+        Button addBtn = new Button("Adicionar"); addBtn.getStyleClass().add("connect-btn"); addEnhancedButtonHoverEffects(addBtn);
+
+        cancelBtn.setOnAction(ev -> closeBtn.fire());
+
+        addBtn.setOnAction(ev -> {
+            String name = nameField.getText().trim();
+            String ip = ipField.getText().trim();
+            String port = portField.getText().trim();
+            String user = userField.getText().trim();
+            String password = passField.getText().trim();
+
+            if (name.isEmpty() || ip.isEmpty()) {
+                showToast("❌ Nome e IP são obrigatórios!");
+                return;
+            }
+            if (!isValidIP(ip)) {
+                showToast("❌ Formato de IP inválido!");
+                return;
+            }
+
+            OLT newOlt = new OLT(name, ip, port, user, password);
+
+            boolean isDuplicate = OLTList.getOLTs().stream()
+                    .anyMatch(olt -> olt.getName().equalsIgnoreCase(newOlt.getName()) || olt.equals(newOlt));
+
+            if (isDuplicate) {
+                showToast("❌ Já existe uma OLT com esse nome ou IP/Porta!");
+                return;
+            }
+
+            OLTList.addOLT(newOlt);
+
+            Platform.runLater(this::refreshOLTScreen);
+
+            FadeTransition fadeOut = new FadeTransition(Duration.millis(200), content);
+            fadeOut.setFromValue(1.0); fadeOut.setToValue(0.0);
+            ScaleTransition scaleOut = new ScaleTransition(Duration.millis(200), content);
+            scaleOut.setFromX(1.0); scaleOut.setFromY(1.0); scaleOut.setToX(0.9); scaleOut.setToY(0.9);
+            ParallelTransition parallelOut = new ParallelTransition(fadeOut, scaleOut);
+            parallelOut.setOnFinished(e -> animateModalClose(stage, content, () -> {
+                stage.close();
+                showToast("✅ OLT adicionada com sucesso!");
+            }));
+            parallelOut.play();
+        });
+
+        nameField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                addBtn.fire();
+            }
+        });
+
+        ipField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                addBtn.fire();
+            }
+        });
+
+        portField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                addBtn.fire();
+            }
+        });
+
+        userField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                addBtn.fire();
+            }
+        });
+
+        passField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                addBtn.fire();
+            }
+        });
+
+        passFieldVisible.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                addBtn.fire();
+            }
+        });
+
+        btnRow.getChildren().addAll(cancelBtn, addBtn);
+        content.getChildren().addAll(titleBar, nameLabel, nameField, ipLabel, ipField, portLabel, portField, userLabel, userField, passLabel, passLayout, infoLabel, btnRow);
+        Scene scene = new Scene(content);
+        scene.setFill(Color.TRANSPARENT);
+        ThemeManager.applyThemeToNewScene(scene);
+        stage.setScene(scene);
+
+        stage.setOpacity(0);
+        content.setScaleX(0.9);
+        content.setScaleY(0.9);
+        stage.centerOnScreen();
+        stage.show();
+        animateModalOpen(stage, content);
+
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(300), content); fadeIn.setFromValue(0.0); fadeIn.setToValue(1.0);
+        ScaleTransition scaleIn = new ScaleTransition(Duration.millis(300), content); scaleIn.setFromX(0.9); scaleIn.setFromY(0.9); scaleIn.setToX(1.0); scaleIn.setToY(1.0);
+        Timeline stageOpacity = new Timeline(new KeyFrame(Duration.ZERO, new KeyValue(stage.opacityProperty(), 0)), new KeyFrame(Duration.millis(300), new KeyValue(stage.opacityProperty(), 1)));
+        ParallelTransition parallelIn = new ParallelTransition(fadeIn, scaleIn, stageOpacity); parallelIn.setInterpolator(Interpolator.EASE_OUT);
+        parallelIn.play();
+    }
+
+    private void showRemoveOLTConfirmation(OLT olt) {
+        Stage stage = new Stage();
+        stage.initStyle(StageStyle.TRANSPARENT);
+        stage.initOwner(primaryStage);
+        stage.initModality(Modality.APPLICATION_MODAL);
+
+        VBox content = new VBox(20);
+        content.getStyleClass().add("glass-pane");
+        content.setPadding(new Insets(25));
+        content.setPrefSize(400, 250);
+        content.setAlignment(Pos.CENTER);
+        content.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.3)));
+
+        content.setCache(true);
+        content.setCacheHint(CacheHint.SPEED);
+
+        HBox titleBar = new HBox();
+        titleBar.setAlignment(Pos.CENTER_RIGHT);
+
+        Button closeBtn = new Button("✕");
+        closeBtn.getStyleClass().addAll("close-btn", "window-btn");
+        closeBtn.setPadding(new Insets(10, 12, 10, 12));
+        closeBtn.setOnAction(ev -> animateModalClose(stage, content, null));
+        addEnhancedButtonHoverEffects(closeBtn);
+        titleBar.getChildren().add(closeBtn);
+
+        VBox confirmContent = new VBox(15);
+        confirmContent.setAlignment(Pos.CENTER);
+        confirmContent.setPadding(new Insets(0, 10, 10, 10));
+
+        Label confirmLabel = new Label("Tem certeza que deseja remover a OLT?");
+        confirmLabel.getStyleClass().add("form-label");
+
+        Label oltNameLabel = new Label(olt.name + " (" + olt.ip + ")");
+        oltNameLabel.getStyleClass().add("olt-name");
+        oltNameLabel.setStyle("-fx-text-fill: #ff4444; -fx-font-weight: bold;");
+
+        HBox btnRow = new HBox(15);
+        btnRow.setAlignment(Pos.CENTER);
+
+        Button cancelBtn = new Button("Cancelar");
+        cancelBtn.getStyleClass().add("cancel-btn");
+        addEnhancedButtonHoverEffects(cancelBtn);
+
+        Button removeBtn = new Button("Remover");
+        removeBtn.getStyleClass().add("logout-btn");
+        addEnhancedButtonHoverEffects(removeBtn);
+
+        cancelBtn.setOnAction(ev -> animateModalClose(stage, content, null));
+
+        removeBtn.setOnAction(ev -> {
+            OLTList.removeOLT(olt);
+            Platform.runLater(this::refreshOLTScreen);
+            animateModalClose(stage, content, () -> showToast("❌ OLT removida com sucesso!"));
+        });
+
+        btnRow.getChildren().addAll(cancelBtn, removeBtn);
+        confirmContent.getChildren().addAll(confirmLabel, oltNameLabel, btnRow);
+        content.getChildren().addAll(titleBar, confirmContent);
+
+        Scene scene = new Scene(content);
+        scene.setFill(Color.TRANSPARENT);
+        ThemeManager.applyThemeToNewScene(scene);
+
+        stage.setScene(scene);
+
+        stage.setOpacity(0);
+        content.setScaleX(0.8);
+        content.setScaleY(0.8);
+
+        stage.show();
+        stage.centerOnScreen();
+
+        animateModalOpen(stage, content);
+    }
+
+    private boolean isValidIP(String ip) {
+        return ip.matches("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
+    }
+
+    private void refreshOLTScreen() {
+        refreshOltCardsList();
+        applyOLTFiltersAndSorting();
+        refreshAllOLTStatuses();
+        updateStatsBar();
+    }
+
+    private void refreshOltCardsList() {
+        List<OLT> allOLTs = OLTList.getOLTs();
+        boolean isMaximized = primaryStage != null && primaryStage.isMaximized();
+
+        oltCardNodes.keySet().removeIf(olt -> !allOLTs.contains(olt));
+        oltStatusIndicators.keySet().removeIf(olt -> !allOLTs.contains(olt));
+        oltStatusLabels.keySet().removeIf(olt -> !allOLTs.contains(olt));
+
+        for (OLT olt : allOLTs) {
+            oltCardNodes.computeIfAbsent(olt, o -> createEnhancedOLTCard(o, isMaximized));
+        }
+    }
+
+    private void applyOLTFiltersAndSorting() {
+        if (oltCardsPane == null) return;
+
+        String searchText = oltSearchField.getText().toLowerCase().trim();
+        String statusFilter = oltStatusFilter.getValue();
+        String sortBy = oltSortBy.getValue();
+
+        List<OLT> filteredOLTs = OLTList.getOLTs().stream()
+                .filter(olt -> {
+                    boolean matchesSearch = searchText.isEmpty() ||
+                            olt.getName().toLowerCase().contains(searchText) ||
+                            olt.getIp().contains(searchText);
+                    if (!matchesSearch) return false;
+
+                    if (statusFilter != null && !"Status".equals(statusFilter)) {
+                        Label statusLabel = oltStatusLabels.get(olt);
+                        if (statusLabel == null || !statusFilter.equals(statusLabel.getText())) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .collect(Collectors.toList());
+
+        filteredOLTs.sort((olt1, olt2) -> {
+            switch (sortBy) {
+                case "Nome Z-A":
+                    return olt2.getName().compareToIgnoreCase(olt1.getName());
+                case "Status":
+                    int status1Value = getStatusValue(oltStatusLabels.getOrDefault(olt1, new Label("N/A")).getText());
+                    int status2Value = getStatusValue(oltStatusLabels.getOrDefault(olt2, new Label("N/A")).getText());
+                    return Integer.compare(status1Value, status2Value);
+                case "IP":
+                    return olt1.getIp().compareTo(olt2.getIp());
+                case "Nome A-Z":
+                default:
+                    return olt1.getName().compareToIgnoreCase(olt2.getName());
+            }
+        });
+
+        List<Node> cardNodes = filteredOLTs.stream()
+                .map(oltCardNodes::get)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        Platform.runLater(() -> {
+            oltCardsPane.getChildren().setAll(cardNodes);
+        });
+    }
+
+    private int getStatusValue(String status) {
+        switch (status) {
+            case "Online": return 1;
+            case "Verificando...": return 2;
+            case "Offline": return 3;
+            default: return 4;
+        }
+    }
+
+    private void setupResponsiveLayout(VBox content, FlowPane cardsPane) {
+        final boolean[] isMaximized = {false};
+
+        ChangeListener<Number> widthChangeListener = (obs, oldVal, newVal) -> {
+            if (newVal == null || cardsPane.getScene() == null) return;
+
+            double availableWidth = cardsPane.getScene().getWidth() - mainContent.getLeft().getLayoutBounds().getWidth() - 40;
+            double cardWidth = isMaximized[0] ? 180 : 160;
+            int gap = 15;
+            int numColumns = Math.max(1, (int) (availableWidth / (cardWidth + gap)));
+            double newPaneWidth = numColumns * (cardWidth + gap) - gap;
+            cardsPane.setPrefWrapLength(newPaneWidth);
+        };
+
+        cardsPane.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                Stage stage = (Stage) newScene.getWindow();
+                isMaximized[0] = stage.isMaximized();
+
+                newScene.widthProperty().addListener(widthChangeListener);
+
+                stage.maximizedProperty().addListener((obs2, oldMax, newMax) -> {
+                    isMaximized[0] = newMax;
+                    refreshOltCardsList();
+                    applyOLTFiltersAndSorting();
+                    Platform.runLater(() -> widthChangeListener.changed(null, null, newScene.getWidth()));
+                });
+
+                Platform.runLater(() -> widthChangeListener.changed(null, null, newScene.getWidth()));
+            }
+        });
+    }
+
+    private void refreshAllOLTStatuses() {
+        oltCardNodes.keySet().forEach(this::refreshSingleOLTStatus);
+    }
+
+    private void refreshSingleOLTStatus(OLT olt) {
+        Circle statusIndicator = oltStatusIndicators.get(olt);
+        Label statusLabel = oltStatusLabels.get(olt);
+
+        if (statusIndicator == null || statusLabel == null) {
+            return;
+        }
+
+        Platform.runLater(() -> {
+            statusIndicator.setFill(Color.KHAKI);
+            statusLabel.setText("Verificando...");
+            updateStatsBar();
+        });
+
+        SSHManager checker = new SSHManager();
+        checker.checkOLTStatus(olt.ip).thenAcceptAsync(isOnline -> {
+            Platform.runLater(() -> {
+                Circle indicator = oltStatusIndicators.get(olt);
+                Label label = oltStatusLabels.get(olt);
+                if (indicator != null && label != null) {
+                    if (isOnline) {
+                        indicator.setFill(Color.LIGHTGREEN);
+                        label.setText("Online");
+                    } else {
+                        indicator.setFill(Color.INDIANRED);
+                        label.setText("Offline");
+                    }
+                    updateStatsBar();
+                    applyOLTFiltersAndSorting();
+                }
+            });
+        }, Platform::runLater);
+    }
+    // ---------------------- OLTs ---------------------- //
 
 
-    // ---------------------- CONSULTA DE SINAL ---------------------- //
+    // ---------------------- Consulta de Sinal ---------------------- //
     private Node createSignalQueryScreen() {
         VBox content = new VBox(20);
         content.setPadding(new Insets(20, 0, 20, 0));
@@ -995,16 +1769,19 @@ public class Main extends Application {
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
         oltComboBox.setMaxWidth(240);
+        addComboBoxFocusEffects(oltComboBox);
 
         TextField fsField = new TextField();
         fsField.setPromptText("Digite o F/S");
         fsField.getStyleClass().add("text-field");
         fsField.setMaxWidth(115);
+        addFieldFocusEffects(fsField);
 
         TextField pField = new TextField();
         pField.setPromptText("Digite o P");
         pField.getStyleClass().add("text-field");
         pField.setMaxWidth(115);
+        addFieldFocusEffects(pField);
 
         HBox formRow = new HBox(10);
         formRow.setAlignment(Pos.CENTER);
@@ -1032,200 +1809,167 @@ public class Main extends Application {
         Button queryBtn = new Button("Consultar");
         queryBtn.getStyleClass().add("connect-btn");
         queryBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(queryBtn);
 
-        fsField.setOnKeyPressed(event -> {
-            if (event.isControlDown()) {
-                if (event.getCode() == KeyCode.C) {
-                    fsField.copy();
-                } else if (event.getCode() == KeyCode.V) {
-                    fsField.paste();
-                }
-            }
-            if (event.getCode() == KeyCode.ENTER) {
-                queryBtn.fire();
-            }
-        });
-
-        pField.setOnKeyPressed(event -> {
-            if (event.isControlDown()) {
-                if (event.getCode() == KeyCode.C) {
-                    pField.copy();
-                } else if (event.getCode() == KeyCode.V) {
-                    pField.paste();
-                }
-            }
-            if (event.getCode() == KeyCode.ENTER) {
-                queryBtn.fire();
-            }
-        });
+        Button cancelBtn = new Button("Cancelar");
+        cancelBtn.getStyleClass().add("connect-btn");
+        cancelBtn.setMaxWidth(140);
+        cancelBtn.setDisable(true);
+        addEnhancedButtonHoverEffects(cancelBtn);
 
         CodeArea resultArea = new CodeArea();
         resultArea.setEditable(false);
         resultArea.getStyleClass().add("code-area");
-        resultArea.setPrefHeight(350);
-        VBox.setVgrow(resultArea, Priority.ALWAYS);
+        resultArea.setWrapText(false);
+        VirtualizedScrollPane<CodeArea> scrollPane = new VirtualizedScrollPane<>(resultArea);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
-        Button exportBtn = new Button("Exportar");
-        exportBtn.getStyleClass().add("connect-btn");
-        exportBtn.setMaxWidth(140);
+        AtomicReference<SSHManager> currentSSHManager = new AtomicReference<>();
+        AtomicReference<Thread> consultaThread = new AtomicReference<>();
 
+        Runnable resetConsultaControls = () -> {
+            Thread thread = consultaThread.getAndSet(null);
+            if (thread != null && thread.isAlive()) {
+                thread.interrupt();
+            }
 
-        exportBtn.setOnAction(e -> {
-            exportarResultado(resultArea, "Consulta_Sinal");
-        });
+            SSHManager ssh = currentSSHManager.getAndSet(null);
+            if (ssh != null) {
+                ssh.disconnect();
+            }
 
-        queryBtn.setOnAction(e -> {
+            Platform.runLater(() -> {
+                queryBtn.setDisable(false);
+                cancelBtn.setDisable(true);
+                oltComboBox.setDisable(false);
+                fsField.setDisable(false);
+                pField.setDisable(false);
+                isQueryInProgress.set(false);
+                showWaitingToast(false);
+            });
+        };
+
+        Runnable queryAction = () -> {
+            if (isQueryInProgress.get()) {
+                showWaitingToast(true);
+                return;
+            }
+
             OLT selectedOLT = oltComboBox.getValue();
             String fs = fsField.getText().trim();
             String p = pField.getText().trim();
 
             if (selectedOLT == null || fs.isEmpty() || p.isEmpty()) {
-                resultArea.replaceText(0, resultArea.getLength(),
-                        "Por favor, preencha todos os campos corretamente.");
+                showToast("❌ Por favor, preencha todos os campos corretamente.");
                 return;
             }
 
-            resultArea.replaceText(0, resultArea.getLength(), "Consultando os sinais da PON " + fs + "/" + p + "...\n");
+            queryBtn.setDisable(true);
+            cancelBtn.setDisable(false);
+            oltComboBox.setDisable(true);
+            fsField.setDisable(true);
+            pField.setDisable(true);
+            isQueryInProgress.set(true);
+
+            resultArea.clear();
+            String initialMessage = "Consultando os Sinais da PON " + fs + "/" + p + " na " + selectedOLT.name + " (" + selectedOLT.ip + "), aguarde...\n";
+            appendStyledTextWithIPHighlight(resultArea, initialMessage, selectedOLT.ip, "ip-address");
+
             SSHManager sshManager = new SSHManager();
             sshManager.setConnectTimeout(10000);
+            currentSSHManager.set(sshManager);
+
             Thread queryThread = new Thread(() -> {
                 try {
-                    boolean connected = sshManager.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, null);
-                    if (!connected) {
-                        Platform.runLater(() -> {
-                            resultArea.replaceText(0, resultArea.getLength(), "\n❌ Não foi possível conectar à OLT.\n\n" +
-                                    "Verifique se:\n" +
-                                    "1 - Você está na rede interna da empresa\n" +
-                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
-                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
-                                    "Caso esteja tudo correto, contate o Eduardo.");
-                        });
+                    boolean connected = sshManager.connect(selectedOLT.getIp(), selectedOLT.getUser(), selectedOLT.getPassword(), resultArea, false);
+                    if (!connected || Thread.currentThread().isInterrupted()) {
                         return;
                     }
 
                     String resultado = sshManager.queryOpticalSignal(fs, p);
 
-                    Platform.runLater(() -> {
-                        resultArea.replaceText(0, resultArea.getLength(), resultado);
-                        destacarIPs(resultArea);
-                    });
+                    if (!Thread.currentThread().isInterrupted()) {
+                        Platform.runLater(() -> {
+                            resultArea.replaceText(resultado);
+                            destacarIPs(resultArea);
+                            showToast("🔎 Consulta de Sinal Óptico finalizada!");
+                        });
+                    }
 
                 } catch (Exception ex) {
-                    Platform.runLater(() -> {
-                        resultArea.replaceText(0, resultArea.getLength(), "Erro: " + ex.getMessage());
-                        destacarIPs(resultArea);
-                    });
+                    if (!Thread.currentThread().isInterrupted()) {
+                        Platform.runLater(() -> {
+                            resultArea.replaceText("Erro na consulta: " + ex.getMessage());
+                            destacarIPs(resultArea);
+                            showToast("⚠️ Erro ao consultar Sinal Óptico.");
+                        });
+                    }
                 } finally {
                     sshManager.disconnect();
-                    Platform.runLater(() -> {
-                        showToast("🔎 Consulta de Sinal Óptico finalizada!");
-                    });
+                    Platform.runLater(() -> resetConsultaControls.run());
                 }
             });
+
+            consultaThread.set(queryThread);
             queryThread.setDaemon(true);
             queryThread.start();
+        };
+
+        queryBtn.setOnAction(e -> queryAction.run());
+        fsField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER && !queryBtn.isDisabled()) queryAction.run(); });
+        pField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER && !queryBtn.isDisabled()) queryAction.run(); });
+
+        cancelBtn.setOnAction(e -> {
+            Platform.runLater(() -> {
+                resultArea.replaceText("Consulta cancelada pelo usuário.");
+                showToast("❌ Consulta cancelada!");
+            });
+            resetConsultaControls.run();
         });
+
+        HBox consultaButtonContainer = new HBox(10);
+        consultaButtonContainer.setAlignment(Pos.CENTER);
+        consultaButtonContainer.getChildren().addAll(queryBtn, cancelBtn);
+
+        Button exportBtn = new Button("Exportar");
+        exportBtn.getStyleClass().add("connect-btn");
+        exportBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(exportBtn);
+        exportBtn.setOnAction(e -> exportarResultado(resultArea, "Consulta_Sinal"));
+
+        Button limparBtn = new Button("Limpar");
+        limparBtn.getStyleClass().add("connect-btn");
+        limparBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(limparBtn);
+        limparBtn.setOnAction(e -> {
+            if (resultArea.getText().trim().isEmpty()) {
+                showToast("❌ Terminal já está vazio!");
+            } else {
+                resultArea.clear();
+                showToast("✅ Terminal limpo!");
+            }
+        });
+
+        HBox buttonContainer = new HBox(10);
+        buttonContainer.setAlignment(Pos.CENTER);
+        buttonContainer.getChildren().addAll(exportBtn, limparBtn);
 
         formArea.getChildren().addAll(
                 infoLabel,
                 oltComboBox,
                 formRow,
-                queryBtn,
-                resultArea,
-                exportBtn
+                consultaButtonContainer,
+                scrollPane,
+                buttonContainer
         );
 
         content.getChildren().addAll(title, formArea);
         return content;
     }
-
-    private void exportarResultado(CodeArea resultadoArea, String nomeBase) {
-        String resultado = resultadoArea.getText();
-        if (resultado.isEmpty()) {
-            resultadoArea.replaceText("Nada para exportar. Faça uma consulta primeiro.");
-            return;
-        }
-
-        Dialog<String> exportDialog = new Dialog<>();
-        exportDialog.initOwner(primaryStage);
-        exportDialog.setTitle("Exportar");
-
-        DialogPane dialogPane = exportDialog.getDialogPane();
-        dialogPane.getStyleClass().add("dialog-pane");
-
-        ButtonType csvButton = new ButtonType("CSV", ButtonBar.ButtonData.OK_DONE);
-        ButtonType pdfButton = new ButtonType("PDF", ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancelButton = new ButtonType("Cancelar", ButtonBar.ButtonData.CANCEL_CLOSE);
-
-        dialogPane.getButtonTypes().addAll(csvButton, pdfButton, cancelButton);
-
-        VBox dialogContent = new VBox(10);
-        dialogContent.setStyle("-fx-padding: 10;");
-        Label label = new Label("Será salvo na pasta /exports\nFormato de exportação:");
-        label.getStyleClass().add("info-label");
-        dialogContent.getChildren().add(label);
-        dialogPane.setContent(dialogContent);
-
-        exportDialog.setResultConverter(dialogBtn -> {
-            if (dialogBtn == csvButton) return "CSV";
-            if (dialogBtn == pdfButton) return "PDF";
-            return null;
-        });
-
-        exportDialog.showAndWait().ifPresent(formato -> {
-            switch (formato) {
-                case "CSV":
-                    exportarCSV(resultado, nomeBase);
-                    break;
-                case "PDF":
-                    exportarPDF(resultado, nomeBase);
-                    break;
-            }
-        });
-    }
-
-    private void exportarCSV(String texto, String nomeBase) {
-        try {
-            File dir = new File("exports");
-            if (!dir.exists()) dir.mkdir();
-
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm"));
-            String nomeArquivo = "exports/" + nomeBase + "_" + timestamp + ".csv";
-            FileWriter writer = new FileWriter(nomeArquivo);
-
-            for (String line : texto.split("\n")) {
-                writer.append(line.replaceAll("\\s{2,}", ",").replaceAll("\\s", ",")).append("\n");
-            }
-            showToast("📂 Arquivo CSV exportado com sucesso!");
-            writer.flush();
-            writer.close();
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-    }
-
-    private void exportarPDF(String texto, String nomeBase) {
-        try {
-            File dir = new File("exports");
-            if (!dir.exists()) dir.mkdir();
-
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm"));
-            String nomeArquivo = "exports/" + nomeBase + "_" + timestamp + ".pdf";
-
-            com.lowagie.text.Document document = new com.lowagie.text.Document();
-            com.lowagie.text.pdf.PdfWriter.getInstance(document, new FileOutputStream(nomeArquivo));
-            document.open();
-            document.add(new com.lowagie.text.Paragraph(texto));
-            document.close();
-            showToast("📂 Arquivo PDF exportado com sucesso!");
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-    }
-    // ---------------------- CONSULTA DE SINAL ---------------------- //
+    // ---------------------- Consulta de Sinal ---------------------- //
 
 
-    // ---------------------- PON SUMMARY ---------------------- //
+    // ---------------------- Summary ---------------------- //
     private Node createPONSummaryScreen() {
         VBox content = new VBox(20);
         content.setPadding(new Insets(20, 0, 20, 0));
@@ -1251,11 +1995,13 @@ public class Main extends Application {
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
         oltComboBox.setMaxWidth(240);
+        addComboBoxFocusEffects(oltComboBox);
 
         TextField ponField = new TextField();
         ponField.setPromptText("Digite o F/S/P");
         ponField.getStyleClass().add("text-field");
         ponField.setMaxWidth(240);
+        addFieldFocusEffects(ponField);
 
         TextFormatter<String> ponFormatter = new TextFormatter<>(change -> {
             String newText = change.getControlNewText();
@@ -1269,148 +2015,159 @@ public class Main extends Application {
         Button consultarBtn = new Button("Consultar");
         consultarBtn.getStyleClass().add("connect-btn");
         consultarBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(consultarBtn);
 
-        ponField.setOnKeyPressed(event -> {
-            if (event.isControlDown()) {
-                if (event.getCode() == KeyCode.C) {
-                    ponField.copy();
-                } else if (event.getCode() == KeyCode.V) {
-                    ponField.paste();
-                }
-            }
-            if (event.getCode() == KeyCode.ENTER) {
-                consultarBtn.fire();
-            }
-        });
+        Button cancelBtn = new Button("Cancelar");
+        cancelBtn.getStyleClass().add("connect-btn");
+        cancelBtn.setMaxWidth(140);
+        cancelBtn.setDisable(true);
+        addEnhancedButtonHoverEffects(cancelBtn);
 
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
         resultadoArea.getStyleClass().add("code-area");
-        resultadoArea.setPrefHeight(350);
-        VBox.setVgrow(resultadoArea, Priority.ALWAYS);
+        resultadoArea.setWrapText(false);
+        VirtualizedScrollPane<CodeArea> scrollPane = new VirtualizedScrollPane<>(resultadoArea);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
-        consultarBtn.setOnAction(e -> {
+        AtomicReference<SSHManager> currentSSHManager = new AtomicReference<>();
+        AtomicReference<Thread> consultaThread = new AtomicReference<>();
+
+        Runnable resetConsultaControls = () -> {
+            Thread thread = consultaThread.getAndSet(null);
+            if (thread != null && thread.isAlive()) {
+                thread.interrupt();
+            }
+
+            SSHManager ssh = currentSSHManager.getAndSet(null);
+            if (ssh != null) {
+                ssh.disconnect();
+            }
+
+            Platform.runLater(() -> {
+                consultarBtn.setDisable(false);
+                cancelBtn.setDisable(true);
+                oltComboBox.setDisable(false);
+                ponField.setDisable(false);
+                isQueryInProgress.set(false);
+                showWaitingToast(false);
+            });
+        };
+
+        Runnable queryAction = () -> {
+            if (isQueryInProgress.get()) {
+                showWaitingToast(true);
+                return;
+            }
+
             OLT selectedOLT = oltComboBox.getValue();
             String pon = ponField.getText().trim();
 
             if (selectedOLT == null || pon.isEmpty()) {
-                resultadoArea.replaceText(0, resultadoArea.getLength(),
-                        "Por favor, preencha todos os campos corretamente.");
+                showToast("❌ Por favor, preencha todos os campos corretamente.");
                 return;
             }
 
-            resultadoArea.replaceText(0, resultadoArea.getLength(), "Consultando informações da PON " + pon + "...\n");
+            consultarBtn.setDisable(true);
+            cancelBtn.setDisable(false);
+            oltComboBox.setDisable(true);
+            ponField.setDisable(true);
+            isQueryInProgress.set(true);
+
+            resultadoArea.clear();
+            String initialMessage = "Consultando o Summary da PON " + pon + " na " + selectedOLT.name + " (" + selectedOLT.ip + "), aguarde...\n";
+            appendStyledTextWithIPHighlight(resultadoArea, initialMessage, selectedOLT.ip, "ip-address");
+
+            SSHManager sshManager = new SSHManager();
+            sshManager.setConnectTimeout(15000);
+            currentSSHManager.set(sshManager);
 
             Thread thread = new Thread(() -> {
-                SSHManager tempSSHManager = new SSHManager();
-                CodeArea hiddenArea = new CodeArea();
                 try {
-                    boolean connected = tempSSHManager.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, hiddenArea);
-                    if (!connected) {
-                        Platform.runLater(() -> {
-                            resultadoArea.replaceText(0, resultadoArea.getLength(), "\n❌ Não foi possível conectar à OLT.\n\n" +
-                                    "Verifique se:\n" +
-                                    "1 - Você está na rede interna da empresa\n" +
-                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
-                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
-                                    "Caso esteja tudo correto, contate o Eduardo.");
-                        });
+                    boolean connected = sshManager.connect(selectedOLT.getIp(), selectedOLT.getUser(), selectedOLT.getPassword(), resultadoArea, false);
+                    if (!connected || Thread.currentThread().isInterrupted()) {
                         return;
                     }
 
-                    Platform.runLater(() -> hiddenArea.clear());
+                    String result = sshManager.queryPonSummary(selectedOLT.name, pon);
 
-                    tempSSHManager.sendCommand("enable");
-                    Thread.sleep(1000);
-                    tempSSHManager.sendCommand("config");
-                    Thread.sleep(1000);
-
-                    final int[] startPos = {0};
-                    Platform.runLater(() -> startPos[0] = hiddenArea.getLength());
-                    Thread.sleep(100);
-
-                    tempSSHManager.sendCommand("display port desc " + pon);
-                    Thread.sleep(2500);
-
-                    tempSSHManager.sendCommand("display ont info summary " + pon);
-                    Thread.sleep(8000);
-
-                    final String[] resultadoFinal = {""};
-                    Platform.runLater(() -> {
-                        String fullOutput = hiddenArea.getText();
-                        StringBuilder resultado = new StringBuilder();
-
-                        String portDescCmd = "display port desc " + pon;
-                        int descIndex = fullOutput.indexOf(portDescCmd, startPos[0]);
-                        if (descIndex >= 0) {
-                            int descStart = fullOutput.indexOf("\n", descIndex);
-                            int nextBlock = fullOutput.indexOf("\n\n", descStart);
-                            if (descStart > 0 && nextBlock > descStart) {
-                                String descResult = fullOutput.substring(descStart + 1, nextBlock).trim();
-                                descResult = "  " + descResult.replaceFirst("^", "");
-                                resultado.append(descResult).append("\n");
-                            }
-                        }
-
-                        String summaryCmd = "display ont info summary " + pon;
-                        int sumIndex = fullOutput.indexOf(summaryCmd, startPos[0]);
-                        if (sumIndex >= 0) {
-                            int sumStart = fullOutput.indexOf("\n", sumIndex);
-                            if (sumStart > 0) {
-                                String sumResult = fullOutput.substring(sumStart + 1).trim();
-                                sumResult = sumResult.replace("Command is being executed. Please wait", "");
-                                resultado.append(sumResult);
-                            }
-                        } else {
-                            resultado.append("❌ Não foi possível obter o resumo da PON.\n");
-                        }
-
-                        resultadoArea.replaceText(0, resultadoArea.getLength(), resultado.toString());
-                        destacarIPs(resultadoArea);
-                        showToast("🔎 Consulta de PON Summary finalizada!");
-                    });
-
-                    DatabaseManager.logUsuario(usuario.getNome(),
-                            "Consultou resumo e descrição da PON " + pon + " na " + selectedOLT.name);
+                    if (!Thread.currentThread().isInterrupted()) {
+                        Platform.runLater(() -> {
+                            resultadoArea.replaceText(result);
+                            destacarIPs(resultadoArea);
+                            showToast("🔎 Consulta de Summary finalizada!");
+                        });
+                        DatabaseManager.logUsuario(usuario.getNome(), "Consultou a PON " + pon + " na " + selectedOLT.name);
+                    }
 
                 } catch (Exception ex) {
-                    Platform.runLater(() -> {
-                        resultadoArea.replaceText(0, resultadoArea.getLength(), "Erro: " + ex.getMessage());
-                        destacarIPs(resultadoArea);
-                        showToast("⚠️ Erro ao consultar PON Summary.");
-                    });
+                    if (!Thread.currentThread().isInterrupted()) {
+                        Platform.runLater(() -> {
+                            resultadoArea.replaceText("Erro na consulta PON Summary: " + ex.getMessage());
+                            destacarIPs(resultadoArea);
+                            showToast("⚠️ Erro ao consultar PON Summary.");
+                        });
+                    }
                 } finally {
-                    tempSSHManager.disconnect();
+                    sshManager.disconnect();
+                    Platform.runLater(() -> resetConsultaControls.run());
                 }
             });
+
+            consultaThread.set(thread);
             thread.setDaemon(true);
             thread.start();
+        };
+
+        consultarBtn.setOnAction(e -> queryAction.run());
+        ponField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER && !consultarBtn.isDisabled()) queryAction.run(); });
+
+        cancelBtn.setOnAction(e -> {
+            Platform.runLater(() -> {
+                resultadoArea.replaceText("Consulta cancelada pelo usuário.");
+                showToast("❌ Consulta cancelada!");
+            });
+            resetConsultaControls.run();
         });
+
+        HBox consultaButtonContainer = new HBox(10);
+        consultaButtonContainer.setAlignment(Pos.CENTER);
+        consultaButtonContainer.getChildren().addAll(consultarBtn, cancelBtn);
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
         exportBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(exportBtn);
+        exportBtn.setOnAction(e -> exportarResultado(resultadoArea, "Resumo_PON"));
 
-        exportBtn.setOnAction(e -> {
-            exportarResultado(resultadoArea, "Resumo_PON");
+        Button limparBtn = new Button("Limpar");
+        limparBtn.getStyleClass().add("connect-btn");
+        limparBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(limparBtn);
+        limparBtn.setOnAction(e -> {
+            if (resultadoArea.getText().trim().isEmpty()) {
+                showToast("❌ Terminal já está vazio!");
+            } else {
+                resultadoArea.clear();
+                showToast("✅ Terminal limpo!");
+            }
         });
 
+        HBox buttonContainer = new HBox(10);
+        buttonContainer.setAlignment(Pos.CENTER);
+        buttonContainer.getChildren().addAll(exportBtn, limparBtn);
+
         formArea.getChildren().addAll(
-                infoLabel,
-                oltComboBox,
-                ponField,
-                consultarBtn,
-                resultadoArea,
-                exportBtn
+                infoLabel, oltComboBox, ponField, consultaButtonContainer, scrollPane, buttonContainer
         );
 
         content.getChildren().addAll(title, formArea);
         return content;
     }
-    // ---------------------- PON SUMMARY ---------------------- //
+    // ---------------------- Summary ---------------------- //
 
 
-    // ---------------------- ONT/ONU BY-SN ---------------------- //
+    // ---------------------- By-SN ---------------------- //
     private Node createONUBySNScreen() {
         VBox content = new VBox(20);
         content.getStyleClass().add("content-area");
@@ -1428,8 +2185,7 @@ public class Main extends Application {
         formArea.setAlignment(Pos.TOP_CENTER);
         VBox.setVgrow(formArea, Priority.ALWAYS);
 
-
-        Label infoLabel = new Label("Verifique todas as informações do SN.");
+        Label infoLabel = new Label("Verifique todas as informações da ONT/ONU.");
         infoLabel.getStyleClass().add("info-label");
 
         ComboBox<OLT> oltComboBox = new ComboBox<>();
@@ -1437,11 +2193,13 @@ public class Main extends Application {
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
         oltComboBox.setMaxWidth(240);
+        addComboBoxFocusEffects(oltComboBox);
 
         TextField snField = new TextField();
         snField.setPromptText("Digite o SN da ONT/ONU");
         snField.getStyleClass().add("text-field");
         snField.setMaxWidth(240);
+        addFieldFocusEffects(snField);
 
         TextFormatter<String> snFormatter = new TextFormatter<>(change -> {
             if (change.getControlNewText().matches("[A-Za-z0-9]{0,20}")) {
@@ -1454,140 +2212,157 @@ public class Main extends Application {
         Button consultarBtn = new Button("Consultar");
         consultarBtn.getStyleClass().add("connect-btn");
         consultarBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(consultarBtn);
 
-        snField.setOnKeyPressed(event -> {
-            if (event.isControlDown()) {
-                if (event.getCode() == KeyCode.C) {
-                    snField.copy();
-                } else if (event.getCode() == KeyCode.V) {
-                    snField.paste();
-                }
-            }
-            if (event.getCode() == KeyCode.ENTER) {
-                consultarBtn.fire();
-            }
-        });
+        Button cancelBtn = new Button("Cancelar");
+        cancelBtn.getStyleClass().add("connect-btn");
+        cancelBtn.setMaxWidth(140);
+        cancelBtn.setDisable(true);
+        addEnhancedButtonHoverEffects(cancelBtn);
 
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
         resultadoArea.getStyleClass().add("code-area");
-        resultadoArea.setPrefHeight(350);
-        VBox.setVgrow(resultadoArea, Priority.ALWAYS);
+        resultadoArea.setWrapText(false);
+        VirtualizedScrollPane<CodeArea> scrollPane = new VirtualizedScrollPane<>(resultadoArea);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
+        AtomicReference<SSHManager> currentSSHManager = new AtomicReference<>();
+        AtomicReference<Thread> consultaThread = new AtomicReference<>();
 
-        consultarBtn.setOnAction(e -> {
+        Runnable resetConsultaControls = () -> {
+            Thread thread = consultaThread.getAndSet(null);
+            if (thread != null && thread.isAlive()) {
+                thread.interrupt();
+            }
+
+            SSHManager ssh = currentSSHManager.getAndSet(null);
+            if (ssh != null) {
+                ssh.disconnect();
+            }
+
+            Platform.runLater(() -> {
+                consultarBtn.setDisable(false);
+                cancelBtn.setDisable(true);
+                oltComboBox.setDisable(false);
+                snField.setDisable(false);
+                isQueryInProgress.set(false);
+                showWaitingToast(false);
+            });
+        };
+
+        Runnable queryAction = () -> {
+            if (isQueryInProgress.get()) {
+                showWaitingToast(true);
+                return;
+            }
             OLT selectedOLT = oltComboBox.getValue();
             String sn = snField.getText().trim();
 
             if (selectedOLT == null || sn.isEmpty()) {
-                resultadoArea.replaceText(0, resultadoArea.getLength(),
-                        "Por favor, preencha todos os campos corretamente.");
+                showToast("❌ Por favor, preencha todos os campos corretamente.");
                 return;
             }
 
-            resultadoArea.replaceText(0, resultadoArea.getLength(), "Consultando informações do SN " + sn + "...\n");
+            consultarBtn.setDisable(true);
+            cancelBtn.setDisable(false);
+            oltComboBox.setDisable(true);
+            snField.setDisable(true);
+            isQueryInProgress.set(true);
+
+            resultadoArea.clear();
+            String initialMessage = "Consultando Informações do SN " + sn + " na " + selectedOLT.name + " (" + selectedOLT.ip + "), aguarde...\n";
+            appendStyledTextWithIPHighlight(resultadoArea, initialMessage, selectedOLT.ip, "ip-address");
+
+            SSHManager sshManager = new SSHManager();
+            sshManager.setConnectTimeout(18000);
+            currentSSHManager.set(sshManager);
 
             Thread thread = new Thread(() -> {
-                SSHManager tempSSHManager = new SSHManager();
-                CodeArea hiddenArea = new CodeArea();
                 try {
-                    boolean connected = tempSSHManager.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, hiddenArea);
-                    if (!connected) {
-                        Platform.runLater(() -> {
-                            resultadoArea.replaceText(0, resultadoArea.getLength(), "\n❌ Não foi possível conectar à OLT.\n\n" +
-                                    "Verifique se:\n" +
-                                    "1 - Você está na rede interna da empresa\n" +
-                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
-                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
-                                    "Caso esteja tudo correto, contate o Eduardo.");
-                        });
+                    boolean connected = sshManager.connect(selectedOLT.getIp(), selectedOLT.getUser(), selectedOLT.getPassword(), resultadoArea, false);
+                    if (!connected || Thread.currentThread().isInterrupted()) {
                         return;
                     }
 
-                    Platform.runLater(() -> hiddenArea.clear());
+                    String result = sshManager.queryOntInfoBySn(sn);
 
-                    tempSSHManager.sendCommand("enable");
-                    Thread.sleep(1000);
-                    tempSSHManager.sendCommand("config");
-                    Thread.sleep(1000);
-
-                    final int[] startPos = {0};
-                    Platform.runLater(() -> {
-                        startPos[0] = hiddenArea.getLength();
-                    });
-                    Thread.sleep(100);
-
-                    tempSSHManager.sendCommand("display ont info by-sn " + sn);
-
-                    Thread.sleep(12000);
-
-                    final String[] resultado = {""};
-                    Platform.runLater(() -> {
-                        String fullOutput = hiddenArea.getText();
-
-                        String searchString = "display ont info by-sn " + sn;
-                        int cmdIndex = fullOutput.indexOf(searchString, startPos[0]);
-
-                        if (cmdIndex >= 0) {
-                            int resultStartIndex = fullOutput.indexOf("\n", cmdIndex);
-                            if (resultStartIndex >= 0) {
-                                resultado[0] = fullOutput.substring(resultStartIndex + 1);
-                            }
-                        } else {
-                            resultado[0] = "\n❌ Não foi possível conectar à OLT.\n\n" +
-                                    "Verifique se:\n" +
-                                    "1 - Você está na rede interna da empresa\n" +
-                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
-                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
-                                    "Caso esteja tudo correto, contate o Eduardo.";
-                        }
-
-                        resultadoArea.replaceText(0, resultadoArea.getLength(), resultado[0]);
-                        destacarIPs(resultadoArea);
-                        showToast("🔎 Consulta BY-SN finalizada!");
-                    });
-
-                    DatabaseManager.logUsuario(usuario.getNome(),
-                            "Consultou ONT/ONU pelo SN " + sn + " na " + selectedOLT.name);
+                    if (!Thread.currentThread().isInterrupted()) {
+                        Platform.runLater(() -> {
+                            resultadoArea.replaceText(result);
+                            destacarIPs(resultadoArea);
+                            showToast("🔎 Consulta By-SN finalizada!");
+                        });
+                        DatabaseManager.logUsuario(usuario.getNome(), "Consultou ONT/ONU pelo SN " + sn + " na " + selectedOLT.name);
+                    }
                 } catch (Exception ex) {
-                    Platform.runLater(() -> {
-                        resultadoArea.replaceText(0, resultadoArea.getLength(), "Erro: " + ex.getMessage());
-                        destacarIPs(resultadoArea);
-                        showToast("⚠️ Erro ao consultar BY-SN.");
-                    });
+                    if (!Thread.currentThread().isInterrupted()) {
+                        Platform.runLater(() -> {
+                            resultadoArea.replaceText("Erro na consulta By-SN: " + ex.getMessage());
+                            destacarIPs(resultadoArea);
+                            showToast("⚠️ Erro ao consultar By-SN.");
+                        });
+                    }
                 } finally {
-                    tempSSHManager.disconnect();
+                    sshManager.disconnect();
+                    Platform.runLater(() -> resetConsultaControls.run());
                 }
             });
+
+            consultaThread.set(thread);
             thread.setDaemon(true);
             thread.start();
+        };
+
+        consultarBtn.setOnAction(e -> queryAction.run());
+        snField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER && !consultarBtn.isDisabled()) queryAction.run(); });
+
+        cancelBtn.setOnAction(e -> {
+            Platform.runLater(() -> {
+                resultadoArea.replaceText("Consulta cancelada pelo usuário.");
+                showToast("❌ Consulta cancelada!");
+            });
+            resetConsultaControls.run();
         });
+
+        HBox consultaButtonContainer = new HBox(10);
+        consultaButtonContainer.setAlignment(Pos.CENTER);
+        consultaButtonContainer.getChildren().addAll(consultarBtn, cancelBtn);
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
         exportBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(exportBtn);
+        exportBtn.setOnAction(e -> exportarResultado(resultadoArea, "Consulta_SN"));
 
-
-        exportBtn.setOnAction(e -> {
-            exportarResultado(resultadoArea, "Consulta_SN");
+        Button limparBtn = new Button("Limpar");
+        limparBtn.getStyleClass().add("connect-btn");
+        limparBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(limparBtn);
+        limparBtn.setOnAction(e -> {
+            if (resultadoArea.getText().trim().isEmpty()) {
+                showToast("❌ Terminal já está vazio!");
+            } else {
+                resultadoArea.clear();
+                showToast("✅ Terminal limpo!");
+            }
         });
 
+        HBox buttonContainer = new HBox(10);
+        buttonContainer.setAlignment(Pos.CENTER);
+        buttonContainer.getChildren().addAll(exportBtn, limparBtn);
+
         formArea.getChildren().addAll(
-                infoLabel,
-                oltComboBox,
-                snField,
-                consultarBtn,
-                resultadoArea,
-                exportBtn
+                infoLabel, oltComboBox, snField, consultaButtonContainer, scrollPane, buttonContainer
         );
 
         content.getChildren().addAll(title, formArea);
         return content;
     }
-    // ---------------------- ONT/ONU BY-SN ---------------------- //
+    // ---------------------- By-SN ---------------------- //
 
 
-    // ---------------------- ONT/ONU QUEDAS ---------------------- //
+    // ---------------------- Quedas ---------------------- //
     private Node createDropDiagnosisScreen() {
         VBox content = new VBox(20);
         content.getStyleClass().add("content-area");
@@ -1613,49 +2388,31 @@ public class Main extends Application {
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
         oltComboBox.setMaxWidth(363.5);
+        addComboBoxFocusEffects(oltComboBox);
 
         TextField fsField = new TextField();
         fsField.setPromptText("Digite F/S");
         fsField.getStyleClass().add("text-field");
         fsField.setMaxWidth(115);
+        fsField.setTextFormatter(new TextFormatter<>(c -> c.getControlNewText().matches("[0-9/]{0,4}") ? c : null));
+        addFieldFocusEffects(fsField);
 
         TextField pField = new TextField();
         pField.setPromptText("Digite o P");
         pField.getStyleClass().add("text-field");
         pField.setMaxWidth(115);
+        pField.setTextFormatter(new TextFormatter<>(c -> c.getControlNewText().matches("[0-9]{0,3}") ? c : null));
+        addFieldFocusEffects(pField);
 
         TextField ontIdField = new TextField();
         ontIdField.setPromptText("ID da ONT");
         ontIdField.getStyleClass().add("text-field");
         ontIdField.setMaxWidth(115);
+        ontIdField.setTextFormatter(new TextFormatter<>(c -> c.getControlNewText().matches("[0-9]{0,4}") ? c : null));
+        addFieldFocusEffects(ontIdField);
 
-        TextFormatter<String> fsFormatter = new TextFormatter<>(change -> {
-            if (change.getControlNewText().matches("[0-9/]{0,4}")) {
-                return change;
-            }
-            return null;
-        });
-        fsField.setTextFormatter(fsFormatter);
-
-        TextFormatter<String> pFormatter = new TextFormatter<>(change -> {
-            if (change.getControlNewText().matches("[0-9]{0,3}")) {
-                return change;
-            }
-            return null;
-        });
-        pField.setTextFormatter(pFormatter);
-
-        TextFormatter<String> ontIdFormatter = new TextFormatter<>(change -> {
-            if (change.getControlNewText().matches("[0-9]{0,4}")) {
-                return change;
-            }
-            return null;
-        });
-        ontIdField.setTextFormatter(ontIdFormatter);
-
-        HBox formRow2 = new HBox(10);
+        HBox formRow2 = new HBox(10, fsField, pField, ontIdField);
         formRow2.setAlignment(Pos.CENTER);
-        formRow2.getChildren().addAll(fsField, pField, ontIdField);
         HBox.setHgrow(fsField, Priority.ALWAYS);
         HBox.setHgrow(pField, Priority.ALWAYS);
         HBox.setHgrow(ontIdField, Priority.ALWAYS);
@@ -1663,148 +2420,157 @@ public class Main extends Application {
         Button diagnosticarBtn = new Button("Consultar");
         diagnosticarBtn.getStyleClass().add("connect-btn");
         diagnosticarBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(diagnosticarBtn);
+
+        Button cancelBtn = new Button("Cancelar");
+        cancelBtn.getStyleClass().add("connect-btn");
+        cancelBtn.setMaxWidth(140);
+        cancelBtn.setDisable(true);
+        addEnhancedButtonHoverEffects(cancelBtn);
 
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
         resultadoArea.getStyleClass().add("code-area");
-        resultadoArea.setPrefHeight(350);
-        VBox.setVgrow(resultadoArea, Priority.ALWAYS);
+        resultadoArea.setWrapText(false);
+        VirtualizedScrollPane<CodeArea> scrollPane = new VirtualizedScrollPane<>(resultadoArea);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
-        diagnosticarBtn.setOnAction(e -> {
+        AtomicReference<SSHManager> currentSSHManager = new AtomicReference<>();
+        AtomicReference<Thread> consultaThread = new AtomicReference<>();
+
+        Runnable resetConsultaControls = () -> {
+            Thread thread = consultaThread.getAndSet(null);
+            if (thread != null && thread.isAlive()) thread.interrupt();
+
+            SSHManager ssh = currentSSHManager.getAndSet(null);
+            if (ssh != null) ssh.disconnect();
+
+            Platform.runLater(() -> {
+                diagnosticarBtn.setDisable(false);
+                cancelBtn.setDisable(true);
+                oltComboBox.setDisable(false);
+                fsField.setDisable(false);
+                pField.setDisable(false);
+                ontIdField.setDisable(false);
+                isQueryInProgress.set(false);
+                showWaitingToast(false);
+            });
+        };
+
+        Runnable queryAction = () -> {
+            if (isQueryInProgress.get()) {
+                showWaitingToast(true);
+                return;
+            }
+
             OLT selectedOLT = oltComboBox.getValue();
             String fs = fsField.getText().trim();
             String p = pField.getText().trim();
             String ontId = ontIdField.getText().trim();
 
             if (selectedOLT == null || fs.isEmpty() || p.isEmpty() || ontId.isEmpty()) {
-                resultadoArea.replaceText(0, resultadoArea.getLength(),
-                        "Por favor, preencha todos os campos corretamente.");
+                showToast("❌ Por favor, preencha todos os campos corretamente.");
                 return;
             }
 
-            resultadoArea.replaceText(0, resultadoArea.getLength(), "Iniciando diagnóstico de quedas para ID " + ontId + " na PON " + fs + "/" + p + "...\n");
+            diagnosticarBtn.setDisable(true);
+            cancelBtn.setDisable(false);
+            oltComboBox.setDisable(true);
+            fsField.setDisable(true);
+            pField.setDisable(true);
+            ontIdField.setDisable(true);
+            isQueryInProgress.set(true);
+
+            resultadoArea.clear();
+            String initialMessage = "Iniciando Diagnóstico de Quedas para ID " + ontId + " na PON " + fs + "/" + p + " da " + selectedOLT.name + " (" + selectedOLT.ip + "), aguarde...\n";
+            appendStyledTextWithIPHighlight(resultadoArea, initialMessage, selectedOLT.ip, "ip-address");
+
+            SSHManager sshManager = new SSHManager();
+            sshManager.setConnectTimeout(10000);
+            currentSSHManager.set(sshManager);
 
             Thread thread = new Thread(() -> {
-                SSHManager ssh = new SSHManager();
-                CodeArea hiddenArea = new CodeArea();
                 try {
-                    boolean connected = ssh.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, hiddenArea);
-                    if (!connected) {
-                        Platform.runLater(() -> {
-                            resultadoArea.replaceText(0, resultadoArea.getLength(), "\n❌ Não foi possível conectar à OLT.\n\n" +
-                                    "Verifique se:\n" +
-                                    "1 - Você está na rede interna da empresa\n" +
-                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
-                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
-                                    "Caso esteja tudo correto, contate o Eduardo.");
-                        });
+                    boolean connected = sshManager.connect(selectedOLT.getIp(), selectedOLT.getUser(), selectedOLT.getPassword(), resultadoArea, false);
+                    if (!connected || Thread.currentThread().isInterrupted()) {
                         return;
                     }
+                    String result = sshManager.queryOntRegisterInfo(fs, p, ontId);
 
-                    Platform.runLater(() -> hiddenArea.clear());
-
-                    ssh.sendCommand("enable");
-                    Thread.sleep(1000);
-                    ssh.sendCommand("config");
-                    Thread.sleep(1000);
-                    ssh.sendCommand("interface gpon " + fs);
-                    Thread.sleep(1000);
-
-                    final int[] startPos = {0};
-                    Platform.runLater(() -> {
-                        startPos[0] = hiddenArea.getLength();
-                    });
-                    Thread.sleep(100);
-
-                    ssh.sendCommand("display ont register-info " + p + " " + ontId);
-
-                    Thread.sleep(5000);
-
-                    final String[] resultado = {""};
-                    Platform.runLater(() -> {
-                        String fullOutput = hiddenArea.getText();
-
-                        String searchString = "display ont register-info " + p + " " + ontId;
-                        int cmdIndex = fullOutput.indexOf(searchString, startPos[0]);
-
-                        if (cmdIndex >= 0) {
-                            int resultStartIndex = fullOutput.indexOf("\n", cmdIndex);
-                            if (resultStartIndex >= 0) {
-                                resultado[0] = fullOutput.substring(resultStartIndex + 1);
-                            }
-                        } else {
-                            resultado[0] = "\n❌ Não foi possível conectar à OLT.\n\n" +
-                                    "Verifique se:\n" +
-                                    "1 - Você está na rede interna da empresa\n" +
-                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
-                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
-                                    "Caso esteja tudo correto, contate o Eduardo.";
-                        }
-
-                        resultadoArea.replaceText(0, resultadoArea.getLength(), resultado[0]);
-                        destacarIPs(resultadoArea);
-                        showToast("🔎 Consulta de Quedas finalizada!");
-                    });
-
-                    DatabaseManager.logUsuario(usuario.getNome(),
-                            "Consultou diagnóstico de quedas da ONT/ONU " + fs + "/" + p + ontId + " na " + selectedOLT.name);
+                    if (!Thread.currentThread().isInterrupted()) {
+                        Platform.runLater(() -> {
+                            resultadoArea.replaceText(result);
+                            destacarIPs(resultadoArea);
+                            showToast("🔎 Consulta de Quedas finalizada!");
+                        });
+                        DatabaseManager.logUsuario(usuario.getNome(), "Consultou diagnóstico de quedas da ONT/ONU " + fs + "/" + p + "/" + ontId + " na " + selectedOLT.name);
+                    }
                 } catch (Exception ex) {
-                    Platform.runLater(() -> {
-                        resultadoArea.replaceText(0, resultadoArea.getLength(), "Erro: " + ex.getMessage());
-                        destacarIPs(resultadoArea);
-                        showToast("⚠️ Erro ao consultar Quedas.");
-                    });
+                    if (!Thread.currentThread().isInterrupted()) {
+                        Platform.runLater(() -> {
+                            resultadoArea.replaceText("Erro no diagnóstico de quedas: " + ex.getMessage());
+                            destacarIPs(resultadoArea);
+                            showToast("⚠️ Erro ao consultar Quedas.");
+                        });
+                    }
                 } finally {
-                    ssh.disconnect();
+                    sshManager.disconnect();
+                    Platform.runLater(resetConsultaControls);
                 }
             });
+
+            consultaThread.set(thread);
             thread.setDaemon(true);
             thread.start();
+        };
+
+        diagnosticarBtn.setOnAction(e -> queryAction.run());
+        cancelBtn.setOnAction(e -> {
+            resultadoArea.replaceText("Consulta cancelada pelo usuário.");
+            showToast("❌ Consulta cancelada!");
+            resetConsultaControls.run();
         });
 
-        fsField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                diagnosticarBtn.fire();
-            }
-        });
+        fsField.setOnKeyPressed(e -> { if (e.getCode() == KeyCode.ENTER && !diagnosticarBtn.isDisabled()) queryAction.run(); });
+        pField.setOnKeyPressed(e -> { if (e.getCode() == KeyCode.ENTER && !diagnosticarBtn.isDisabled()) queryAction.run(); });
+        ontIdField.setOnKeyPressed(e -> { if (e.getCode() == KeyCode.ENTER && !diagnosticarBtn.isDisabled()) queryAction.run(); });
 
-        pField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                diagnosticarBtn.fire();
-            }
-        });
-
-        ontIdField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                diagnosticarBtn.fire();
-            }
-        });
+        HBox consultaButtons = new HBox(10, diagnosticarBtn, cancelBtn);
+        consultaButtons.setAlignment(Pos.CENTER);
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
         exportBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(exportBtn);
+        exportBtn.setOnAction(e -> exportarResultado(resultadoArea, "Diagnostico_Quedas"));
 
-
-        exportBtn.setOnAction(e -> {
-            exportarResultado(resultadoArea, "Diagnostico_Quedas");
+        Button limparBtn = new Button("Limpar");
+        limparBtn.getStyleClass().add("connect-btn");
+        limparBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(limparBtn);
+        limparBtn.setOnAction(e -> {
+            if (resultadoArea.getText().trim().isEmpty()) {
+                showToast("❌ Terminal já está vazio!");
+            } else {
+                resultadoArea.clear();
+                showToast("✅ Terminal limpo!");
+            }
         });
 
+        HBox extraButtons = new HBox(10, exportBtn, limparBtn);
+        extraButtons.setAlignment(Pos.CENTER);
+
         formArea.getChildren().addAll(
-                infoLabel,
-                oltComboBox,
-                formRow2,
-                diagnosticarBtn,
-                resultadoArea,
-                exportBtn
+                infoLabel, oltComboBox, formRow2, consultaButtons, scrollPane, extraButtons
         );
 
         content.getChildren().addAll(title, formArea);
         return content;
     }
-    // ---------------------- ONT/ONU QUEDAS ---------------------- //
+    // ---------------------- Quedas ---------------------- //
 
 
-    // ---------------------- VELOCIDADE ONT/ONU ---------------------- //
+    // ---------------------- Tráfego ---------------------- //
     private Node createONUTrafficScreen() {
         VBox content = new VBox(20);
         content.getStyleClass().add("content-area");
@@ -1812,7 +2578,7 @@ public class Main extends Application {
         content.setPadding(new Insets(20, 0, 20, 0));
         VBox.setVgrow(content, Priority.ALWAYS);
 
-        Label title = new Label("Monitoramento de Velocidade ONT/ONU");
+        Label title = new Label("Monitoramento de Tráfego ONT/ONU");
         title.getStyleClass().add("title");
 
         VBox formArea = new VBox(15);
@@ -1830,44 +2596,31 @@ public class Main extends Application {
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
         oltComboBox.setMaxWidth(363.5);
+        addComboBoxFocusEffects(oltComboBox);
 
         TextField fsField = new TextField();
         fsField.setPromptText("Digite F/S");
         fsField.getStyleClass().add("text-field");
         fsField.setMaxWidth(115);
+        addFieldFocusEffects(fsField);
 
         TextField pField = new TextField();
         pField.setPromptText("Digite o P");
         pField.getStyleClass().add("text-field");
         pField.setMaxWidth(115);
+        addFieldFocusEffects(pField);
 
         TextField ontIdField = new TextField();
         ontIdField.setPromptText("ID da ONT");
         ontIdField.getStyleClass().add("text-field");
         ontIdField.setMaxWidth(115);
+        addFieldFocusEffects(ontIdField);
 
-        TextFormatter<String> fsFormatter = new TextFormatter<>(change -> {
-            if (change.getControlNewText().matches("[0-9/]{0,4}")) {
-                return change;
-            }
-            return null;
-        });
+        TextFormatter<String> fsFormatter = new TextFormatter<>(change -> change.getControlNewText().matches("[0-9/]{0,4}") ? change : null);
         fsField.setTextFormatter(fsFormatter);
-
-        TextFormatter<String> pFormatter = new TextFormatter<>(change -> {
-            if (change.getControlNewText().matches("[0-9]{0,3}")) {
-                return change;
-            }
-            return null;
-        });
+        TextFormatter<String> pFormatter = new TextFormatter<>(change -> change.getControlNewText().matches("[0-9]{0,3}") ? change : null);
         pField.setTextFormatter(pFormatter);
-
-        TextFormatter<String> ontIdFormatter = new TextFormatter<>(change -> {
-            if (change.getControlNewText().matches("[0-9]{0,4}")) {
-                return change;
-            }
-            return null;
-        });
+        TextFormatter<String> ontIdFormatter = new TextFormatter<>(change -> change.getControlNewText().matches("[0-9]{0,4}") ? change : null);
         ontIdField.setTextFormatter(ontIdFormatter);
 
         HBox formRow1 = new HBox(10);
@@ -1880,11 +2633,13 @@ public class Main extends Application {
         Button monitorBtn = new Button("Monitorar");
         monitorBtn.getStyleClass().add("connect-btn");
         monitorBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(monitorBtn);
 
         Button stopBtn = new Button("Parar");
         stopBtn.getStyleClass().add("stop-btn");
         stopBtn.setMaxWidth(140);
         stopBtn.setDisable(true);
+        addEnhancedButtonHoverEffects(stopBtn);
 
         HBox buttonRow = new HBox(10);
         buttonRow.setAlignment(Pos.CENTER);
@@ -1893,15 +2648,34 @@ public class Main extends Application {
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
         resultadoArea.getStyleClass().add("code-area");
-        resultadoArea.setPrefHeight(350);
-        VBox.setVgrow(resultadoArea, Priority.ALWAYS);
+        resultadoArea.setWrapText(false);
+        VirtualizedScrollPane<CodeArea> scrollPane = new VirtualizedScrollPane<>(resultadoArea);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
         AtomicBoolean monitoring = new AtomicBoolean(false);
         AtomicReference<SSHManager> currentSSHManager = new AtomicReference<>();
         AtomicReference<Thread> monitoringThread = new AtomicReference<>();
+        AtomicReference<Timer> timeoutTimerRef = new AtomicReference<>();
+
 
         Runnable resetMonitoringControls = () -> {
             monitoring.set(false);
+
+            Timer currentTimer = timeoutTimerRef.getAndSet(null);
+            if (currentTimer != null) {
+                currentTimer.cancel();
+            }
+
+            Thread monThread = monitoringThread.getAndSet(null);
+            if (monThread != null && monThread.isAlive()) {
+                monThread.interrupt();
+            }
+
+            SSHManager ssh = currentSSHManager.getAndSet(null);
+            if (ssh != null) {
+                ssh.disconnect();
+            }
+
             Platform.runLater(() -> {
                 monitorBtn.setDisable(false);
                 stopBtn.setDisable(true);
@@ -1909,30 +2683,36 @@ public class Main extends Application {
                 fsField.setDisable(false);
                 pField.setDisable(false);
                 ontIdField.setDisable(false);
+                isQueryInProgress.set(false);
+                showWaitingToast(false);
             });
         };
 
-        monitorBtn.setOnAction(e -> {
+        Runnable startMonitoringAction = () -> {
+            if (isQueryInProgress.get()) {
+                showWaitingToast(true);
+                return;
+            }
             OLT selectedOLT = oltComboBox.getValue();
             String fs = fsField.getText().trim();
             String p = pField.getText().trim();
             String ontId = ontIdField.getText().trim();
 
             if (selectedOLT == null || fs.isEmpty() || p.isEmpty() || ontId.isEmpty()) {
-                resultadoArea.replaceText(0, resultadoArea.getLength(),
-                        "Por favor, preencha todos os campos corretamente.");
+                showToast("❌ Por favor, preencha todos os campos corretamente.");
                 return;
             }
 
-            if (monitoring.get()) {
-                return;
-            }
+            if (monitoring.get()) return;
+
+            isQueryInProgress.set(true);
+            monitoring.set(true);
 
             resultadoArea.clear();
-            resultadoArea.appendText("Iniciando monitoramento de Velocidade para ID " + ontId + " na PON " + fs + "/" + p + "...\n");
-            resultadoArea.appendText("O monitoramento será executado por 2 minutos ou até que seja interrompido manualmente.\n");
+            String initialMessage = "Iniciando Monitoramento de Tráfego para ID " + ontId + " na PON " + fs + "/" + p + " da " + selectedOLT.name + " (" + selectedOLT.ip + "), aguarde...\n" +
+                    "O Monitoramento será executado por 2 minutos ou até que seja interrompido manualmente.\n";
+            appendStyledTextWithIPHighlight(resultadoArea, initialMessage, selectedOLT.ip, "ip-address");
 
-            monitoring.set(true);
             monitorBtn.setDisable(true);
             stopBtn.setDisable(false);
             oltComboBox.setDisable(true);
@@ -1943,13 +2723,12 @@ public class Main extends Application {
             SSHManager sshManager = new SSHManager();
             currentSSHManager.set(sshManager);
 
-            // Timer 2min
-            Timer timeoutTimer = new Timer();
+            Timer timeoutTimer = new Timer(true);
+            timeoutTimerRef.set(timeoutTimer);
             timeoutTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
                     if (monitoring.get()) {
-                        monitoring.set(false);
                         Platform.runLater(() -> {
                             resultadoArea.appendText("\nMonitoramento finalizado automaticamente após 2 minutos.\n");
                             resetMonitoringControls.run();
@@ -1959,193 +2738,96 @@ public class Main extends Application {
             }, 120000);
 
             Thread thread = new Thread(() -> {
-                CodeArea hiddenArea = new CodeArea();
                 try {
-                    boolean connected = sshManager.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, hiddenArea);
+                boolean connected = sshManager.connect(selectedOLT.getIp(), selectedOLT.getUser(), selectedOLT.getPassword(), resultadoArea, false);
                     if (!connected) {
-                        Platform.runLater(() -> {
-                            resultadoArea.appendText("\n❌ Não foi possível conectar à OLT.\n\n" +
-                                    "Verifique se:\n" +
-                                    "1 - Você está na rede interna da empresa\n" +
-                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
-                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
-                                    "Caso esteja tudo correto, contate o Eduardo.");
-                            resetMonitoringControls.run();
-                        });
-                        timeoutTimer.cancel();
+                        Platform.runLater(resetMonitoringControls::run);
                         return;
                     }
 
-                    sshManager.sendCommand("enable");
-                    Thread.sleep(1000);
-                    sshManager.sendCommand("config");
-                    Thread.sleep(1000);
-                    sshManager.sendCommand("interface gpon " + fs);
-                    Thread.sleep(1000);
+                    long startTime = System.currentTimeMillis();
+                    long endTime = startTime + 120000;
 
-                    final String trafficCommand = "display ont traffic " + p + " " + ontId;
-
-                    while (monitoring.get()) {
-                        Platform.runLater(() -> {
-                            hiddenArea.clear();
-                        });
-                        Thread.sleep(100);
-
-                        sshManager.sendCommand(trafficCommand);
-
-                        Thread.sleep(1500);
-
-                        Platform.runLater(() -> {
-                            String currentOutput = hiddenArea.getText();
-                            if (currentOutput.contains("{ <cr>|ontportid<U>") ||
-                                    currentOutput.contains("<1,24>||<K> }:")) {
-                                try {
-                                    sshManager.sendEnterKey();
-                                } catch (Exception ex) {
-                                    System.err.println("Erro ao enviar Enter: " + ex.getMessage());
+                    while (monitoring.get() && System.currentTimeMillis() < endTime) {
+                        try {
+                            String trafficData = sshManager.queryOntTraffic(fs, p, ontId);
+                            Platform.runLater(() -> {
+                                if(monitoring.get()){
+                                    resultadoArea.appendText("\n" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")) + "\n");
+                                    resultadoArea.appendText(trafficData);
+                                    resultadoArea.moveTo(resultadoArea.getLength());
+                                    resultadoArea.requestFollowCaret();
+                                    destacarIPs(resultadoArea);
                                 }
-                            }
-                        });
-
-                        Thread.sleep(3500);
-
-                        Platform.runLater(() -> {
-                            String fullOutput = hiddenArea.getText();
-
-                            if (fullOutput.contains("Traffic Information") ||
-                                    fullOutput.contains("Up traffic") ||
-                                    fullOutput.contains("Down traffic")) {
-
-                                String result = extractTrafficInfo(fullOutput);
-
-                                resultadoArea.appendText("\n" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")) + "\n");
-                                resultadoArea.appendText(result);
-                                resultadoArea.moveTo(resultadoArea.getLength());
-                                resultadoArea.requestFollowCaret();
-                            } else {
-                                resultadoArea.appendText("\nAguardando dados de tráfego...\n");
-                                System.out.println("Debug - Saída completa: " + fullOutput);
-                            }
-                        });
-
-                        Thread.sleep(2000);
+                            });
+                            Thread.sleep(5000);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
                     }
 
                 } catch (Exception ex) {
-                    Platform.runLater(() -> {
-                        resultadoArea.appendText("\nErro durante o monitoramento: " + ex.getMessage() + "\n");
-                        resetMonitoringControls.run();
-                    });
-                    timeoutTimer.cancel();
+                    Platform.runLater(() -> resultadoArea.appendText("\nErro durante o monitoramento: " + ex.getMessage() + "\n"));
                 } finally {
-                    sshManager.disconnect();
+                    if (monitoring.get()) {
+                        Platform.runLater(resetMonitoringControls::run);
+                    }
                 }
             });
 
+            monitoringThread.set(thread);
             thread.setDaemon(true);
             thread.start();
-            monitoringThread.set(thread);
+            DatabaseManager.logUsuario(usuario.getNome(), "Iniciou monitoramento de tráfego para ONT " + ontId + " na PON " + fs + "/" + p + " na " + selectedOLT.name);
+        };
 
-            DatabaseManager.logUsuario(usuario.getNome(),
-                    "Iniciou monitoramento de velocidade para ONT " + ontId + " na PON " + fs + "/" + p + " na " + selectedOLT.name);
-        });
+        monitorBtn.setOnAction(e -> startMonitoringAction.run());
+
+        fsField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER) startMonitoringAction.run(); });
+        pField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER) startMonitoringAction.run(); });
+        ontIdField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER) startMonitoringAction.run(); });
 
         stopBtn.setOnAction(e -> {
-            monitoring.set(false);
+            if(monitoring.get()){
+                resultadoArea.appendText("\nMonitoramento interrompido manualmente.\n");
+            }
             resetMonitoringControls.run();
-
-            if (monitoringThread.get() != null) {
-                monitoringThread.get().interrupt();
-            }
-
-            if (currentSSHManager.get() != null) {
-                currentSSHManager.get().disconnect();
-            }
-
-            resultadoArea.appendText("\nMonitoramento interrompido manualmente.\n");
         });
-
-        fsField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                monitorBtn.fire();
-            }
-        });
-
-        pField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                monitorBtn.fire();
-            }
-        });
-
-        ontIdField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                monitorBtn.fire();
-            }
-        });
-
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
         exportBtn.setMaxWidth(140);
-        exportBtn.setOnAction(e -> exportarResultado(resultadoArea, "Monitoramento_Velocidade"));
+        addEnhancedButtonHoverEffects(exportBtn);
+        exportBtn.setOnAction(e -> exportarResultado(resultadoArea, "Monitoramento_Trafego"));
+
+        Button limparBtn = new Button("Limpar");
+        limparBtn.getStyleClass().add("connect-btn");
+        limparBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(limparBtn);
+        limparBtn.setOnAction(e -> {
+            if (resultadoArea.getText().trim().isEmpty()) {
+                showToast("❌ Terminal já está vazio!");
+            } else {
+                resultadoArea.clear();
+                showToast("✅ Terminal limpo!");
+            }
+        });
+
+        HBox buttonContainer = new HBox(10);
+        buttonContainer.setAlignment(Pos.CENTER);
+        buttonContainer.getChildren().addAll(exportBtn, limparBtn);
 
         formArea.getChildren().addAll(
-                infoLabel,
-                oltComboBox,
-                formRow1,
-                buttonRow,
-                resultadoArea,
-                exportBtn
+                infoLabel, oltComboBox, formRow1, buttonRow, scrollPane, buttonContainer
         );
 
         content.getChildren().addAll(title, formArea);
         return content;
     }
-
-    private String extractTrafficInfo(String output) {
-        StringBuilder result = new StringBuilder();
-
-        Pattern upPattern = Pattern.compile("Up traffic\\s+\\(kbps\\)\\s+:\\s+(\\d+)");
-        Pattern downPattern = Pattern.compile("Down traffic\\s+\\(kbps\\)\\s+:\\s+(\\d+)");
-
-        Pattern upPattern2 = Pattern.compile("Upstream rate\\s*:\\s*(\\d+)\\s*kbps");
-        Pattern downPattern2 = Pattern.compile("Downstream rate\\s*:\\s*(\\d+)\\s*kbps");
-
-        Matcher upMatcher = upPattern.matcher(output);
-        Matcher downMatcher = downPattern.matcher(output);
-
-        if (!upMatcher.find()) {
-            upMatcher = upPattern2.matcher(output);
-        }
-
-        if (!downMatcher.find()) {
-            downMatcher = downPattern2.matcher(output);
-        }
-
-        upMatcher.reset();
-        downMatcher.reset();
-
-        if (upMatcher.find()) {
-            int upSpeed = Integer.parseInt(upMatcher.group(1));
-            result.append(String.format("Upload: %d kbps (%.2f Mbps)\n", upSpeed, upSpeed / 1000.0));
-        } else {
-            result.append("Upload: Não disponível\n");
-        }
-
-        if (downMatcher.find()) {
-            int downSpeed = Integer.parseInt(downMatcher.group(1));
-            result.append(String.format("Download: %d kbps (%.2f Mbps)\n", downSpeed, downSpeed / 1000.0));
-        } else {
-            result.append("Download: Não disponível\n");
-        }
-
-        result.append("----------------------------------------------------\n");
-
-        return result.toString();
-    }
-    // ---------------------- VELOCIDADE ONT/ONU ---------------------- //
+    // ---------------------- Tráfego ---------------------- //
 
 
-    // ---------------------- ONT/ONU SERVIÇOS  ---------------------- //
+    // ---------------------- Serviços ---------------------- //
     private Node createONUServiceScreen() {
         VBox content = new VBox(20);
         content.getStyleClass().add("content-area");
@@ -2171,35 +2853,24 @@ public class Main extends Application {
         oltComboBox.setPromptText("Selecione a OLT");
         oltComboBox.getStyleClass().add("combo-box");
         oltComboBox.setMaxWidth(240);
+        addComboBoxFocusEffects(oltComboBox);
 
         TextField fspField = new TextField();
         fspField.setPromptText("Digite F/S/P");
         fspField.getStyleClass().add("text-field");
         fspField.setMaxWidth(115);
+        addFieldFocusEffects(fspField);
 
         TextField ontIdField = new TextField();
         ontIdField.setPromptText("ID da ONT");
         ontIdField.getStyleClass().add("text-field");
         ontIdField.setMaxWidth(115);
+        addFieldFocusEffects(ontIdField);
 
-        TextFormatter<String> ponFormatter = new TextFormatter<>(change -> {
-            String newText = change.getControlNewText();
-            if (change.isContentChange() && !newText.matches("[0-9/]{0,7}")) {
-                return null;
-            }
-            return change;
-        });
+        TextFormatter<String> ponFormatter = new TextFormatter<>(change -> change.getControlNewText().matches("[0-9/]{0,7}") ? change : null);
         fspField.setTextFormatter(ponFormatter);
-
-
-        TextFormatter<String> ontIdFormatter = new TextFormatter<>(change -> {
-            if (change.getControlNewText().matches("[0-9]{0,4}")) {
-                return change;
-            }
-            return null;
-        });
+        TextFormatter<String> ontIdFormatter = new TextFormatter<>(change -> change.getControlNewText().matches("[0-9]{0,4}") ? change : null);
         ontIdField.setTextFormatter(ontIdFormatter);
-
 
         HBox formRow3 = new HBox(10);
         formRow3.setAlignment(Pos.CENTER);
@@ -2210,153 +2881,161 @@ public class Main extends Application {
         Button consultBtn = new Button("Consultar");
         consultBtn.getStyleClass().add("connect-btn");
         consultBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(consultBtn);
+
+        Button cancelBtn = new Button("Cancelar");
+        cancelBtn.getStyleClass().add("connect-btn");
+        cancelBtn.setMaxWidth(140);
+        cancelBtn.setDisable(true);
+        addEnhancedButtonHoverEffects(cancelBtn);
 
         CodeArea resultadoArea = new CodeArea();
         resultadoArea.setEditable(false);
         resultadoArea.getStyleClass().add("code-area");
-        resultadoArea.setPrefHeight(350);
-        VBox.setVgrow(resultadoArea, Priority.ALWAYS);
+        resultadoArea.setWrapText(false);
+        VirtualizedScrollPane<CodeArea> scrollPane = new VirtualizedScrollPane<>(resultadoArea);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
-        consultBtn.setOnAction(e -> {
+        AtomicReference<SSHManager> currentSSHManager = new AtomicReference<>();
+        AtomicReference<Thread> consultaThread = new AtomicReference<>();
+
+        Runnable resetConsultaControls = () -> {
+            Thread thread = consultaThread.getAndSet(null);
+            if (thread != null && thread.isAlive()) {
+                thread.interrupt();
+            }
+
+            SSHManager ssh = currentSSHManager.getAndSet(null);
+            if (ssh != null) {
+                ssh.disconnect();
+            }
+
+            Platform.runLater(() -> {
+                consultBtn.setDisable(false);
+                cancelBtn.setDisable(true);
+                oltComboBox.setDisable(false);
+                fspField.setDisable(false);
+                ontIdField.setDisable(false);
+                isQueryInProgress.set(false);
+                showWaitingToast(false);
+            });
+        };
+
+        Runnable queryAction = () -> {
+            if (isQueryInProgress.get()) {
+                showWaitingToast(true);
+                return;
+            }
             OLT selectedOLT = oltComboBox.getValue();
             String fsp = fspField.getText().trim();
             String ontId = ontIdField.getText().trim();
 
             if (selectedOLT == null || fsp.isEmpty() || ontId.isEmpty()) {
-                resultadoArea.replaceText(0, resultadoArea.getLength(),
-                        "Por favor, preencha todos os campos corretamente.");
+                showToast("❌ Por favor, preencha todos os campos corretamente.");
                 return;
             }
 
-            resultadoArea.replaceText(0, resultadoArea.getLength(), "Consultando serviços para ID " + ontId + " na PON " + fsp + "...\n");
+            consultBtn.setDisable(true);
+            cancelBtn.setDisable(false);
+            oltComboBox.setDisable(true);
+            fspField.setDisable(true);
+            ontIdField.setDisable(true);
+            isQueryInProgress.set(true);
+
+            resultadoArea.clear();
+            String initialMessage = "Consultando Serviços para ID " + ontId + " na PON " + fsp + " da " + selectedOLT.name + " (" + selectedOLT.ip + "), aguarde...\n";
+            appendStyledTextWithIPHighlight(resultadoArea, initialMessage, selectedOLT.ip, "ip-address");
+
+            SSHManager sshManager = new SSHManager();
+            sshManager.setConnectTimeout(15000);
+            currentSSHManager.set(sshManager);
 
             Thread thread = new Thread(() -> {
-                SSHManager ssh = new SSHManager();
-                CodeArea hiddenArea = new CodeArea();
                 try {
-                    boolean connected = ssh.connect(selectedOLT.ip, Secrets.SSH_USER, Secrets.SSH_PASS, hiddenArea);
-                    if (!connected) {
-                        Platform.runLater(() -> {
-                            resultadoArea.replaceText(0, resultadoArea.getLength(), "\n❌ Não foi possível conectar à OLT.\n\n" +
-                                    "Verifique se:\n" +
-                                    "1 - Você está na rede interna da empresa\n" +
-                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
-                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
-                                    "Caso esteja tudo correto, contate o Eduardo.");
-                        });
+                    boolean connected = sshManager.connect(selectedOLT.getIp(), selectedOLT.getUser(), selectedOLT.getPassword(), resultadoArea, false);
+                    if (!connected || Thread.currentThread().isInterrupted()) {
                         return;
                     }
 
-                    Platform.runLater(() -> hiddenArea.clear());
+                    String result = sshManager.queryServicePortInfo(fsp, ontId);
 
-                    ssh.sendCommand("enable");
-                    Thread.sleep(1000);
-                    ssh.sendCommand("config");
-                    Thread.sleep(1000);
-
-                    final int[] startPos = {0};
-                    Platform.runLater(() -> {
-                        startPos[0] = hiddenArea.getLength();
-                    });
-                    Thread.sleep(100);
-
-                    ssh.sendCommand("display service-port port " + fsp + " ont " + ontId);
-
-                    Thread.sleep(7000);
-
-                    Platform.runLater(() -> {
-                        String currentOutput = hiddenArea.getText();
-                        if (currentOutput.contains("{ <cr>|e2e<K>|gemport<K>") ||
-                                currentOutput.contains("|sort-by<K>||<K> }:")) {
-                            try {
-                                ssh.sendEnterKey();
-                            } catch (Exception ex) {
-                                System.err.println("Erro ao enviar Enter: " + ex.getMessage());
-                            }
-                        }
-                    });
-
-                    Thread.sleep(3500);
-
-                    final String[] resultado = {""};
-                    Platform.runLater(() -> {
-                        String fullOutput = hiddenArea.getText();
-
-                        String searchString = "display service-port port " + fsp + " ont " + ontId;
-                        int cmdIndex = fullOutput.indexOf(searchString, startPos[0]);
-
-                        if (cmdIndex >= 0) {
-                            int resultStartIndex = fullOutput.indexOf("\n", cmdIndex);
-                            if (resultStartIndex >= 0) {
-                                resultado[0] = fullOutput.substring(resultStartIndex + 1);
-                            }
-                        } else {
-                            resultado[0] = "\n❌ Não foi possível conectar à OLT.\n\n" +
-                                    "Verifique se:\n" +
-                                    "1 - Você está na rede interna da empresa\n" +
-                                    "2 - Alguém derrubou a OLT, ou se ela está desativada\n" +
-                                    "3 - Se não há firewall ou antivírus bloqueando\n\n" +
-                                    "Caso esteja tudo correto, contate o Eduardo.";
-                        }
-
-                        resultadoArea.replaceText(0, resultadoArea.getLength(), resultado[0]);
-                        destacarIPs(resultadoArea);
-                        showToast("🔎 Consulta de Serviços finalizada!");
-                    });
-
-                    DatabaseManager.logUsuario(usuario.getNome(),
-                            "Consultou os serviços da ONT/ONU ID" + ontId + " da PON " + fsp + " na " + selectedOLT.name);
+                    if (!Thread.currentThread().isInterrupted()) {
+                        Platform.runLater(() -> {
+                            resultadoArea.replaceText(result);
+                            destacarIPs(resultadoArea);
+                            showToast("🔎 Consulta de Serviços finalizada!");
+                        });
+                        DatabaseManager.logUsuario(usuario.getNome(), "Consultou os serviços da ONT/ONU ID" + ontId + " da PON " + fsp + " na " + selectedOLT.name);
+                    }
                 } catch (Exception ex) {
-                    Platform.runLater(() -> {
-                        resultadoArea.replaceText(0, resultadoArea.getLength(), "Erro: " + ex.getMessage());
-                        destacarIPs(resultadoArea);
-                        showToast("⚠️ Erro ao consultar Serviços.");
-                    });
+                    if (!Thread.currentThread().isInterrupted()) {
+                        Platform.runLater(() -> {
+                            resultadoArea.replaceText("Erro na consulta de serviços: " + ex.getMessage());
+                            destacarIPs(resultadoArea);
+                            showToast("⚠️ Erro ao consultar Serviços.");
+                        });
+                    }
                 } finally {
-                    ssh.disconnect();
+                    sshManager.disconnect();
+                    Platform.runLater(() -> resetConsultaControls.run());
                 }
             });
+
+            consultaThread.set(thread);
             thread.setDaemon(true);
             thread.start();
+        };
+
+        consultBtn.setOnAction(e -> queryAction.run());
+        fspField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER && !consultBtn.isDisabled()) queryAction.run(); });
+        ontIdField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER && !consultBtn.isDisabled()) queryAction.run(); });
+
+        cancelBtn.setOnAction(e -> {
+            Platform.runLater(() -> {
+                resultadoArea.replaceText("Consulta cancelada pelo usuário.");
+                showToast("❌ Consulta cancelada!");
+            });
+            resetConsultaControls.run();
         });
 
-        fspField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                consultBtn.fire();
-            }
-        });
-
-        ontIdField.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                consultBtn.fire();
-            }
-        });
+        HBox consultaButtonContainer = new HBox(10);
+        consultaButtonContainer.setAlignment(Pos.CENTER);
+        consultaButtonContainer.getChildren().addAll(consultBtn, cancelBtn);
 
         Button exportBtn = new Button("Exportar");
         exportBtn.getStyleClass().add("connect-btn");
         exportBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(exportBtn);
+        exportBtn.setOnAction(e -> exportarResultado(resultadoArea, "Consulta_Servicos"));
 
-
-        exportBtn.setOnAction(e -> {
-            exportarResultado(resultadoArea, "Consulta_Servicos");
+        Button limparBtn = new Button("Limpar");
+        limparBtn.getStyleClass().add("connect-btn");
+        limparBtn.setMaxWidth(140);
+        addEnhancedButtonHoverEffects(limparBtn);
+        limparBtn.setOnAction(e -> {
+            if (resultadoArea.getText().trim().isEmpty()) {
+                showToast("❌ Terminal já está vazio!");
+            } else {
+                resultadoArea.clear();
+                showToast("✅ Terminal limpo!");
+            }
         });
 
+        HBox buttonContainer = new HBox(10);
+        buttonContainer.setAlignment(Pos.CENTER);
+        buttonContainer.getChildren().addAll(exportBtn, limparBtn);
+
         formArea.getChildren().addAll(
-                infoLabel,
-                oltComboBox,
-                formRow3,
-                consultBtn,
-                resultadoArea,
-                exportBtn
+                infoLabel, oltComboBox, formRow3, consultaButtonContainer, scrollPane, buttonContainer
         );
 
         content.getChildren().addAll(title, formArea);
         return content;
     }
-    // ---------------------- ONT/ONU SERVIÇOS  ---------------------- //
+    // ---------------------- Serviços ---------------------- //
 
 
-    // ---------------------- CHAMADOS  ---------------------- //
+    // ---------------------- Chamados (ADMIN)  ---------------------- //
     private Node createTechnicalTicketsScreen() {
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
@@ -2364,37 +3043,55 @@ public class Main extends Application {
         content.getStyleClass().add("content-area");
         VBox.setVgrow(content, Priority.ALWAYS);
 
-        Label title = new Label("Chamados");
+        Label title = new Label("Gerenciamento de Chamados");
         title.getStyleClass().add("title");
 
         TableView<Ticket> table = new TableView<>();
         table.getStyleClass().add("data-table");
         table.setItems(FXCollections.observableArrayList(DatabaseManager.getAllTickets()));
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+
         VBox.setVgrow(table, Priority.ALWAYS);
 
-
         table.getColumns().addAll(
-                createColumn("Criado por", "criadoPor"),
-                createColumn("Cargo", "cargo"),
-                createColumn("Descrição do Problema", "descricao"),
-                createColumn("Prioridade", "previsao"),
-                createColumn("Data/Hora", "dataHora"),
-                createColumn("Status", "status")
+                createColumn("Criado por", "criadoPor", 150),
+                createColumn("Descrição", "descricao", 350),
+                createColumn("Prioridade", "previsao", 100),
+                createColumn("Data/Hora", "dataHora", 150),
+                createColumn("Status", "status", 120),
+                createColumn("Resposta", "resposta", 250)
         );
 
-        if (usuario.getUsuario().equalsIgnoreCase("Eduardo")) {
-            TableColumn<Ticket, Void> actionCol = new TableColumn<>("Ação");
+        if (usuario.isAdmin()) {
+            TableColumn<Ticket, Void> actionCol = new TableColumn<>("Ações");
+            actionCol.setPrefWidth(180);
+            actionCol.setResizable(false);
+            actionCol.setStyle("-fx-alignment: CENTER;");
 
             actionCol.setCellFactory(col -> new TableCell<>() {
-                private final Button deleteBtn = new Button("Excluir");
+                private final Button responderBtn = new Button("Responder");
+                private final Button excluirBtn = new Button("Excluir");
+                private final HBox pane = new HBox(5, responderBtn, excluirBtn);
 
                 {
-                    deleteBtn.getStyleClass().addAll("window-close-button", "small-delete-btn");
-                    deleteBtn.setOnAction(e -> {
+                    pane.setAlignment(Pos.CENTER);
+                    responderBtn.getStyleClass().add("button");
+                    excluirBtn.getStyleClass().add("logout-btn");
+
+                    responderBtn.setOnAction(e -> {
                         Ticket selected = getTableView().getItems().get(getIndex());
                         if (selected != null) {
-                            boolean confirm = showConfirmation("Deseja excluir o chamado?");
+                            showResponderTicketModal(selected, () -> {
+                                table.setItems(FXCollections.observableArrayList(DatabaseManager.getAllTickets()));
+                                table.refresh();
+                            });
+                        }
+                    });
+
+                    excluirBtn.setOnAction(e -> {
+                        Ticket selected = getTableView().getItems().get(getIndex());
+                        if (selected != null) {
+                            boolean confirm = showConfirmation("Deseja excluir o chamado #" + selected.getId() + "?");
                             if (confirm) {
                                 DatabaseManager.excluirTicket(selected);
                                 getTableView().getItems().remove(selected);
@@ -2410,11 +3107,10 @@ public class Main extends Application {
                     if (empty) {
                         setGraphic(null);
                     } else {
-                        setGraphic(deleteBtn);
+                        setGraphic(pane);
                     }
                 }
             });
-
             table.getColumns().add(actionCol);
         }
 
@@ -2422,14 +3118,16 @@ public class Main extends Application {
         return content;
     }
 
-    private <T> TableColumn<Ticket, String> createColumn(String title, String prop) {
+    private TableColumn<Ticket, String> createColumn(String title, String prop, double prefWidth) {
         TableColumn<Ticket, String> col = new TableColumn<>(title);
         col.setCellValueFactory(new PropertyValueFactory<>(prop));
+        col.setPrefWidth(prefWidth);
         return col;
     }
 
     private boolean showConfirmation(String msg) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.initOwner(primaryStage);
         alert.setTitle("Confirmação");
         alert.setHeaderText(null);
         alert.setContentText(msg);
@@ -2438,12 +3136,231 @@ public class Main extends Application {
         ButtonType no = new ButtonType("Não", ButtonBar.ButtonData.NO);
         alert.getButtonTypes().setAll(yes, no);
 
+        DialogPane dialogPane = alert.getDialogPane();
+        ThemeManager.applyThemeToDialog(dialogPane, configManager.getTheme());
+
         return alert.showAndWait().orElse(no) == yes;
     }
-    // ---------------------- CHAMADOS ---------------------- //
+
+    private void showMeusChamadosModal() {
+        Stage stage = new Stage();
+        stage.initStyle(StageStyle.TRANSPARENT);
+        stage.initOwner(primaryStage);
+        stage.initModality(Modality.APPLICATION_MODAL);
+
+        StackPane root = new StackPane();
+        VBox content = new VBox(15);
+        content.getStyleClass().add("glass-pane");
+        content.setPadding(new Insets(15));
+        content.setPrefSize(950, 600);
+
+        content.setCache(true);
+        content.setCacheHint(CacheHint.SPEED);
+
+        root.getChildren().add(content);
+        root.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.3)));
+
+        HBox titleBar = new HBox();
+        titleBar.setAlignment(Pos.CENTER_LEFT);
+        Label title = new Label("Meus Chamados");
+        title.getStyleClass().add("olt-name");
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Button closeBtn = new Button("✕");
+        closeBtn.getStyleClass().addAll("close-btn", "window-btn");
+        closeBtn.setOnAction(ev -> animateModalClose(stage, content, () -> {
+            stage.close();
+        }));
+        addEnhancedButtonHoverEffects(closeBtn);
+        titleBar.getChildren().addAll(title, spacer, closeBtn);
+
+        TableView<Ticket> table = new TableView<>();
+        table.getStyleClass().add("data-table");
+        table.setItems(FXCollections.observableArrayList(DatabaseManager.getTicketsByUsuario(usuarioLogado.getNome())));
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        VBox.setVgrow(table, Priority.ALWAYS);
+
+        table.getColumns().addAll(
+                createColumn("Descrição", "descricao", 300),
+                createColumn("Prioridade", "previsao", 100),
+                createColumn("Data/Hora", "dataHora", 150),
+                createColumn("Status", "status", 110),
+                createColumn("Resposta do Desenvolvedor", "resposta", 290)
+        );
+
+        Button refreshBtn = new Button("🔄 Atualizar");
+        refreshBtn.getStyleClass().add("connect-btn");
+        addEnhancedButtonHoverEffects(refreshBtn);
+        refreshBtn.setOnAction(e -> {
+            table.setItems(FXCollections.observableArrayList(DatabaseManager.getTicketsByUsuario(usuarioLogado.getNome())));
+            showLocalToast(root, "✅ Chamados atualizados!");
+        });
+
+        HBox bottomBar = new HBox(refreshBtn);
+        bottomBar.setAlignment(Pos.CENTER_RIGHT);
+
+        content.getChildren().addAll(titleBar, table, bottomBar);
+
+        Scene scene = new Scene(root);
+        scene.setFill(Color.TRANSPARENT);
+        ThemeManager.applyThemeToNewScene(scene);
+        stage.setScene(scene);
+        stage.centerOnScreen();
+        stage.show();
+        animateModalOpen(stage, content);
+    }
+
+    private void showLocalToast(Parent parent, String message) {
+        Label toast = new Label(message);
+        toast.setStyle("-fx-background-color: rgba(0, 0, 0, 0.75); -fx-text-fill: white; -fx-padding: 10px 20px; -fx-background-radius: 20px;");
+        toast.setOpacity(0);
+
+        StackPane.setAlignment(toast, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(toast, new Insets(10, 10, 10, 10));
+
+        if (parent instanceof StackPane) {
+            ((StackPane) parent).getChildren().add(toast);
+        }
+
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(300), toast);
+        fadeIn.setToValue(1.0);
+
+        FadeTransition fadeOut = new FadeTransition(Duration.millis(300), toast);
+        fadeOut.setToValue(0);
+        fadeOut.setDelay(Duration.millis(2000));
+
+        fadeIn.setOnFinished(ev -> fadeOut.play());
+        fadeOut.setOnFinished(ev -> ((StackPane) parent).getChildren().remove(toast));
+
+        fadeIn.play();
+    }
+
+    private void showResponderTicketModal(Ticket ticket, Runnable onUpdate) {
+        Stage stage = new Stage();
+        stage.initStyle(StageStyle.TRANSPARENT);
+        stage.initOwner(primaryStage);
+        stage.initModality(Modality.APPLICATION_MODAL);
+
+        VBox content = new VBox(15);
+        content.getStyleClass().add("glass-pane");
+        content.setPadding(new Insets(15));
+        content.setPrefSize(500, 550);
+        content.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.3)));
+
+        content.setCache(true);
+        content.setCacheHint(CacheHint.SPEED);
 
 
-    // ---------------------- ANIMAÇÕES JAVAFX ---------------------- //
+        HBox titleBar = new HBox();
+        titleBar.setAlignment(Pos.CENTER_LEFT);
+        Label title = new Label("Responder Chamado #" + ticket.getId());
+        title.getStyleClass().add("olt-name");
+        Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
+        Button closeBtn = new Button("✕");
+        closeBtn.getStyleClass().addAll("close-btn", "window-btn");
+        closeBtn.setOnAction(ev -> animateModalClose(stage, content, () -> {
+            stage.close();
+        }));
+        addEnhancedButtonHoverEffects(closeBtn);
+        titleBar.getChildren().addAll(title, spacer, closeBtn);
+
+        Label descLabel = new Label("Descrição do Problema:");
+        descLabel.getStyleClass().add("form-label");
+        CodeArea descArea = new CodeArea(ticket.getDescricao());
+        descArea.setEditable(false);
+        descArea.setWrapText(true);
+        descArea.getStyleClass().add("code-area");
+        descArea.setPrefHeight(100);
+
+        Label respostaLabel = new Label("Sua Resposta:");
+        respostaLabel.getStyleClass().add("form-label");
+        CodeArea respostaArea = new CodeArea(ticket.getResposta());
+        respostaArea.setWrapText(true);
+        respostaArea.getStyleClass().add("code-area");
+        respostaArea.setPrefHeight(150);
+
+        Label statusLabel = new Label("Status do Chamado:");
+        statusLabel.getStyleClass().add("form-label");
+        ComboBox<String> statusBox = new ComboBox<>();
+        statusBox.getItems().addAll("Pendente", "Em andamento", "Resolvido", "Fechado");
+        statusBox.setValue(ticket.getStatus());
+        statusBox.getStyleClass().add("combo-box");
+        addComboBoxFocusEffects(statusBox);
+
+        HBox btnRow = new HBox(10);
+        btnRow.setAlignment(Pos.CENTER_RIGHT);
+        Button salvarBtn = new Button("Salvar Alterações");
+        salvarBtn.getStyleClass().add("connect-btn");
+        addEnhancedButtonHoverEffects(salvarBtn);
+        salvarBtn.setOnAction(e -> {
+            String novaResposta = respostaArea.getText();
+            String novoStatus = statusBox.getValue();
+            DatabaseManager.updateTicket(ticket.getId(), novaResposta, novoStatus);
+            showToast("✅ Chamado #" + ticket.getId() + " atualizado.");
+            onUpdate.run();
+            animateModalClose(stage, content, () -> {
+                stage.close();
+            });
+        });
+        btnRow.getChildren().add(salvarBtn);
+
+        content.getChildren().addAll(titleBar, descLabel, descArea, respostaLabel, respostaArea, statusLabel, statusBox, btnRow);
+
+        Scene scene = new Scene(content);
+        scene.setFill(Color.TRANSPARENT);
+        ThemeManager.applyThemeToNewScene(scene);
+        stage.setScene(scene);
+        stage.centerOnScreen();
+        stage.show();
+
+        animateModalOpen(stage, content);
+    }
+    // ---------------------- Chamados (ADMIN)  ---------------------- //
+
+
+    // ---------------------- JavaFX Anims & UI ---------------------- //
+    private void animateModalOpen(Stage stage, Node content) {
+        Timeline timeline = new Timeline(
+                new KeyFrame(Duration.ZERO,
+                        new KeyValue(stage.opacityProperty(), 0.0, Interpolator.EASE_OUT),
+                        new KeyValue(content.scaleXProperty(), 0.8, Interpolator.EASE_OUT),
+                        new KeyValue(content.scaleYProperty(), 0.8, Interpolator.EASE_OUT)
+                ),
+                new KeyFrame(Duration.millis(250),
+                        new KeyValue(stage.opacityProperty(), 1.0, Interpolator.EASE_OUT),
+                        new KeyValue(content.scaleXProperty(), 1.0, Interpolator.EASE_OUT),
+                        new KeyValue(content.scaleYProperty(), 1.0, Interpolator.EASE_OUT)
+                )
+        );
+
+        timeline.setOnFinished(e -> content.setCache(false));
+        timeline.play();
+    }
+
+    private void animateModalClose(Stage stage, Node content, Runnable callback) {
+        content.setCache(true);
+        content.setCacheHint(CacheHint.SPEED);
+
+        Timeline timeline = new Timeline(
+                new KeyFrame(Duration.ZERO,
+                        new KeyValue(stage.opacityProperty(), 1.0, Interpolator.EASE_IN),
+                        new KeyValue(content.scaleXProperty(), 1.0, Interpolator.EASE_IN),
+                        new KeyValue(content.scaleYProperty(), 1.0, Interpolator.EASE_IN)
+                ),
+                new KeyFrame(Duration.millis(200),
+                        new KeyValue(stage.opacityProperty(), 0.0, Interpolator.EASE_IN),
+                        new KeyValue(content.scaleXProperty(), 0.8, Interpolator.EASE_IN),
+                        new KeyValue(content.scaleYProperty(), 0.8, Interpolator.EASE_IN)
+                )
+        );
+
+        timeline.setOnFinished(e -> {
+            stage.close();
+            if (callback != null) callback.run();
+        });
+        timeline.play();
+    }
+
     private void setupWindowDrag(Node node) {
         node.setOnMousePressed(event -> {
             xOffset = event.getSceneX();
@@ -2451,7 +3368,7 @@ public class Main extends Application {
         });
 
         node.setOnMouseDragged(event -> {
-            if (!primaryStage.isMaximized()) {
+            if (primaryStage != null && !primaryStage.isMaximized()) {
                 primaryStage.setX(event.getScreenX() - xOffset);
                 primaryStage.setY(event.getScreenY() - yOffset);
             }
@@ -2463,32 +3380,89 @@ public class Main extends Application {
         glow.setLevel(0.0);
         button.setEffect(glow);
 
-        button.setOnMouseEntered(e -> {
-            ScaleTransition scale = new ScaleTransition(Duration.millis(200), button);
-            scale.setToX(1.05);
-            scale.setToY(1.05);
-            scale.play();
+        ScaleTransition scaleEnter = new ScaleTransition(Duration.millis(150), button);
+        scaleEnter.setToX(1.05);
+        scaleEnter.setToY(1.05);
 
-            Timeline glowAnimation = new Timeline(
-                    new KeyFrame(Duration.ZERO, new KeyValue(glow.levelProperty(), 0.0)),
-                    new KeyFrame(Duration.millis(200), new KeyValue(glow.levelProperty(), 0.5))
-            );
-            glowAnimation.play();
+        Timeline glowEnter = new Timeline(
+                new KeyFrame(Duration.ZERO, new KeyValue(glow.levelProperty(), 0.0)),
+                new KeyFrame(Duration.millis(150), new KeyValue(glow.levelProperty(), 0.3))
+        );
+
+        ScaleTransition scaleExit = new ScaleTransition(Duration.millis(150), button);
+        scaleExit.setToX(1.0);
+        scaleExit.setToY(1.0);
+
+        Timeline glowExit = new Timeline(
+                new KeyFrame(Duration.ZERO, new KeyValue(glow.levelProperty(), glow.getLevel())),
+                new KeyFrame(Duration.millis(150), new KeyValue(glow.levelProperty(), 0.0))
+        );
+
+        button.setOnMouseEntered(e -> {
+            scaleEnter.playFromStart();
+            glowEnter.playFromStart();
         });
 
         button.setOnMouseExited(e -> {
-            ScaleTransition scale = new ScaleTransition(Duration.millis(200), button);
-            scale.setToX(1.0);
-            scale.setToY(1.0);
-            scale.play();
-
-            Timeline glowAnimation = new Timeline(
-                    new KeyFrame(Duration.ZERO, new KeyValue(glow.levelProperty(), 0.5)),
-                    new KeyFrame(Duration.millis(200), new KeyValue(glow.levelProperty(), 0.0))
-            );
-            glowAnimation.play();
+            scaleExit.playFromStart();
+            glowExit.playFromStart();
         });
     }
+
+    private void addFieldFocusEffects(Control field) {
+        field.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (isNowFocused) {
+                ScaleTransition scaleIn = new ScaleTransition(Duration.millis(200), field);
+                scaleIn.setFromX(1.0);
+                scaleIn.setFromY(1.0);
+                scaleIn.setToX(1.02);
+                scaleIn.setToY(1.02);
+                scaleIn.setInterpolator(Interpolator.EASE_OUT);
+                scaleIn.play();
+
+                Glow glow = new Glow(0.3);
+                field.setEffect(glow);
+            } else {
+                ScaleTransition scaleOut = new ScaleTransition(Duration.millis(200), field);
+                scaleOut.setFromX(1.02);
+                scaleOut.setFromY(1.02);
+                scaleOut.setToX(1.0);
+                scaleOut.setToY(1.0);
+                scaleOut.setInterpolator(Interpolator.EASE_OUT);
+                scaleOut.play();
+
+                field.setEffect(null);
+            }
+        });
+    }
+
+    private void addComboBoxFocusEffects(ComboBox<?> comboBox) {
+        comboBox.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (isNowFocused) {
+                ScaleTransition scaleIn = new ScaleTransition(Duration.millis(200), comboBox);
+                scaleIn.setFromX(1.0);
+                scaleIn.setFromY(1.0);
+                scaleIn.setToX(1.02);
+                scaleIn.setToY(1.02);
+                scaleIn.setInterpolator(Interpolator.EASE_OUT);
+                scaleIn.play();
+
+                Glow glow = new Glow(0.3);
+                comboBox.setEffect(glow);
+            } else {
+                ScaleTransition scaleOut = new ScaleTransition(Duration.millis(200), comboBox);
+                scaleOut.setFromX(1.02);
+                scaleOut.setFromY(1.02);
+                scaleOut.setToX(1.0);
+                scaleOut.setToY(1.0);
+                scaleOut.setInterpolator(Interpolator.EASE_OUT);
+                scaleOut.play();
+
+                comboBox.setEffect(null);
+            }
+        });
+    }
+
 
     private HBox createTitleBar() {
         HBox titleBar = new HBox();
@@ -2496,19 +3470,6 @@ public class Main extends Application {
         titleBar.setAlignment(Pos.CENTER_LEFT);
         titleBar.setPadding(new Insets(5, 10, 5, 15));
         HBox.setHgrow(titleBar, Priority.ALWAYS);
-
-
-        titleBar.setOnMousePressed(event -> {
-            xOffset = event.getSceneX();
-            yOffset = event.getSceneY();
-        });
-
-        titleBar.setOnMouseDragged(event -> {
-            if (!primaryStage.isMaximized()) {
-                primaryStage.setX(event.getScreenX() - xOffset);
-                primaryStage.setY(event.getScreenY() - yOffset);
-            }
-        });
 
         titleBar.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
@@ -2520,217 +3481,243 @@ public class Main extends Application {
         titleBarIconView.setFitHeight(20);
         titleBarIconView.setFitWidth(20);
         titleBarIconView.setPreserveRatio(true);
-
-        titleBarIconView.imageProperty().addListener((obs, oldImage, newImage) -> {
-            if (newImage != null) {
-                if (newImage.isError()) {
-                    System.err.println("ImageView: Erro ao carregar a imagem definida: " + newImage.getException());
-                } else {
-                    System.out.println("ImageView: Nova imagem definida com sucesso.");
-                }
-            } else {
-                System.out.println("ImageView: Imagem removida.");
-            }
-        });
+        updateApplicationIcons(this.iconFileName);
 
 
-        try {
-            InputStream iconStream = getClass().getResourceAsStream(iconFileName);
-            if (iconStream == null) {
-                System.err.println("Stream nulo para ícone da barra de título: " + iconFileName + ". Usando fallback.");
-                iconStream = getClass().getResourceAsStream("/oltapp-icon.png");
-            }
-
-            if (iconStream != null) {
-                Image titleBarImage = new Image(iconStream);
-
-                titleBarImage.exceptionProperty().addListener((obs, oldEx, newEx) -> {
-                    if (newEx != null) {
-                        System.err.println("Image Load: Exceção durante o carregamento assíncrono: " + newEx);
-                    }
-                });
-                titleBarImage.progressProperty().addListener((obs, oldProgress, newProgress) -> {
-                    if (newProgress.doubleValue() == 1.0) {
-                        if (titleBarImage.isError()) {
-                            System.err.println("Image Load: Erro final no carregamento da imagem. Exception: " + titleBarImage.getException());
-                        } else {
-                            System.out.println("Image Load: Carregamento concluído com sucesso.");
-                            Platform.runLater(() -> titleBarIconView.setImage(titleBarImage));
-                        }
-                    }
-                });
-
-                if (titleBarImage.isError()) {
-                    System.err.println("Image Load: Erro imediato após a criação da imagem. Exception: " + titleBarImage.getException());
-                } else if (titleBarImage.getProgress() == 1.0) {
-                    System.out.println("Image Load: Carregada síncronamente com sucesso.");
-                    titleBarIconView.setImage(titleBarImage);
-                }
-
-            } else {
-                System.err.println("Ícone da barra de título (incluindo fallback) não encontrado.");
-
-            }
-        } catch (Exception e) {
-            System.err.println("Erro geral ao carregar o ícone da barra de título: " + e.getMessage());
-
-        }
-
-        Label titleLabel = new Label("Gerenciador de OLTs");
+        Label titleLabel = new Label("NM OLT App");
         titleLabel.getStyleClass().add("olt-name");
-        HBox.setHgrow(titleLabel, Priority.ALWAYS);
+        HBox.setMargin(titleLabel, new Insets(0, 0, 0, 8));
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        HBox windowControls = new HBox(5);
-        windowControls.getStyleClass().add("window-controls");
 
         Button minimizeBtn = new Button();
         minimizeBtn.getStyleClass().addAll("window-btn", "minimize-btn");
         minimizeBtn.setOnAction(e -> primaryStage.setIconified(true));
         minimizeBtn.setTooltip(new Tooltip("Minimizar"));
+        addEnhancedButtonHoverEffects(minimizeBtn);
 
         Button maximizeBtn = new Button();
         maximizeBtn.getStyleClass().addAll("window-btn", "maximize-btn");
         maximizeBtn.setOnAction(e -> toggleMaximize());
         maximizeBtn.setTooltip(new Tooltip("Maximizar/Restaurar"));
+        addEnhancedButtonHoverEffects(maximizeBtn);
 
         Button closeBtn = new Button("✕");
         closeBtn.getStyleClass().addAll("close-btn", "window-btn");
-        closeBtn.setPadding(new Insets(12, 12, 12, 12));
+        closeBtn.setPadding(new Insets(10, 12, 10, 12));
+        addEnhancedButtonHoverEffects(closeBtn);
         closeBtn.setOnAction(e -> {
-            Platform.runLater(() -> {
-                FadeTransition fade = new FadeTransition(Duration.millis(200), rootLayout);
-                fade.setFromValue(1.0);
-                fade.setToValue(0.0);
-                fade.setOnFinished(event -> {
-                    System.out.println("FadeTransition concluído, chamando Platform.exit()...");
-                    Platform.exit();
-                });
-                fade.play();
-            });
+            FadeTransition fade = new FadeTransition(Duration.millis(200), rootLayout);
+            fade.setFromValue(1.0);
+            fade.setToValue(0.0);
+            fade.setOnFinished(event -> Platform.exit());
+            fade.play();
         });
         closeBtn.setTooltip(new Tooltip("Fechar"));
 
-        windowControls.getChildren().addAll(minimizeBtn, maximizeBtn, closeBtn); // Added maximizeBtn
+        HBox windowControls = new HBox(5);
+        windowControls.setAlignment(Pos.CENTER);
+        windowControls.getChildren().addAll(minimizeBtn, maximizeBtn, closeBtn);
 
         titleBar.getChildren().addAll(titleBarIconView, titleLabel, spacer, windowControls);
-
-        HBox.setMargin(titleBarIconView, new Insets(0, 8, 0, 0));
-
         return titleBar;
     }
 
     private void toggleMaximize() {
-        Stage stage = (Stage) mainContent.getScene().getWindow();
-
-        if (stage.isMaximized()) {
-            stage.setMaximized(false);
-        } else {
-            stage.setMaximized(true);
-        }
+        if (primaryStage == null) return;
+        primaryStage.setMaximized(!primaryStage.isMaximized());
     }
 
-    private void animateCardsSequentially(ObservableList<Node> nodes, int delay) {
+    private void animateCardsSequentially(ObservableList<Node> nodes, int delayMillis) {
         Timeline timeline = new Timeline();
-
         for (int i = 0; i < nodes.size(); i++) {
             Node node = nodes.get(i);
             node.setOpacity(0);
             node.setTranslateY(20);
 
-            KeyFrame kf1 = new KeyFrame(Duration.millis(i * delay),
-                    new KeyValue(node.opacityProperty(), 0),
-                    new KeyValue(node.translateYProperty(), 20)
+            KeyFrame kfShow = new KeyFrame(Duration.millis(i * delayMillis + 300),
+                    new KeyValue(node.opacityProperty(), 1, Interpolator.EASE_OUT),
+                    new KeyValue(node.translateYProperty(), 0, Interpolator.EASE_OUT)
             );
-
-            KeyFrame kf2 = new KeyFrame(Duration.millis(i * delay + 300),
-                    new KeyValue(node.opacityProperty(), 1),
-                    new KeyValue(node.translateYProperty(), 0)
-            );
-
-            timeline.getKeyFrames().addAll(kf1, kf2);
+            timeline.getKeyFrames().add(kfShow);
         }
-
         timeline.play();
     }
-    // ---------------------- ANIMAÇÕES JAVAFX ---------------------- //
 
+    private void showWaitingToast(boolean show) {
+        Platform.runLater(() -> {
+            if (primaryStage == null || primaryStage.getScene() == null || primaryStage.getScene().getRoot() == null) return;
+            StackPane root = (StackPane) primaryStage.getScene().getRoot();
 
-    // ---------------------- INSIDE-TERMINAL ---------------------- //
-    private void showSSHTerminal(OLT olt) {
+            if (show) {
+                if (currentWaitingToast != null) return;
 
-        if (terminalTabs == null) {
-            terminalTabs = new TabPane();
-            terminalTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
-            terminalTabs.setTabMinWidth(150);
-            Tab oltsTab = new Tab("Lista de OLTs");
-            oltsTab.setClosable(false);
+                currentWaitingToast = new Label("⏳ Aguarde a consulta atual ser concluída...");
+                currentWaitingToast.setStyle("-fx-background-color: rgba(0, 0, 0, 0.75); -fx-text-fill: white; -fx-padding: 10px 20px; -fx-background-radius: 20px;");
+                currentWaitingToast.setOpacity(0);
+                root.getChildren().add(currentWaitingToast);
+                StackPane.setAlignment(currentWaitingToast, Pos.BOTTOM_CENTER);
+                StackPane.setMargin(currentWaitingToast, new Insets(0, 0, 95, 180));
 
-            Node oltsContent = createOLTScreen();
-            oltsTab.setContent(oltsContent);
+                FadeTransition fadeIn = new FadeTransition(Duration.millis(300), currentWaitingToast);
+                fadeIn.setFromValue(0);
+                fadeIn.setToValue(1);
 
-            terminalTabs.getTabs().add(oltsTab);
-        }
+                TranslateTransition shake = new TranslateTransition(Duration.millis(50), currentWaitingToast);
+                shake.setFromX(0);
+                shake.setToX(2);
+                shake.setCycleCount(6);
+                shake.setAutoReverse(true);
 
-        VBox content = new VBox(20);
-        content.getStyleClass().add("content-area");
-        content.setPadding(new Insets(20));
-        VBox.setVgrow(content, Priority.ALWAYS);
+                fadeIn.setOnFinished(e -> shake.play());
+                fadeIn.play();
 
-        HBox header = new HBox(10);
-        header.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(header, Priority.ALWAYS);
-
-        Label title = new Label("Terminal - " + olt.name);
-        title.getStyleClass().add("title");
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        Button backBtn = new Button("Voltar para OLTs");
-        backBtn.getStyleClass().add("back-btn");
-        backBtn.setOnAction(e -> {
-            Tab currentTab = terminalTabs.getSelectionModel().getSelectedItem();
-            terminalTabs.getSelectionModel().select(0);
-
-            if (currentTab != null && !currentTab.getText().equals("Lista de OLTs")) {
-                SSHManager ssh = terminalConnections.remove(currentTab);
-                if (ssh != null) {
-                    ssh.disconnect();
-                }
-                terminalTabs.getTabs().remove(currentTab);
-            }
-
-            if (terminalTabs.getTabs().size() <= 1 && terminalTabs.getTabs().get(0).getText().equals("Lista de OLTs")) {
-                if (mainContent.getCenter() != terminalTabs) {
-                    showSection("OLTs");
+            } else {
+                if (currentWaitingToast != null) {
+                    FadeTransition fadeOut = new FadeTransition(Duration.millis(300), currentWaitingToast);
+                    fadeOut.setFromValue(1);
+                    fadeOut.setToValue(0);
+                    Label toastToRemove = currentWaitingToast;
+                    fadeOut.setOnFinished(e -> root.getChildren().remove(toastToRemove));
+                    fadeOut.play();
+                    currentWaitingToast = null;
                 }
             }
         });
+    }
 
-        header.getChildren().addAll(title, spacer, backBtn);
+    private void showTrayNotification(String title, String message, TrayIcon.MessageType messageType) {
+        if (trayIcon != null && SystemTray.isSupported()) {
 
-        VBox terminalBox = new VBox(10);
-        terminalBox.getStyleClass().add("terminal-box");
-        terminalBox.setPadding(new Insets(10));
-        VBox.setVgrow(terminalBox, Priority.ALWAYS);
+            boolean iconInTray = false;
+            for(TrayIcon ti : SystemTray.getSystemTray().getTrayIcons()){
+                if(ti == trayIcon){
+                    iconInTray = true;
+                    break;
+                }
+            }
+            if(iconInTray){
+                trayIcon.displayMessage(title, message, messageType);
+            } else {
+                System.out.println("Tray Notification (icon not in tray): " + title + " - " + message);
+            }
+
+        } else {
+            System.out.println("Tray Notification (not supported or icon null): " + title + " - " + message);
+        }
+    }
+    private void showToast(String message) {
+        if (primaryStage != null && primaryStage.isIconified()) {
+            String title = "Gerenciador OLTs";
+            TrayIcon.MessageType type = TrayIcon.MessageType.INFO;
+
+            if (message.contains("✅")) title = "Sucesso";
+
+            else if (message.contains("❌") || message.contains("⚠️")) {
+                title = "Aviso/Erro";
+                type = message.contains("❌") ? TrayIcon.MessageType.ERROR : TrayIcon.MessageType.WARNING;
+
+            } else if (message.contains("🔎")) title = "Consulta";
+
+            else if (message.contains("🔄")) title = "Atualização";
+
+            showTrayNotification(title, message, type);
+
+            return;
+        }
+
+        Platform.runLater(() -> {
+            if (primaryStage == null || primaryStage.getScene() == null || primaryStage.getScene().getRoot() == null) return;
+            StackPane root = (StackPane) primaryStage.getScene().getRoot();
+            if (root == null) return;
+
+            Label toastLabel = new Label(message);
+            toastLabel.setStyle("-fx-background-color: rgba(0, 0, 0, 0.75); -fx-text-fill: white; -fx-padding: 10px 20px; -fx-background-radius: 20px;");
+            toastLabel.setOpacity(0);
+
+            root.getChildren().add(toastLabel);
+            StackPane.setAlignment(toastLabel, Pos.BOTTOM_CENTER);
+            StackPane.setMargin(toastLabel, new Insets(0, 0, 95, 180));
+
+            FadeTransition fadeIn = new FadeTransition(Duration.millis(300), toastLabel);
+            fadeIn.setFromValue(0); fadeIn.setToValue(1);
+            PauseTransition stay = new PauseTransition(Duration.seconds(2.5));
+            FadeTransition fadeOut = new FadeTransition(Duration.millis(500), toastLabel);
+            fadeOut.setFromValue(1); fadeOut.setToValue(0);
+            fadeOut.setOnFinished(e -> root.getChildren().remove(toastLabel));
+            new SequentialTransition(fadeIn, stay, fadeOut).play();
+        });
+    }
+
+    private void appendStyledTextWithIPHighlight(CodeArea codeArea, String text, String ipToHighlight, String styleClass) {
+        if (codeArea == null) {
+            System.err.println("Erro: CodeArea não inicializado para estilização de IP.");
+            return;
+        }
+
+        Platform.runLater(() -> {
+            int currentLength = codeArea.getLength();
+            codeArea.appendText(text);
+
+            if (ipToHighlight != null && !ipToHighlight.isEmpty()) {
+                Pattern ipPattern = Pattern.compile("\\b" + Pattern.quote(ipToHighlight) + "\\b");
+                Matcher matcher = ipPattern.matcher(text);
+                if (matcher.find()) {
+                    int start = currentLength + matcher.start();
+                    int end = currentLength + matcher.end();
+                    codeArea.setStyle(start, end, Collections.singleton(styleClass));
+                }
+            }
+        });
+    }
+    // ---------------------- JavaFX Anims & UI ---------------------- //
+
+
+    // ---------------------- Inside - Terminal ---------------------- //
+    private void showSSHTerminal(OLT olt) {
+        if (terminalTabs == null) {
+            terminalTabs = new TabPane();
+            terminalTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
+            Tab oltsListTab = new Tab("Lista de OLTs");
+            oltsListTab.setContent(createOLTScreen());
+            oltsListTab.setClosable(false);
+            terminalTabs.getTabs().add(oltsListTab);
+        }
+
+        for (Tab existingTab : terminalTabs.getTabs()) {
+            if (olt.name.equals(existingTab.getText())) {
+                terminalTabs.getSelectionModel().select(existingTab);
+                animateContentSwitch(terminalTabs);
+                if (existingTab.getContent() instanceof VBox) {
+                    VBox termContent = (VBox) existingTab.getContent();
+                    Node commandAreaNode = termContent.getChildren().stream()
+                            .filter(n -> n instanceof VBox && ((VBox) n).getChildren().stream()
+                                    .anyMatch(childNode -> childNode instanceof HBox && ((HBox) childNode).getChildren().stream()
+                                            .anyMatch(grandChild -> grandChild instanceof TextField)))
+                            .findFirst().orElse(null);
+                    if (commandAreaNode instanceof VBox) {
+                        HBox commandInputBox = (HBox) ((VBox) commandAreaNode).getChildren().stream().filter(n -> n instanceof HBox).reduce((first, second) -> second).orElse(null);
+                        if(commandInputBox != null){
+                            TextField cmdField = (TextField) commandInputBox.getChildren().stream().filter(n -> n instanceof TextField).findFirst().orElse(null);
+                            if(cmdField != null) Platform.runLater(cmdField::requestFocus);
+                        }
+                    }
+                }
+                return;
+            }
+        }
+
+        VBox content = new VBox(10);
+        content.getStyleClass().add("content-area");
+        content.setPadding(new Insets(15));
+        VBox.setVgrow(content, Priority.ALWAYS);
 
         CodeArea newTerminalArea = new CodeArea();
         newTerminalArea.getStyleClass().add("terminal-area");
         newTerminalArea.setEditable(false);
         newTerminalArea.setWrapText(true);
-        newTerminalArea.setPrefHeight(300);
         VBox.setVgrow(newTerminalArea, Priority.ALWAYS);
-
-        HBox commandArea = new HBox(10);
-        commandArea.setAlignment(Pos.CENTER);
-        commandArea.setPadding(new Insets(10, 0, 0, 0));
-        HBox.setHgrow(commandArea, Priority.ALWAYS);
-
-        Label promptLabel = new Label(">");
-        promptLabel.getStyleClass().add("prompt-label");
 
         TextField commandField = new TextField();
         commandField.setPromptText("Digite um comando...");
@@ -2739,395 +3726,713 @@ public class Main extends Application {
 
         Button sendBtn = new Button("Enviar");
         sendBtn.getStyleClass().add("send-btn");
+        addEnhancedButtonHoverEffects(sendBtn);
 
-        commandArea.getChildren().addAll(promptLabel, commandField, sendBtn);
-
-        HBox quickActions = new HBox(10);
-        quickActions.setAlignment(Pos.CENTER);
-        quickActions.setPadding(new Insets(10, 0, 0, 0));
-        HBox.setHgrow(quickActions, Priority.ALWAYS);
+        HBox commandInputBox = new HBox(5, new Label(">"), commandField, sendBtn);
+        commandInputBox.setAlignment(Pos.CENTER_LEFT);
+        commandInputBox.setPadding(new Insets(5, 0, 0, 0));
 
         Button clearBtn = new Button("Limpar");
         clearBtn.getStyleClass().add("action-btn");
+        addEnhancedButtonHoverEffects(clearBtn);
         Button helpBtn = new Button("Ajuda");
         helpBtn.getStyleClass().add("action-btn");
+        addEnhancedButtonHoverEffects(helpBtn);
+        HBox quickActions = new HBox(10, clearBtn, helpBtn);
+        quickActions.setAlignment(Pos.CENTER_LEFT);
+        quickActions.setPadding(new Insets(5,0,0,0));
 
-        quickActions.getChildren().addAll(clearBtn, helpBtn);
-
-        terminalBox.getChildren().addAll(newTerminalArea, commandArea, quickActions);
-        content.getChildren().addAll(header, terminalBox);
+        VBox terminalBox = new VBox(5, newTerminalArea, commandInputBox, quickActions);
         VBox.setVgrow(terminalBox, Priority.ALWAYS);
+        content.getChildren().add(terminalBox);
 
-        Tab terminalTab = new Tab(olt.name, content);
+        Tab terminalTab = new Tab(olt.name.replace("_", " "));
+        terminalTab.setContent(content);
         terminalTab.setClosable(true);
+        makeTabDraggable(terminalTab);
 
         SSHManager newSSHManager = new SSHManager();
         terminalConnections.put(terminalTab, newSSHManager);
+
+        Runnable onSshDisconnect = () -> {
+            if (terminalTabs.getTabs().contains(terminalTab)) {
+                showToast("🔌 Conexão com " + olt.name + " foi encerrada.");
+
+                Node tabContent = terminalTab.getContent();
+                FadeTransition fadeOut = new FadeTransition(Duration.millis(300), tabContent);
+                fadeOut.setFromValue(1.0);
+                fadeOut.setToValue(0.0);
+                fadeOut.setOnFinished(ev -> {
+                    terminalConnections.remove(terminalTab);
+                    terminalTabs.getTabs().remove(terminalTab);
+                    if (terminalTabs.getTabs().size() == 1 && terminalTabs.getTabs().get(0).getText().equals("Lista de OLTs")) {
+                        terminalTabs.getSelectionModel().select(0);
+                    }
+                });
+                fadeOut.play();
+            }
+        };
+
+        newSSHManager.setOnDisconnectCallback(onSshDisconnect);
 
         terminalTab.setOnCloseRequest(e -> {
             e.consume();
 
             Node tabContent = terminalTab.getContent();
-            Platform.runLater(() -> {
-                tabContent.setOpacity(1.0);
-                FadeTransition fadeOut = new FadeTransition(Duration.millis(300), tabContent);
-                fadeOut.setFromValue(1.0);
-                fadeOut.setToValue(0.0);
-                fadeOut.setOnFinished(ev -> {
-                    SSHManager ssh = terminalConnections.remove(terminalTab);
-                    if (ssh != null) {
-                        ssh.disconnect();
-                    }
-                    terminalTabs.getTabs().remove(terminalTab);
+            FadeTransition fadeOut = new FadeTransition(Duration.millis(300), tabContent);
+            fadeOut.setFromValue(1.0);
+            fadeOut.setToValue(0.0);
 
-                    if (terminalTabs != null && terminalTabs.getTabs().size() == 1 && terminalTabs.getTabs().get(0).getText().equals("Lista de OLTs")) {
-                        terminalTabs.getSelectionModel().select(0);
-                    }
-                });
-                fadeOut.play();
+            fadeOut.setOnFinished(ev -> {
+                terminalConnections.remove(terminalTab);
+                terminalTabs.getTabs().remove(terminalTab);
+
+                if (terminalTabs.getTabs().size() == 1 && terminalTabs.getTabs().get(0).getText().equals("Lista de OLTs")) {
+                    terminalTabs.getSelectionModel().select(0);
+                }
             });
+
+            SSHManager sshToDisconnect = terminalConnections.get(terminalTab);
+            if (sshToDisconnect != null) {
+                new Thread(sshToDisconnect::disconnect).start();
+            }
+
+            fadeOut.play();
         });
 
         terminalTabs.getTabs().add(terminalTab);
         terminalTabs.getSelectionModel().select(terminalTab);
+        animateContentSwitch(terminalTabs);
+        Platform.runLater(commandField::requestFocus);
 
-        Node currentContent = mainContent.getCenter();
-        if (!(currentContent instanceof TabPane) || currentContent != terminalTabs) {
-            if (currentContent != null) {
-                FadeTransition fadeOut = new FadeTransition(Duration.millis(200), currentContent);
-                fadeOut.setFromValue(1.0);
-                fadeOut.setToValue(0.0);
-                fadeOut.setOnFinished(ev -> {
-                    mainContent.setCenter(terminalTabs);
-                    FadeTransition fadeIn = new FadeTransition(Duration.millis(400), terminalTabs);
-                    fadeIn.setFromValue(0.0);
-                    fadeIn.setToValue(1.0);
-                    fadeIn.play();
-                    Platform.runLater(commandField::requestFocus);
-                });
-                fadeOut.play();
-            } else {
-                mainContent.setCenter(terminalTabs);
-                FadeTransition fadeIn = new FadeTransition(Duration.millis(400), terminalTabs);
-                fadeIn.setFromValue(0.0);
-                fadeIn.setToValue(1.0);
-                fadeIn.play();
-                Platform.runLater(commandField::requestFocus);
-            }
-        } else {
-            Platform.runLater(commandField::requestFocus);
-        }
-
-        currentSection = (olt.name);
+        currentSection = olt.name;
 
         Thread connectThread = new Thread(() -> {
             try {
-                final CodeArea terminalAreaForThread = newTerminalArea;
-                Platform.runLater(() -> terminalAreaForThread.appendText("Conectando a " + olt.name + " (" + olt.ip + ")...\n"));
-                newSSHManager.connect(olt.ip, Secrets.SSH_USER, Secrets.SSH_PASS, terminalAreaForThread);
+                newSSHManager.connect(olt.getIp(), olt.getUser(), olt.getPassword(), newTerminalArea, true);
                 Platform.runLater(commandField::requestFocus);
-            } catch (Exception e) {
-                final CodeArea terminalAreaForThread = newTerminalArea;
-                final String errorMsg = e.getMessage();
-                Platform.runLater(() -> terminalAreaForThread.appendText("\nErro ao conectar: " + errorMsg + "\n"));
-                Platform.runLater(commandField::requestFocus);
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    if (newTerminalArea != null) {
+                        newTerminalArea.appendText("\n❌ Erro ao conectar ao terminal: " + ex.getMessage() + "\n");
+                    }
+                    commandField.requestFocus();
+                });
             }
         });
+
         connectThread.setDaemon(true);
         connectThread.start();
 
         List<String> commandHistory = new ArrayList<>();
-        int[] commandHistoryIndex = {-1};
+        final int[] commandHistoryIndex = {-1};
 
-        List<String> huaweiOltCommands = new ArrayList<>(Arrays.asList(
-                // Comandos OLT Huawei MA6800
-                "enable", "config", "display", "interface", "quit", "save", "reboot",
-                "undo", "commit", "compare configuration", "copy", "delete", "dir",
-                "ping", "tracert", "ssh", "telnet", "scroll", "language", "idle-timeout",
-                "system", "super", "patch activate", "patch load", "patch delete",
-                "backup configuration", "backup data", "restore configuration", "restore data",
-                "display version", "display board", "display device", "display time",
-                "display users", "display history-command", "display current-configuration",
-                "display saved-configuration", "display startup", "display log all",
-                "display log buffer", "display alarm active", "display alarm history",
-                "display cpu-usage", "display memory-usage", "display temperature",
-                "display fan", "display power", "display environment", "display ip interface brief",
-                "display ip routing-table", "display arp", "display arp all",
-                "display mac-address", "display mac-address dynamic", "display mac-address static",
-                "display vlan", "display vlan all", "display vlan summary", "display vlan port",
-                "display port state", "display port statistics", "display port desc",
-                "display traffic table ip", "display traffic table ip all", "display qos profile",
-                "display qos profile all", "display ont-srvprofile gpon",
-                "display ont-lineprofile gpon", "display dba-profile", "display dba-profile all",
-                "display ont info summary", "display ont info by-sn", "display ont info by-loid",
-                "display ont info by-ip", "display ont info by-mac", "display ont info",
-                "display ont version", "display ont capability", "display ont status",
-                "display ont wan-info", "display ont iptv-info", "display ont voip-info",
-                "display ont alarm-info", "display ont alarm-profile", "display ont autofind all",
-                "display ont optical-info", "display ont register-info", "display ont traffic",
-                "display ont port state", "display ont port statistics", "display ont video-service-info",
-                "display service-port all", "display service-port", "display service-port port",
-                "display service-port vlan", "display service-port index", "display service-port statistics",
-                "display snmp-agent sys-info", "display ntp-service status", "display ssh server status",
-                "display telnet server status", "display load balancing", "display patch information",
-                "display elabel",
+        List<String> huaweiOltCommands = HuaweiOltCommands.getAllCommands();
 
-                "interface", "vlan", "port vlan", "traffic table ip", "undo traffic table",
-                "qos profile", "undo qos profile", "dba-profile", "undo dba-profile",
-                "ont-srvprofile gpon", "undo ont-srvprofile", "ont-lineprofile gpon",
-                "undo ont-lineprofile", "ont alarm-profile", "undo ont alarm-profile",
-                "snmp-agent", "ntp-service", "ssh server", "telnet server", "user-interface vty",
-                "aaa", "terminal user", "systemname", "time-zone", "syslog-server",
-                "header login", "mac-address static", "arp static", "ip route-static",
-                "security", "load balancing",
-
-                "display this", "port", "description", "shutdown", "undo shutdown", "speed",
-                "duplex", "port vlan", "port default vlan", "port hybrid vlan", "port link-type",
-                "mac-limit maximum", "broadcast-suppression", "multicast-suppression",
-                "unicast-suppression", "qos apply", "trust", "stp", "loop-detect",
-
-                "port <port_id> ont add", "port <port_id> ont delete", "port <port_id> ont modify",
-                "port <port_id> ont confirm", "ont add", "ont delete", "ont modify", "ont confirm",
-                "ont port attribute", "ont ipconfig", "ont wan-config", "ont internet-config",
-                "ont voice-config", "ont video-config", "ont multicast-forward",
-                "service-port", "undo service-port", "display ont info", "display ont optical-info",
-                "display ont register-info", "display ont traffic", "ont auto-learn",
-                "ont-interconnection enable", "laser", "optical-alarm-profile", "power-saving",
-
-                "flow-control", "jumboframe", "auto-neg",
-
-                "by-sn", "summary", "all", "port", "vlan", "ont", "ip", "index", "profile",
-                "gpon", "ethernet", "eth", "pots", "veip", "gemport",
-                "sn-auth", "loid-auth", "password-auth", "omci", "up-stream", "down-stream",
-                "cir", "pir", "cbs", "pbs", "priority", "weight", "queue",
-                "profile-id", "profile-index", "profile-name",
-                "smart", "standard", "mux", "qinq", "stacking",
-                "access", "trunk", "hybrid", "tagged", "untagged",
-                "enable", "disable", "on", "off",
-                "add", "delete", "modify", "confirm",
-                "dhcp", "static", "pppoe",
-                "active", "history", "brief", "dynamic", "static", "configuration", "state",
-                "statistics", "version", "capability", "wan-info", "optical-info", "register-info",
-                "autofind"
-                // Comandos OLT Huawei MA6800
-        ));
-
-        sendBtn.setOnAction(e -> {
+        sendBtn.setOnAction(ev -> {
             String cmd = commandField.getText().trim();
             if (!cmd.isEmpty()) {
                 newSSHManager.sendCommand(cmd);
                 DatabaseManager.logUsuario(usuario.getNome(), "Executou comando no terminal: " + cmd);
-                commandHistory.add(cmd);
+                if (commandHistory.isEmpty() || !commandHistory.get(commandHistory.size() - 1).equals(cmd)) {
+                    commandHistory.add(cmd);
+                }
                 commandHistoryIndex[0] = commandHistory.size();
-                commandField.clear();
-
-                newTerminalArea.moveTo(newTerminalArea.getLength());
-                newTerminalArea.requestFollowCaret();
-
-                commandField.requestFocus();
+            } else if (newSSHManager.isWaitingForMorePromptActive()) {
+                newSSHManager.sendRawInput(" ");
             }
+            commandField.clear();
+            newTerminalArea.requestFollowCaret();
+            commandField.requestFocus();
         });
 
-        commandField.setOnKeyPressed(e -> {
-            switch (e.getCode()) {
+        commandField.setOnKeyPressed(ev -> {
+
+            if (ev.getCode() == KeyCode.BACK_SPACE) {
+                String selectedText = commandField.getSelectedText();
+                if (selectedText != null && !selectedText.isEmpty()) {
+
+                    IndexRange selectionRange = commandField.getSelection();
+                    if (selectionRange.getLength() > 0) {
+                        if (selectionRange.getStart() == 0 && selectionRange.getEnd() == commandField.getText().length()) {
+                            commandField.clear();
+                        } else {
+                            commandField.deleteText(selectionRange);
+                        }
+                        ev.consume();
+                        return;
+                    }
+                }
+            }
+
+            if (ev.getCode() == KeyCode.DELETE) {
+                String selectedText = commandField.getSelectedText();
+                if (selectedText != null && !selectedText.isEmpty()) {
+                    IndexRange selectionRange = commandField.getSelection();
+                    if (selectionRange.getLength() > 0) {
+                        if (selectionRange.getStart() == 0 && selectionRange.getEnd() == commandField.getText().length()) {
+                            commandField.clear();
+                        } else {
+                            commandField.deleteText(selectionRange);
+                        }
+                        ev.consume();
+                        return;
+                    }
+                }
+            }
+
+
+            switch (ev.getCode()) {
                 case ENTER:
-                    sendBtn.fire();
+                    if (commandField.getText().isEmpty()) {
+                        if (newSSHManager.isWaitingForMorePromptActive()) {
+                            newSSHManager.sendRawInput("\r");
+                        } else {
+                            String terminalText = newTerminalArea.getText();
+                            if (terminalText.toLowerCase().contains("more")) {
+                                newSSHManager.forceAdvancePagination();
+                            } else {
+                                newSSHManager.sendCommand("");
+                            }
+                        }
+                    } else {
+                        sendBtn.fire();
+                    }
+                    ev.consume();
+                    break;
+                case SPACE:
+                    if (commandField.getText().isEmpty()) {
+                        if (newSSHManager.isWaitingForMorePromptActive()) {
+                            newSSHManager.sendRawInput(" ");
+                        } else {
+                            String terminalText = newTerminalArea.getText();
+                            if (terminalText.toLowerCase().contains("more")) {
+                                newSSHManager.forceAdvancePagination();
+                            }
+                        }
+                        commandField.clear();
+                        ev.consume();
+                    }
+                    break;
+                case Q:
+                    if (commandField.getText().isEmpty() && newSSHManager.isWaitingForMorePromptActive()) {
+                        newSSHManager.sendRawInput("q");
+                        ev.consume();
+                    }
                     break;
                 case UP:
                     if (!commandHistory.isEmpty()) {
-                        if (commandHistoryIndex[0] == commandHistory.size()) {
-                            commandHistoryIndex[0] = commandHistory.size() - 1;
-                        } else if (commandHistoryIndex[0] > 0) {
-                            commandHistoryIndex[0]--;
-                        }
-                        if (commandHistoryIndex[0] >= 0 && commandHistoryIndex[0] < commandHistory.size()) {
+                        if (commandHistoryIndex[0] > 0) commandHistoryIndex[0]--;
+                        else commandHistoryIndex[0] = 0;
+
+                        if(commandHistoryIndex[0] < commandHistory.size()){
                             commandField.setText(commandHistory.get(commandHistoryIndex[0]));
                             commandField.positionCaret(commandField.getText().length());
                         }
                     }
-                    e.consume();
-                    break;
+                    ev.consume(); break;
                 case DOWN:
                     if (!commandHistory.isEmpty()) {
-                        if (commandHistoryIndex[0] >= -1 && commandHistoryIndex[0] < commandHistory.size() - 1) {
+                        if (commandHistoryIndex[0] < commandHistory.size() - 1) {
                             commandHistoryIndex[0]++;
                             commandField.setText(commandHistory.get(commandHistoryIndex[0]));
                             commandField.positionCaret(commandField.getText().length());
-                        } else {
+                        } else if (commandHistoryIndex[0] == commandHistory.size() -1 ) {
                             commandHistoryIndex[0] = commandHistory.size();
                             commandField.clear();
                         }
                     }
-                    e.consume();
-                    break;
+                    ev.consume(); break;
                 case TAB:
-                    e.consume();
+                    ev.consume();
+                    String currentInputForTab = commandField.getText();
 
-                    String currentText = commandField.getText();
-                    if (currentText == null || currentText.trim().isEmpty()) {
-                        break;
+                    boolean endsWithSpace = currentInputForTab.matches(".*\\s$");
+                    String[] words = currentInputForTab.trim().split("\\s+");
+
+                    if (currentInputForTab.trim().isEmpty()) {
+                        words = new String[]{};
                     }
 
-                    String trimmedText = currentText.trim();
-                    List<String> matches = huaweiOltCommands.stream()
-                            .filter(cmd -> cmd.toLowerCase().startsWith(trimmedText.toLowerCase()))
-                            .collect(Collectors.toList());
+                    String currentPrefix;
+                    String partialWord;
 
-                    String textToSet = null;
-
-                    if (matches.size() == 1) {
-                        String completion = matches.get(0);
-                        if (!currentText.equals(completion)) {
-                            textToSet = completion;
-                        } else {
-                            Platform.runLater(() -> {
-                                commandField.deselect();
-                                commandField.requestFocus();
-                            });
-                        }
-                    } else if (matches.size() > 1) {
-                        String commonPrefix = findCommonPrefix(matches);
-                        if (commonPrefix != null && !commonPrefix.isEmpty() && commonPrefix.length() > currentText.length()) {
-                            textToSet = commonPrefix;
-                        } else {
-                            final CodeArea terminalAreaForTab = newTerminalArea;
-                            final List<String> finalMatches = matches;
-                            final String currentInputText = commandField.getText();
-                            Platform.runLater(() -> {
-                                terminalAreaForTab.appendText("\n");
-                                for (String match : finalMatches) {
-                                    terminalAreaForTab.appendText(match + "  ");
-                                }
-                                terminalAreaForTab.appendText("\n> " + currentInputText);
-                                terminalAreaForTab.moveTo(terminalAreaForTab.getLength());
-                                terminalAreaForTab.requestFollowCaret();
-                                commandField.requestFocus();
-                                commandField.positionCaret(currentInputText.length());
-                                commandField.deselect();
-                            });
-                        }
+                    if (endsWithSpace || currentInputForTab.isEmpty()) {
+                        currentPrefix = currentInputForTab.trim();
+                        partialWord = "";
                     } else {
-                        commandField.requestFocus();
+                        if (words.length == 0) {
+                            currentPrefix = "";
+                            partialWord = currentInputForTab;
+                        } else if (words.length == 1) {
+                            currentPrefix = "";
+                            partialWord = words[0];
+                        } else {
+                            partialWord = words[words.length - 1];
+                            currentPrefix = String.join(" ", Arrays.copyOfRange(words, 0, words.length - 1));
+                        }
                     }
 
-                    if (textToSet != null) {
-                        final String finalTextToSet = textToSet;
-                        commandField.setText(finalTextToSet);
+                    List<String> finalSuggestions = new ArrayList<>();
+                    String searchBase = currentPrefix.isEmpty() ? "" : currentPrefix + " ";
 
+                    for (String cmd : huaweiOltCommands) {
+                        if (cmd.toLowerCase().startsWith(searchBase.toLowerCase())) {
+                            String remainder = cmd.substring(searchBase.length());
+                            if (!remainder.isEmpty()) {
+                                String nextToken = remainder.split("\\s+")[0];
+                                if (nextToken.toLowerCase().startsWith(partialWord.toLowerCase())) {
+                                    if (!finalSuggestions.contains(nextToken)) {
+                                        finalSuggestions.add(nextToken);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Collections.sort(finalSuggestions);
+
+                    if (finalSuggestions.size() == 1) {
+                        String completion = finalSuggestions.get(0);
+                        final String newText = searchBase + completion + " ";
+                        commandField.setText(newText);
                         Platform.runLater(() -> {
-                            System.out.println("runLater: Attempting to position caret, deselect, and focus for: " + finalTextToSet);
-                            commandField.positionCaret(finalTextToSet.length());
-                            commandField.deselect();
                             commandField.requestFocus();
-                            System.out.println("runLater: Caret: " + commandField.getCaretPosition() + ", Selected: '" + commandField.getSelectedText() + "', Focused: " + commandField.isFocused());
+                            commandField.positionCaret(commandField.getText().length());
                         });
+
+                    } else if (finalSuggestions.size() > 1) {
+                        String common = findCommonPrefix(finalSuggestions);
+                        if (common != null && !common.isEmpty() && !common.equals(partialWord)) {
+                            final String newText = searchBase + common;
+                            commandField.setText(newText);
+                            Platform.runLater(() -> {
+                                commandField.requestFocus();
+                                commandField.positionCaret(commandField.getText().length());
+                            });
+
+                        } else {
+                            newTerminalArea.appendText("\n");
+                            finalSuggestions.forEach(s -> newTerminalArea.appendText(s + "  "));
+                            newTerminalArea.appendText("\n" + olt.name + getPromptSuffix(newTerminalArea.getText()) + currentInputForTab);
+                            newTerminalArea.requestFollowCaret();
+                            commandField.requestFocus();
+                        }
                     }
+                    break;
+                default:
                     break;
             }
         });
 
-        clearBtn.setOnAction(e -> {
-            newTerminalArea.clear();
-            commandField.requestFocus();
+        clearBtn.setOnAction(e -> { newTerminalArea.clear(); commandField.requestFocus(); });
+        helpBtn.setOnAction(e -> showHelpDialog());
+    }
+
+    private void makeTabDraggable(Tab tab) {
+        Label tabLabel = new Label(tab.getText());
+        tabLabel.getStyleClass().add("tab-label");
+
+        tabLabel.setOnDragDetected(event -> {
+            Dragboard db = tabLabel.startDragAndDrop(TransferMode.MOVE);
+            ClipboardContent content = new ClipboardContent();
+
+            content.putString(tabLabel.getText());
+
+            db.setContent(content);
+            draggingTab = tab;
+            event.consume();
         });
 
-        helpBtn.setOnAction(e -> {
-            showHelpDialog();
+        tabLabel.setOnDragOver(event -> {
+            if (event.getGestureSource() != tabLabel && event.getDragboard().hasString()) {
+                event.acceptTransferModes(TransferMode.MOVE);
+            }
+            event.consume();
         });
+
+        tabLabel.setOnDragDropped(event -> {
+            Dragboard db = event.getDragboard();
+            boolean success = false;
+            if (db.hasString()) {
+                TabPane tabPane = tab.getTabPane();
+                int targetIndex = tabPane.getTabs().indexOf(tab);
+
+                tabPane.getTabs().remove(draggingTab);
+
+                if (targetIndex == 0) {
+                    targetIndex = 1;
+                }
+
+                tabPane.getTabs().add(targetIndex, draggingTab);
+
+                tabPane.getSelectionModel().select(draggingTab);
+                success = true;
+            }
+            event.setDropCompleted(success);
+            event.consume();
+        });
+
+        tabLabel.setOnDragDone(event -> {
+            draggingTab = null;
+        });
+
+        tab.setText(null);
+        tab.setGraphic(tabLabel);
     }
+
+    private void standardizeTabText(Tab tab) {
+        Label tabLabel = new Label(tab.getText());
+        tabLabel.getStyleClass().add("tab-label");
+        tab.setText(null);
+        tab.setGraphic(tabLabel);
+    }
+
+    private String getPromptSuffix(String terminalContent) {
+        if (terminalContent.contains("(config-if-gpon-")) return "(config-if-gpon)#";
+        if (terminalContent.contains("(config-")) return "(config)#";
+        if (terminalContent.contains("#")) return "#";
+        return ">";
+    }
+
 
     private String findCommonPrefix(List<String> strings) {
         if (strings == null || strings.isEmpty()) return "";
-        if (strings.size() == 1) return strings.get(0);
-
-        String firstStr = strings.get(0).toLowerCase();
-        int prefixLength = firstStr.length();
-
-        for (int i = 1; i < strings.size(); i++) {
-            String currentStr = strings.get(i).toLowerCase();
-            int currentMatchLength = 0;
-            while (currentMatchLength < prefixLength && currentMatchLength < currentStr.length() &&
-                    firstStr.charAt(currentMatchLength) == currentStr.charAt(currentMatchLength)) {
-                currentMatchLength++;
+        String first = strings.get(0);
+        for (int i = 0; i < first.length(); i++) {
+            char c = first.charAt(i);
+            for (int j = 1; j < strings.size(); j++) {
+                if (i >= strings.get(j).length() || strings.get(j).charAt(i) != c) {
+                    return first.substring(0, i);
+                }
             }
-            prefixLength = currentMatchLength;
-            if (prefixLength == 0) break;
         }
-
-
-        return strings.get(0).substring(0, prefixLength);
+        return first;
     }
-    // ---------------------- INSIDE-TERMINAL ---------------------- //
 
-
-    // ---------------------- AJUDA INSIDE-TERMINAL ---------------------- //
-    private void showHelpDialog() {
-        Stage helpStage = new Stage();
-        helpStage.initStyle(StageStyle.UNDECORATED);
-        helpStage.initOwner(primaryStage);
+    public void showHelpDialog() {
+        Stage stage = new Stage();
+        stage.initStyle(StageStyle.TRANSPARENT);
+        if (primaryStage != null) {
+            stage.initOwner(primaryStage);
+        }
+        stage.initModality(Modality.APPLICATION_MODAL);
 
         VBox helpContent = new VBox(15);
         helpContent.getStyleClass().add("help-content");
-        helpContent.setPadding(new Insets(10));
-        helpContent.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.5)));
+        helpContent.setPadding(new Insets(20));
+        helpContent.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.3)));
+
+        helpContent.setCache(true);
+        helpContent.setCacheHint(CacheHint.SPEED);
+
+        HBox titleBar = new HBox();
+        titleBar.setAlignment(Pos.CENTER_LEFT);
+        titleBar.setPadding(new Insets(0, 0, 10, 0));
+
+        Label title = new Label("Ajuda - Comandos Comuns");
+        title.getStyleClass().add("title");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Button closeBtn = new Button("✕");
+        closeBtn.getStyleClass().addAll("close-btn", "window-btn");
+        closeBtn.setPadding(new Insets(8, 10, 8, 10));
+        closeBtn.setOnAction(ev -> animateModalClose(stage, helpContent, () -> {
+            stage.close();
+        }));
+        addEnhancedButtonHoverEffects(closeBtn);
+
+        titleBar.getChildren().addAll(title, spacer, closeBtn);
 
         VBox commandsBox = new VBox(8);
         commandsBox.getStyleClass().add("commands-box");
         commandsBox.setPadding(new Insets(10));
-        commandsBox.setMaxWidth(Double.MAX_VALUE);
 
-
-        Label basicLabel = new Label("Comandos Principais:");
+        Label basicLabel = new Label("Comandos Gerais:");
         basicLabel.getStyleClass().add("help-section");
-
         VBox basicCommands = new VBox(5);
         basicCommands.getChildren().addAll(
                 new Label("• enable - Entra no modo privilegiado"),
-                new Label("• config - Entra no modo de configuração"),
-                new Label("• display ont info by-sn (SN) - Informações da ONT/ONU"),
-                new Label("• display ont wan-info (F/S P ID) - Informações da ONT/ONU"),
-                new Label("• display ont info summary (F/S/P) - Informações da Primária"),
-                new Label("• display port desc (F/S/P) - Verificar Cabo e Primária"),
-                new Label("• display ont autofind all - ONT/ONUs boiando")
+                new Label("• config - Entra no modo de configuração global"),
+                new Label("• display ont info by-sn <SN> - Info da ONT por Serial Number"),
+                new Label("• display ont wan-info <F/S> <P> <ID> - Info WAN da ONT"),
+                new Label("• display ont info summary <F/S/P> - Resumo das ONTs na PON"),
+                new Label("• display port desc <F/S/P> - Descrição da porta PON"),
+                new Label("• display service-port port <F/S/P> ont <ID> - Serviços configurados na ONT"),
+                new Label("• display ont autofind all - Lista ONTs boiando"),
+                new Label("• quit - Sai do modo atual / Desconecta")
         );
-        basicCommands.setMaxWidth(Double.MAX_VALUE);
 
-
-        Label oltLabel = new Label("Comandos que utilizam Interface GPON:");
-        oltLabel.getStyleClass().add("help-section");
-
-        VBox oltCommands = new VBox(5);
-        oltCommands.getChildren().addAll(
-                new Label("• interface gpon (F/S) - Acesso à interface PON específica "),
-                new Label("• display ont register-info (P ID) - Diagnóstico de Quedas da ONT/ONU"),
-                new Label("• display ont optical-info (P) all - Sinais da Primária"),
-                new Label("• display ont traffic (P) all - Tráfego/Velocidade da ONT/ONU"),
-                new Label("• display service-port port (F/S/P) ont (ID) - Serviço da ONT/ONU")
+        Label gponLabel = new Label("Comandos (após 'interface gpon <F/S>'):");
+        gponLabel.getStyleClass().add("help-section");
+        VBox gponCommands = new VBox(5);
+        gponCommands.getChildren().addAll(
+                new Label("• display ont register-info <P> <ID> - Histórico de registro/quedas"),
+                new Label("• display ont optical-info <P> all - Sinais ópticos das ONTs na porta P"),
+                new Label("• display ont traffic <P> <ID> - Tráfego da ONT (tempo real)")
         );
-        oltCommands.setMaxWidth(Double.MAX_VALUE);
 
+        Region sectionSpacer = new Region();
+        sectionSpacer.setPrefHeight(10);
 
-        commandsBox.getChildren().addAll(basicLabel, basicCommands, oltLabel, oltCommands);
+        commandsBox.getChildren().addAll(basicLabel, basicCommands, sectionSpacer, gponLabel, gponCommands);
 
-        Button closeBtn = new Button("Fechar");
-        closeBtn.getStyleClass().add("help-close-btn");
-        closeBtn.setOnAction(e -> helpStage.close());
-        closeBtn.setMaxWidth(Double.MAX_VALUE);
+        helpContent.getChildren().addAll(titleBar, commandsBox);
 
-
-        helpContent.getChildren().addAll(commandsBox, closeBtn);
-
-        Scene helpScene = new Scene(helpContent, 550, 500);
+        Scene helpScene = new Scene(helpContent);
+        helpScene.setFill(Color.TRANSPARENT);
         ThemeManager.applyThemeToNewScene(helpScene);
 
-        helpStage.setScene(helpScene);
-        helpStage.show();
+        stage.setScene(helpScene);
+
+        stage.setOpacity(0);
+        helpContent.setScaleX(0.9);
+        helpContent.setScaleY(0.9);
+
+        stage.show();
+        stage.centerOnScreen();
+
+        animateModalOpen(stage, helpContent);
+    }
+    // ---------------------- Inside - Terminal ---------------------- //
+
+
+    // ---------------------- Exports, Tratamento & Creditos ---------------------- //
+    private void exportarResultado(CodeArea resultadoArea, String nomeBase) {
+        String resultado = resultadoArea.getText();
+        if (resultado == null || resultado.trim().isEmpty()) {
+            showToast("❌ Nada para exportar. Faça uma consulta primeiro.");
+            return;
+        }
+
+        Stage stage = new Stage();
+        stage.initStyle(StageStyle.TRANSPARENT);
+        stage.initOwner(primaryStage);
+        stage.initModality(Modality.APPLICATION_MODAL);
+
+        VBox content = new VBox(15);
+        content.getStyleClass().add("glass-pane");
+        content.setPadding(new Insets(15));
+        content.setPrefSize(450, 350);
+        content.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.3)));
+
+        content.setCache(true);
+        content.setCacheHint(CacheHint.SPEED);
+
+        HBox exportTitleBar = new HBox();
+        exportTitleBar.setAlignment(Pos.CENTER_LEFT);
+        exportTitleBar.setPadding(new Insets(5, 10, 5, 15));
+
+        Label title = new Label("Exportar Resultado");
+        title.getStyleClass().add("olt-name");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Button closeBtn = new Button("✕");
+        closeBtn.getStyleClass().addAll("close-btn", "window-btn");
+        closeBtn.setPadding(new Insets(12, 12, 12, 12));
+        closeBtn.setOnAction(ev -> animateModalClose(stage, content, () -> {
+            stage.close();
+        }));
+        addEnhancedButtonHoverEffects(closeBtn);
+
+        exportTitleBar.getChildren().addAll(title, spacer, closeBtn);
+
+        Label infoLabel = new Label("O arquivo será salvo na pasta 'exports'.\nEscolha o formato de exportação:");
+        infoLabel.getStyleClass().add("info-label");
+
+        Label formatoLabel = new Label("Formato:");
+        formatoLabel.getStyleClass().add("form-label");
+
+        VBox formatosContainer = new VBox(10);
+
+        HBox primeiraLinha = new HBox(10);
+        primeiraLinha.setAlignment(Pos.CENTER);
+
+        Button pdfBtn = new Button("📄 PDF");
+        pdfBtn.getStyleClass().add("floating-btn");
+        pdfBtn.setPrefWidth(100);
+        addEnhancedButtonHoverEffects(pdfBtn);
+
+        Button xlsxBtn = new Button("📊 XLSX");
+        xlsxBtn.getStyleClass().add("floating-btn");
+        xlsxBtn.setPrefWidth(100);
+        addEnhancedButtonHoverEffects(xlsxBtn);
+
+        primeiraLinha.getChildren().addAll(pdfBtn, xlsxBtn);
+
+        HBox segundaLinha = new HBox(10);
+        segundaLinha.setAlignment(Pos.CENTER);
+
+        Button csvBtn = new Button("📋 CSV");
+        csvBtn.getStyleClass().add("floating-btn");
+        csvBtn.setPrefWidth(100);
+        addEnhancedButtonHoverEffects(csvBtn);
+
+        Button txtBtn = new Button("📝 TXT");
+        txtBtn.getStyleClass().add("floating-btn");
+        txtBtn.setPrefWidth(100);
+        addEnhancedButtonHoverEffects(txtBtn);
+
+        segundaLinha.getChildren().addAll(csvBtn, txtBtn);
+
+        formatosContainer.getChildren().addAll(primeiraLinha, segundaLinha);
+
+        content.getChildren().addAll(exportTitleBar, infoLabel, formatoLabel, formatosContainer);
+
+        Scene scene = new Scene(content);
+        scene.setFill(Color.TRANSPARENT);
+        scene.getStylesheets().clear();
+        ThemeManager.applyThemeToNewScene(scene);
+
+        stage.setScene(scene);
+
+        stage.setOpacity(0);
+        content.setScaleX(0.9);
+        content.setScaleY(0.9);
+
+        stage.centerOnScreen();
+        stage.show();
+
+        animateModalOpen(stage, content);
+
+        pdfBtn.setOnAction(e -> processarExportacao("PDF", resultado, nomeBase, stage, content));
+        xlsxBtn.setOnAction(e -> processarExportacao("XLSX", resultado, nomeBase, stage, content));
+        csvBtn.setOnAction(e -> processarExportacao("CSV", resultado, nomeBase, stage, content));
+        txtBtn.setOnAction(e -> processarExportacao("TXT", resultado, nomeBase, stage, content));
     }
 
-    // ---------------------- AJUDA INSIDE-TERMINAL ---------------------- //
+    private void processarExportacao(String formato, String resultado, String nomeBase, Stage stage, VBox content) {
+        File dir = new File("exports");
+        if (!dir.exists()) dir.mkdirs();
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
+        String nomeArquivoBase = "exports/" + nomeBase + "_" + timestamp;
 
+        try {
+            switch (formato) {
+                case "PDF":
+                    try (FileOutputStream fos = new FileOutputStream(nomeArquivoBase + ".pdf")) {
+                        com.lowagie.text.Document document = new com.lowagie.text.Document();
+                        com.lowagie.text.pdf.PdfWriter.getInstance(document, fos);
+                        document.open();
+                        com.lowagie.text.Font monoFont = com.lowagie.text.FontFactory.getFont(com.lowagie.text.FontFactory.COURIER, 10);
+                        document.add(new com.lowagie.text.Paragraph(resultado, monoFont));
+                        document.close();
+                        animateModalExportClose(stage, content, "📂 Arquivo PDF exportado: " + nomeArquivoBase + ".pdf");
+                    }
+                    break;
+                case "XLSX":
+                    try (Workbook workbook = new XSSFWorkbook();
+                         FileOutputStream fos = new FileOutputStream(nomeArquivoBase + ".xlsx")) {
 
-    // ---------------------- TRATAMENTO IP, TOAST e CRÉDITOS ---------------------- //
+                        Sheet sheet = workbook.createSheet(nomeBase.length() > 30 ? nomeBase.substring(0,30) : nomeBase);
+
+                        String[] lines = resultado.split("\\r?\\n");
+                        Pattern tableLikePattern = Pattern.compile("(\\S+(\\s+\\S+)*?)(\\s{2,}|\\t)");
+
+                        for (int i = 0; i < lines.length; i++) {
+                            Row row = sheet.createRow(i);
+                            String line = lines[i];
+
+                            Matcher matcher = tableLikePattern.matcher(line);
+                            List<String> cells = new ArrayList<>();
+                            int lastEnd = 0;
+                            while (matcher.find()) {
+                                cells.add(matcher.group(1).trim());
+                                lastEnd = matcher.end();
+                            }
+
+                            if (lastEnd < line.length()) {
+                                cells.add(line.substring(lastEnd).trim());
+                            }
+
+                            if (cells.isEmpty() && !line.trim().isEmpty()){
+                                cells.add(line.trim());
+                            } else if (cells.stream().allMatch(String::isEmpty) && !line.trim().isEmpty()) {
+                                cells.clear();
+                                cells.add(line.trim());
+                            }
+
+                            if (cells.size() == 1 && cells.get(0).isEmpty() && line.trim().isEmpty()) {
+                            } else if (cells.size() == 1 && !cells.get(0).isEmpty()){
+                                row.createCell(0).setCellValue(cells.get(0));
+                            }
+                            else {
+                                for (int j = 0; j < cells.size(); j++) {
+                                    if(!cells.get(j).isEmpty()){
+                                        row.createCell(j).setCellValue(cells.get(j));
+                                    }
+                                }
+                            }
+                        }
+                        if (sheet.getRow(0) != null) {
+                            int firstRowCellCount = sheet.getRow(0).getPhysicalNumberOfCells();
+                            for (int k = 0; k < firstRowCellCount; k++) {
+                                sheet.autoSizeColumn(k);
+                            }
+                        }
+
+                        workbook.write(fos);
+                        animateModalExportClose(stage, content, "📂 Arquivo XLSX exportado: " + nomeArquivoBase + ".xlsx");
+                    }
+                    break;
+                case "CSV":
+                    try (FileWriter writer = new FileWriter(nomeArquivoBase + ".csv")) {
+                        String csvData = resultado.replaceAll("\\s{2,}", ",").replaceAll("\\s+(?=[^-\n])", ",");
+                        writer.write(csvData);
+                        animateModalExportClose(stage, content, "📂 Arquivo CSV exportado: " + nomeArquivoBase + ".csv");
+                    }
+                    break;
+
+                case "TXT":
+                    try (FileWriter writer = new FileWriter(nomeArquivoBase + ".txt")) {
+                        writer.write(resultado);
+                        animateModalExportClose(stage, content, "📂 Arquivo TXT exportado: " + nomeArquivoBase + ".txt");
+                    }
+                    break;
+            }
+        } catch (IOException ex) {
+            showToast("❌ Erro ao exportar arquivo: " + ex.getMessage());
+            FadeTransition fadeOut = new FadeTransition(Duration.millis(200), content);
+            fadeOut.setFromValue(1.0);
+            fadeOut.setToValue(0.0);
+
+            ScaleTransition scaleOut = new ScaleTransition(Duration.millis(200), content);
+            scaleOut.setFromX(1.0);
+            scaleOut.setFromY(1.0);
+            scaleOut.setToX(0.9);
+            scaleOut.setToY(0.9);
+
+            ParallelTransition parallelOut = new ParallelTransition(fadeOut, scaleOut);
+            parallelOut.setOnFinished(e -> animateModalClose(stage, content, () -> {
+                stage.close();
+            }));
+            parallelOut.play();
+        }
+    }
+
+    private void animateModalExportClose(Stage stage, VBox content, String mensagemSucesso) {
+        content.setCache(true);
+        content.setCacheHint(CacheHint.SPEED);
+
+        Timeline timeline = new Timeline(
+                new KeyFrame(Duration.ZERO,
+                        new KeyValue(stage.opacityProperty(), 1.0, Interpolator.EASE_IN),
+                        new KeyValue(content.scaleXProperty(), 1.0, Interpolator.EASE_IN),
+                        new KeyValue(content.scaleYProperty(), 1.0, Interpolator.EASE_IN)
+                ),
+                new KeyFrame(Duration.millis(200),
+                        new KeyValue(stage.opacityProperty(), 0.0, Interpolator.EASE_IN),
+                        new KeyValue(content.scaleXProperty(), 0.8, Interpolator.EASE_IN),
+                        new KeyValue(content.scaleYProperty(), 0.8, Interpolator.EASE_IN)
+                )
+        );
+        timeline.play();
+        showToast(mensagemSucesso);
+    }
+
     private void destacarIPs(CodeArea codeArea) {
         String texto = codeArea.getText();
         codeArea.setStyleSpans(0, computeHighlighting(texto));
@@ -3143,15 +4448,15 @@ public class Main extends Application {
             spansBuilder.add(Collections.singleton("ip-address"), matcher.end() - matcher.start());
             lastKwEnd = matcher.end();
         }
-
         spansBuilder.add(Collections.emptyList(), text.length() - lastKwEnd);
         return spansBuilder.create();
     }
 
     private void showCreditsSection() {
-        Stage creditsStage = new Stage();
-        creditsStage.initStyle(StageStyle.UNDECORATED);
-        creditsStage.initOwner(primaryStage);
+        Stage stage = new Stage();
+        stage.initStyle(StageStyle.TRANSPARENT);
+        stage.initOwner(primaryStage);
+        stage.initModality(Modality.APPLICATION_MODAL);
 
         VBox content = new VBox(20);
         content.getStyleClass().add("glass-pane");
@@ -3159,200 +4464,104 @@ public class Main extends Application {
         content.setPrefSize(500, 400);
         content.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.3)));
 
-        HBox titleBar = new HBox();
-        titleBar.setAlignment(Pos.CENTER_LEFT);
-        titleBar.setPadding(new Insets(5, 10, 5, 15));
+        content.setCache(true);
+        content.setCacheHint(CacheHint.SPEED);
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox titleBar = new HBox();
+        titleBar.setAlignment(Pos.CENTER_RIGHT);
 
         Button closeBtn = new Button("✕");
         closeBtn.getStyleClass().addAll("close-btn", "window-btn");
-        closeBtn.setPadding(new Insets(12, 12, 12, 12));
-        closeBtn.setOnAction(ev -> creditsStage.close());
+        closeBtn.setPadding(new Insets(10, 12, 10, 12));
+        closeBtn.setOnAction(ev -> animateModalClose(stage, content, () -> {
+            stage.close();
+        }));
         addEnhancedButtonHoverEffects(closeBtn);
-
-        titleBar.getChildren().addAll(spacer, closeBtn);
+        titleBar.getChildren().add(closeBtn);
 
         VBox creditsContent = new VBox(15);
         creditsContent.setAlignment(Pos.TOP_LEFT);
-        creditsContent.setPadding(new Insets(10));
+        creditsContent.setPadding(new Insets(0, 10, 10, 10));
 
-        Label appName = new Label("Gerenciador de OLTs - 1.5.5.0");
+        Label appName = new Label("NM OLT App - v1.6.0.0");
         appName.getStyleClass().add("credits-title");
 
         Label developer = new Label("Desenvolvido por Eduardo Tomaz");
         developer.getStyleClass().add("credits-text");
 
-
         VBox socialLinks = new VBox(5);
         socialLinks.setAlignment(Pos.TOP_LEFT);
-
-        Hyperlink socialLink1 = new Hyperlink("LinkedIn");
-        socialLink1.getStyleClass().add("credits-link");
-        socialLink1.setOnAction(e -> {
-            try {
-                Desktop.getDesktop().browse(new URI("https://www.linkedin.com/in/eduardotoomazs/"));
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        });
-
-        Hyperlink socialLink2 = new Hyperlink("Instagram");
-        socialLink2.getStyleClass().add("credits-link");
-        socialLink2.setOnAction(e -> {
-            try {
-                Desktop.getDesktop().browse(new URI("https://www.instagram.com/tomazdudux/"));
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        });
-
+        Hyperlink linkedInLink = new Hyperlink("LinkedIn: /in/eduardotoomazs");
+        linkedInLink.getStyleClass().add("credits-link");
+        linkedInLink.setOnAction(e -> openWebpage("https://www.linkedin.com/in/eduardotoomazs/"));
+        Hyperlink instagramLink = new Hyperlink("Instagram: @tomazdudux");
+        instagramLink.getStyleClass().add("credits-link");
+        instagramLink.setOnAction(e -> openWebpage("https://www.instagram.com/tomazdudux/"));
+        socialLinks.getChildren().addAll(linkedInLink, instagramLink);
 
         VBox githubLinks = new VBox(5);
         githubLinks.setAlignment(Pos.TOP_LEFT);
+        Hyperlink githubWinLink = new Hyperlink("GitHub (Windows): toomazs/NM-OLT-App");
+        githubWinLink.getStyleClass().add("credits-link");
+        githubWinLink.setOnAction(e -> openWebpage("https://github.com/toomazs/NM-OLT-App"));
+        Hyperlink githubLinuxLink = new Hyperlink("GitHub (Linux): toomazs/NM-OLT-App-Linux");
+        githubLinuxLink.getStyleClass().add("credits-link");
+        githubLinuxLink.setOnAction(e -> openWebpage("https://github.com/toomazs/NM-OLT-App-Linux"));
+        githubLinks.getChildren().addAll(githubWinLink, githubLinuxLink);
 
-        Hyperlink githubLink1 = new Hyperlink("Repositório Github Windows");
-        githubLink1.getStyleClass().add("credits-link");
-        githubLink1.setOnAction(e -> {
-            try {
-                Desktop.getDesktop().browse(new URI("https://github.com/toomazs/NM-OLT-App"));
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        });
-
-        Hyperlink githubLink2 = new Hyperlink("Repositório Github Linux");
-        githubLink2.getStyleClass().add("credits-link");
-        githubLink2.setOnAction(e -> {
-            try {
-                Desktop.getDesktop().browse(new URI("https://github.com/toomazs/NM-OLT-App-Linux"));
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        });
-
-        githubLinks.getChildren().addAll(githubLink1, githubLink2);
-        socialLinks.getChildren().addAll(socialLink1, socialLink2);
-
-        creditsContent.getChildren().addAll(appName, developer, socialLinks, githubLinks);
-
+        creditsContent.getChildren().addAll(appName, developer, new Region(){{setPrefHeight(10);}}, socialLinks, new Region(){{setPrefHeight(10);}}, githubLinks);
         content.getChildren().addAll(titleBar, creditsContent);
 
         Scene scene = new Scene(content);
+        scene.setFill(Color.TRANSPARENT);
         ThemeManager.applyThemeToNewScene(scene);
 
-        creditsStage.setScene(scene);
-        creditsStage.show();
+        stage.setScene(scene);
+        stage.setOpacity(0);
+        content.setScaleX(0.8);
+        content.setScaleY(0.8);
 
-        creditsStage.centerOnScreen();
+        stage.show();
+        stage.centerOnScreen();
+
+        animateModalOpen(stage, content);
     }
 
-    private void showToast(String message) {
-        Label toastLabel = new Label(message);
-        toastLabel.setStyle("-fx-background-color: rgba(0, 0, 0, 0.75); -fx-text-fill: white; -fx-padding: 10px 20px; -fx-background-radius: 20px;");
-        toastLabel.setOpacity(0);
-
-        StackPane root = (StackPane) primaryStage.getScene().getRoot();
-        root.getChildren().add(toastLabel);
-
-        StackPane.setAlignment(toastLabel, Pos.BOTTOM_CENTER);
-        StackPane.setMargin(toastLabel, new Insets(0, 0, 80, 0));
-
-        FadeTransition fadeIn = new FadeTransition(Duration.millis(300), toastLabel);
-        fadeIn.setFromValue(0);
-        fadeIn.setToValue(1);
-
-        PauseTransition stay = new PauseTransition(Duration.seconds(2.5));
-
-        FadeTransition fadeOut = new FadeTransition(Duration.millis(500), toastLabel);
-        fadeOut.setFromValue(1);
-        fadeOut.setToValue(0);
-
-        fadeOut.setOnFinished(e -> root.getChildren().remove(toastLabel));
-
-        SequentialTransition seq = new SequentialTransition(fadeIn, stay, fadeOut);
-        seq.play();
+    private void openWebpage(String url) {
+        try {
+            Desktop.getDesktop().browse(new URI(url));
+        } catch (Exception ex) {
+            showToast("❌ Não foi possível abrir o link.");
+        }
     }
-    // ---------------------- TRATAMENTO IP, TOAST e CRÉDITOS ---------------------- //
+    // ---------------------- Exports, Tratamento & Creditos ---------------------- //
 
 
-
+    // ---------------------- Lifecycle ---------------------- //
     public static void main(String[] args) {
+        optimizeJavaFXFor60FPS();
         launch(args);
     }
 
-
-    // ---------------------- STOPS ---------------------- //
     @Override
     public void stop() {
-        System.out.println("Aplicação parando (método stop())...");
-        fileLogger.println("DEBUG (Main - stop): Método stop() iniciado.");
-
-        if (this.sshManager != null) {
-            System.out.println("DEBUG (Main - stop): Desconectando SSHManager principal...");
-            fileLogger.println("DEBUG (Main - stop): Desconectando SSHManager principal...");
-            this.sshManager.disconnect();
-            System.out.println("DEBUG (Main - stop): SSHManager principal desconectado.");
-            fileLogger.println("DEBUG (Main - stop): SSHManager principal desconectado.");
+        if (currentWaitingToast != null && primaryStage != null && primaryStage.getScene() != null && primaryStage.getScene().getRoot() instanceof StackPane) {
+            StackPane root = (StackPane) primaryStage.getScene().getRoot();
+            root.getChildren().remove(currentWaitingToast);
+            currentWaitingToast = null;
         }
 
         if (terminalConnections != null && !terminalConnections.isEmpty()) {
-            System.out.println("DEBUG (Main - stop): Desconectando conexões SSH ativas dos terminais...");
-            fileLogger.println("DEBUG (Main - stop): Desconectando conexões SSH ativas dos terminais...");
-            for (Map.Entry<Tab, SSHManager> entry : terminalConnections.entrySet()) {
-                SSHManager ssh = entry.getValue();
-                if (ssh != null) {
-                    ssh.disconnect();
-                    System.out.println("DEBUG (Main - stop): Desconectada SSH da aba: " + entry.getKey().getText());
-                    fileLogger.println("DEBUG (Main - stop): Desconectada SSH da aba: " + entry.getKey().getText());
-                }
-            }
+            terminalConnections.values().forEach(sshManager -> {
+                if (sshManager != null) sshManager.disconnect();
+            });
             terminalConnections.clear();
-            System.out.println("DEBUG (Main - stop): Todas as conexões SSH dos terminais foram desconectadas e limpas.");
-            fileLogger.println("DEBUG (Main - stop): Todas as conexões SSH dos terminais foram desconectadas e limpas.");
         }
 
         if (trayIcon != null && SystemTray.isSupported()) {
-            System.out.println("DEBUG (Main - stop): Removendo ícone da bandeja do sistema...");
-            fileLogger.println("DEBUG (Main - stop): Removendo ícone da bandeja do sistema...");
             SystemTray.getSystemTray().remove(trayIcon);
-            System.out.println("DEBUG (Main - stop): Ícone da bandeja do sistema removido.");
-            fileLogger.println("DEBUG (Main - stop): Ícone da bandeja do sistema removido.");
         }
-
-        if (usuarioLogado != null) {
-            System.out.println("Atualizando status do usuário para offline em stop()...");
-            fileLogger.println("DEBUG (Main - stop): Atualizando status do usuário para offline...");
-
-            try {
-                Thread dbUpdateThread = new Thread(() -> {
-                    try {
-                        System.out.println("Status do usuário atualizado em stop().");
-                        fileLogger.println("DEBUG (Main - stop): Status do usuário (simulado) atualizado para offline.");
-                    } catch (Exception dbEx) {
-                        System.err.println("Erro na thread de atualização de status do DB em stop(): " + dbEx.getMessage());
-                        fileLogger.println("ERRO (Main - stop): Erro na thread de atualização de status do DB: " + dbEx.getMessage());
-                        dbEx.printStackTrace(fileLogger);
-                    }
-                });
-
-                dbUpdateThread.setDaemon(true);
-                dbUpdateThread.start();
-
-            } catch (Exception e) {
-                System.err.println("Erro ao criar thread para atualização de status em stop(): " + e.getMessage());
-                fileLogger.println("ERRO (Main - stop): Erro ao criar thread para atualização de status: " + e.getMessage());
-                e.printStackTrace(fileLogger);
-            }
-        }
-
-        System.out.println("DEBUG (Main - stop): Fechando logger de arquivo...");
-        fileLogger.println("DEBUG (Main - stop): Fechando logger de arquivo...");
-        closeFileLogging();
-
-        System.out.println("Método stop concluído.");
-        fileLogger.println("DEBUG (Main - stop): Método stop() concluído.");
     }
+    // ---------------------- Lifecycle ---------------------- //
+
 }
-// ---------------------- STOPS ---------------------- //

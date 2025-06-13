@@ -1,14 +1,12 @@
-/* style-cream.css - Tema Bege e Azul Marinho Adaptado */
-@import url('https://fonts.googleapis.com/css2?family=Cascadia+Code:ital,wght@0,200..700;1,200..700&family=Chivo:ital,wght@0,100..900;1,100..900&display=swap');
-
 * {
-    -fx-font-family: 'Chivo', sans-serif;
+    -fx-font-family: 'Rubik', sans-serif;
     -fx-font-smoothing-type: gray;
 }
 
 .root {
     -fx-background-color: #F5EEDC; /* Bege */
     -fx-background-size: 400px;
+    -fx-background-radius: 15;
 }
 
 .label {
@@ -115,6 +113,9 @@
     -fx-cursor: hand;
     -fx-border-width: 0 0 0 3px;
     -fx-border-color: transparent;
+    -fx-effect: null;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
 }
 
 .nav-button .icon {
@@ -123,7 +124,7 @@
 }
 
 .nav-button:hover {
-    -fx-background-color: linear-gradient(to right, rgba(24, 59, 78, 0.05), rgba(24, 59, 78, 0.0)); /* Hover Azul Marinho leve */
+    -fx-background-color: linear-gradient(to right, rgba(24, 59, 78, 0.05), rgba(24, 59, 78, 0.0));
     -fx-border-color: #183B4E; /* Azul Marinho */
     -fx-text-fill: #0f2a3d; /* Azul Marinho mais escuro */
 }
@@ -133,11 +134,11 @@
 }
 
 .nav-button:selected {
-    -fx-background-color: linear-gradient(to right, rgba(24, 59, 78, 0.1), rgba(24, 59, 78, 0.0)); /* Selected Azul Marinho leve */
+    -fx-background-color: linear-gradient(to right, rgba(24, 59, 78, 0.1), rgba(24, 59, 78, 0.0));
     -fx-border-color: #0f2a3d; /* Azul Marinho mais escuro */
     -fx-font-weight: bold;
     -fx-text-fill: #0f2a3d; /* Azul Marinho mais escuro */
-    -fx-effect: null;
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.4), 8, 0.5, 0, 0);
 }
 
 .nav-button:selected .icon {
@@ -207,7 +208,7 @@
 }
 
 .terminal-box {
-    -fx-background-color: #e0d8c6; /* Bege um pouco mais escuro */
+    -fx-background-color: #F5EEDC; /* Bege um pouco mais escuro */
     -fx-background-radius: 8px;
     -fx-padding: 12px;
     -fx-border-radius: 8px;
@@ -218,8 +219,8 @@
 /* Terminal Area */
 .terminal-area {
     -fx-control-inner-background: #e0d8c6;
-    -fx-background-color: #e0d8c6;
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-background-color: #F5EEDC;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-size: 12px;
     -fx-padding: 10px;
     -fx-border-width: 0;
@@ -241,7 +242,7 @@
 
 /* Prompt Label */
 .prompt-label {
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-size: 14px;
     -fx-font-weight: bold;
     -fx-fill: #0f2a3d; /* Azul Marinho mais escuro */
@@ -253,7 +254,7 @@
     -fx-text-fill: #183B4E; /* Azul Marinho */
     -fx-prompt-text-fill: #6f5f48; /* Placeholder bege escuro */
     -fx-padding: 10px;
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-size: 14px;
     -fx-background-radius: 4px;
     -fx-border-width: 1px;
@@ -361,7 +362,7 @@
     -fx-background-color: #e0d8c6; /* Bege mais escuro */
     -fx-background-radius: 8px;
     -fx-padding: 10px;
-    -fx-font-family: "Cascadia Code";
+    -fx-font-family: "Jetbrains Mono";
 }
 
 .code-area .content {
@@ -369,7 +370,7 @@
 }
 
 .code-area .text {
-    -fx-font-family: "Cascadia Code";
+    -fx-font-family: "Jetbrains Mono";
     -fx-fill: #183B4E; /* Azul Marinho - COR DO TEXTO */
 }
 
@@ -381,7 +382,7 @@
 .code-area .text.function { -fx-fill: #183B4E !important; } /* Azul Marinho */
 .code-area .text.type { -fx-fill: #27548A !important; } /* Azul Médio */
 .code-area .text.variable { -fx-fill: #183B4E !important; } /* Azul Marinho */
-.code-area .text.ip-address { -fx-fill: #DDA853 !important; -fx-font-weight: bold; } /* Dourado/Bege escuro */
+.code-area .text.ip-address { -fx-fill: #3fc3cc !important; -fx-font-weight: bold; } /* Dourado/Bege escuro */
 
 .code-area .caret {
     -fx-stroke: #183B4E; /* Azul Marinho */
@@ -493,7 +494,7 @@
     -fx-text-fill: #FFFFFF; /* Branco */
     -fx-background-radius: 24px;
     -fx-cursor: hand;
-    -fx-font-size: 16.5px;
+    -fx-font-size: 13px;
     -fx-font-weight: bold;
     -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.3), 15, 0, 0, 5);
     -fx-min-width: 25px;
@@ -557,12 +558,7 @@
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 6, 0, 0, 2);
 }
 
-.user-info-box:hover {
-    -fx-background-color: linear-gradient(to bottom right, #FFFFFF, #f8f4e9); /* Branco -> Bege mais claro */
-    -fx-border-color: #183B4E; /* Azul Marinho */
-    -fx-translate-x: 2px;
-    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.15), 8, 0, 0, 3);
-}
+
 
 .user-name {
     -fx-text-fill: #183B4E; /* Azul Marinho */
@@ -594,6 +590,7 @@
 }
 
 .dropdown-arrow-active {
+    -fx-text: "▴" !important; }
     -fx-background-color: transparent;
     -fx-font-weight: bold;
     -fx-rotate: 180;
@@ -666,10 +663,12 @@
 }
 
 .glass-pane {
-    -fx-background-color: linear-gradient(to bottom, rgba(245, 238, 220, 0.9), rgba(255, 255, 255, 0.8)); /* Bege -> Branco semi-transparente */
+    -fx-background-color: linear-gradient(to bottom, rgba(245, 238, 220, 1.0), rgba(255, 255, 255, 1.0));
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 3);
     -fx-border-width: 1px;
-    -fx-border-color: rgba(196, 178, 154, 0.4); /* Borda bege sutil */
+    -fx-border-color: rgba(196, 178, 154, 1.0); /* Borda opaca também */
+        -fx-background-radius: 15;
+        -fx-border-radius: 15;
 }
 
 .help-section {
@@ -699,57 +698,163 @@
 }
 
 .command-highlight {
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-weight: bold;
     -fx-text-fill: #0f2a3d; /* Azul Marinho Escuro */
     -fx-effect: null;
 }
 
+/* ===== TAB PANE BASE ===== */
 .tab-pane {
     -fx-background-color: transparent;
-    -fx-tab-min-width: 100px; -fx-tab-max-width: 200px;
-    -fx-tab-min-height: 35px;
+    -fx-tab-min-width: 120px;
+    -fx-tab-max-width: 220px;
+    -fx-tab-min-height: 40px;
+    -fx-open-tab-animation: GROW;
+    -fx-close-tab-animation: GROW;
 }
 
-.tab-pane .tab-header-area { -fx-padding: 5px 0 0 0; }
+/* ===== HEADER AREA ===== */
+.tab-pane .tab-header-area {
+    -fx-padding: 5px 0 0 0;
+    -fx-background-color: transparent;
+}
 
 .tab-pane .tab-header-background {
-    -fx-background-color: #F5EEDC; /* Bege */
-    -fx-effect: innershadow(gaussian, rgba(0,0,0,0.05), 3, 0, 0, 1);
+    -fx-background-color: linear-gradient(to bottom, #FDFBF6, #F5EEDC);
+    -fx-effect: innershadow(gaussian, rgba(0,0,0,0.4), 4, 0, 0, 2);
+    -fx-border-width: 0 0 1px 0;
+    -fx-border-color: #EAE2C6;
 }
 
+/* ===== TABS NORMAIS ===== */
 .tab-pane .tab {
-    -fx-background-color: #FDFBF6; /* Bege claro */
-    -fx-background-radius: 8px 8px 0 0;
+    -fx-background-color: linear-gradient(to bottom, #F5EEDC, #FDFBF6);
+    -fx-background-radius: 10px 10px 0 0;
     -fx-border-width: 1px 1px 0 1px;
-    -fx-border-color: #EAE2C6; /* Borda bege acinzentado */
-    -fx-border-radius: 8px 8px 0 0;
-    -fx-padding: 5px 15px;
+    -fx-border-color: #EAE2C6;
+    -fx-border-radius: 10px 10px 0 0;
+    -fx-padding: 8px 18px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 2, 0, 0, 1);
 }
 
+/* Hover effect para tabs não selecionadas */
+.tab-pane .tab:hover {
+    -fx-background-color: linear-gradient(to bottom, #FDFBF6, #F5EEDC);
+    -fx-border-color: #183B4E;
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.3), 4, 0, 0, 1);
+}
+
+/* ===== TAB SELECIONADA ===== */
 .tab-pane .tab:selected {
-    -fx-background-color: #FFFFFF; /* Branco */
-    -fx-border-color: #183B4E #183B4E transparent #183B4E; /* Borda Azul Marinho */
-    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.1), 8, 0, 0, -3);
+    -fx-background-color: linear-gradient(to bottom, #27548A, #183B4E, #0f2a3d);
+    -fx-border-color: #0f2a3d #0f2a3d transparent #0f2a3d;
+    -fx-border-width: 2px 2px 0 2px;
 }
 
+/* ===== LABELS DAS TABS ===== */
 .tab-pane .tab .tab-label {
-    -fx-text-fill: #6f5f48; /* Tom de marrom/bege escuro */
+    -fx-text-fill: #183B4E;
     -fx-font-size: 13px;
     -fx-font-weight: 600;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 1, 0, 0, 1);
+}
+
+.tab-pane .tab:hover .tab-label {
+    -fx-text-fill: #0f2a3d;
 }
 
 .tab-pane .tab:selected .tab-label {
-    -fx-text-fill: #183B4E; /* Azul Marinho */
-    -fx-effect: null;
+    -fx-text-fill: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 2, 0, 0, 0);
 }
 
-.tab-pane .tab-content-area {
-    -fx-background-color: #F5EEDC; /* Bege */
-    -fx-border-width: 1px;
-    -fx-border-color: #c4b29a; /* Borda bege escura */
-    -fx-border-radius: 0 0 8px 8px;
-    -fx-padding: 15px;
+/* ===== BOTÃO DE FECHAR ===== */
+.tab-pane .tab .tab-close-button {
+    -fx-background-color: rgba(24, 59, 78, 0.3);
+    -fx-background-radius: 50%;
+    -fx-padding: 0;
+    -fx-pref-width: 14px;
+    -fx-pref-height: 14px;
+    -fx-min-width: 14px;
+    -fx-min-height: 14px;
+    -fx-max-width: 14px;
+    -fx-max-height: 14px;
+}
+
+.tab-pane .tab:selected .tab-close-button {
+    -fx-background-color: rgba(255, 255, 255, 0.4);
+}
+
+.tab-pane .tab .tab-close-button:hover {
+    -fx-background-color: rgba(255, 100, 100, 0.7) !important;
+    -fx-effect: dropshadow(gaussian, rgba(255, 100, 100, 0.5), 3, 0, 0, 0);
+}
+
+/* Estilo do X dentro do botão */
+.tab-pane .tab .tab-close-button > .graphic {
+    -fx-background-color: #183B4E;
+    -fx-background-radius: 0;
+    -fx-padding: 0;
+    -fx-shape: "M 0,0 L 1,1 M 0,1 L 1,0";
+    -fx-scale-shape: true;
+    -fx-pref-width: 8px;
+    -fx-pref-height: 8px;
+}
+
+.tab-pane .tab:selected .tab-close-button > .graphic {
+    -fx-background-color: white;
+}
+
+.tab-pane .tab .tab-close-button:hover > .graphic {
+    -fx-background-color: white !important;
+}
+
+/* ===== CONTROLES DE NAVEGAÇÃO ===== */
+.tab-pane .control-buttons-tab {
+    -fx-background-color: transparent;
+}
+
+.tab-pane .tab-down-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 4px;
+}
+
+.tab-pane .tab-down-button .arrow {
+    -fx-background-color: #183B4E;
+    -fx-shape: "M 0 0 L 4 4 L 8 0 Z";
+}
+
+.tab-pane .tab-down-button:hover {
+    -fx-background-color: rgba(24, 59, 78, 0.1);
+    -fx-background-radius: 4px;
+    -fx-effect: dropshadow(gaussian, rgba(24, 59, 78, 0.3), 3, 0, 0, 0);
+}
+
+/* ===== ANIMAÇÕES E TRANSIÇÕES ===== */
+.tab-pane .tab {
+    -fx-cursor: hand;
+}
+
+/* Melhora a aparência quando há muitas tabs */
+.tab-pane:many-tabs .tab {
+    -fx-tab-min-width: 80px;
+    -fx-padding: 6px 12px;
+}
+
+.tab-pane:many-tabs .tab .tab-label {
+    -fx-font-size: 12px;
+}
+
+/* ===== DISABLED STATE ===== */
+.tab-pane:disabled .tab {
+    -fx-opacity: 0.5;
+}
+
+.tab-pane:disabled .tab .tab-label {
+    -fx-text-fill: #666666;
 }
 
 .badge {
@@ -843,13 +948,6 @@
     -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.1), 6, 0, 0, 2); /* Sombra Azul Marinho */
 }
 
-.user-info-box:hover {
-    -fx-background-color: linear-gradient(to bottom right, rgba(255, 255, 255, 0.9), rgba(245, 238, 220, 0.95)); /* Mais opaco no hover */
-    -fx-border-color: #183B4E; /* Azul Marinho */
-    -fx-translate-x: 2px;
-    -fx-effect: dropshadow(three-pass-box, rgba(24, 59, 78, 0.15), 8, 0, 0, 3);
-}
-
 /* Reduzir tamanho da exibição do avatar */
 .user-info-box ImageView {
     -fx-fit-width: 28px; /* Ligeiramente menor */
@@ -875,9 +973,135 @@
 }
 
 .eye-button {
+    -fx-text-fill: #183B4E; /* Azul Marinho */
     -fx-font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji";
     -fx-font-size: 14px;
     -fx-background-color: transparent;
     -fx-padding: 5px;
     -fx-cursor: hand;
+}
+
+/* === Context Menu Creme Theme === */
+.context-menu {
+    -fx-background-color: #FAF6EF; /* Bege um pouco mais claro que o root #F5EEDC */
+    -fx-border-color: #EAE2C6;    /* Bege acinzentado (de user-info-box) */
+    -fx-border-width: 1px;
+    -fx-padding: 5px;
+    -fx-effect: dropshadow(gaussian, rgba(24,59,78,0.12), 8, 0, 0, 1); /* Sombra sutil com tom azulado do tema */
+}
+
+.context-menu .label {
+    -fx-text-fill: #183B4E; /* Azul Marinho (Label text) */
+}
+
+.context-menu .menu-item:focused {
+    -fx-background-color: #EFE8D8; /* Bege um pouco mais escuro/diferente para seleção */
+}
+
+.context-menu .menu-item:focused .label {
+    -fx-text-fill: #183B4E; /* Texto Azul Marinho no foco */
+}
+
+.context-menu .separator .line {
+    -fx-border-style: solid;
+    -fx-border-width: 1px 0 0 0;
+    -fx-border-color: #EAE2C6;
+}
+
+.status-label {
+    -fx-font-size: 10px;
+    -fx-text-fill: #27548A;
+    /* Add other styling as needed, e.g., text color based on theme */
+}
+
+.olt-card .label { /* Ensure labels in card don't overflow if text is long */
+    -fx-text-overrun: ellipsis;
+}
+
+.logout-btn {
+    -fx-background-color: linear-gradient(to bottom, #E96D74, #D34750); /* Softer, prominent red */
+    -fx-text-fill: #FFFFFF; /* White text for strong contrast */
+    -fx-background-radius: 6px;
+    -fx-padding: 6px 12px;
+    -fx-cursor: hand;
+    -fx-font-weight: 700;
+    -fx-border-width: 1px;
+    -fx-border-color: #C0392B; /* Darker, less intense red border */
+    -fx-border-radius: 6px;
+    -fx-effect: innershadow(gaussian, rgba(100, 0, 0, 0.3), 1, 0, 0, 1); /* Softer shadow */
+}
+
+/* Efeito de hover para quando o mouse passar por cima */
+.logout-btn:hover {
+    -fx-background-color: linear-gradient(to bottom, #A52A2A, #8B0000); /* Inverte o gradiente ou usa tons mais escuros */
+    -fx-border-color: #CD5C5C; /* Borda um pouco mais clara no hover */
+}
+
+/* Efeito quando o botão é pressionado */
+.logout-btn:pressed {
+    -fx-background-color: #8B0000; /* Cor sólida mais escura ao clicar */
+    -fx-effect: innershadow(gaussian, #CD5C5C, 1, 0, 0, 1); /* Sombra inversa ou mais proeminente */
+}
+
+/* Estilo para mensagens de erro */
+.error-label {
+    -fx-text-fill: linear-gradient(to bottom, #A52A2A, #8B0000); /* Vermelho para erro */
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-padding: 8px 12px;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-effect: dropshadow(gaussian, rgba(220, 53, 69, 0.2), 2, 0, 0, 1);
+}
+
+/* Estilo para mensagens de sucesso */
+.success-label {
+    -fx-text-fill: #28a745; /* Verde para sucesso */
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-padding: 8px 12px;
+    -fx-border-radius: 4px;
+    -fx-effect: dropshadow(gaussian, rgba(40, 167, 69, 0.2), 2, 0, 0, 1);
+}
+
+.progress-indicator {
+    -fx-progress-color: #183B4E; /* Azul Marinho */
+}
+
+.separator {
+    -fx-fill: linear-gradient(to right,
+        rgba(245, 245, 220, 0.0), /* Creme background */
+        rgba(25, 25, 112, 0.8), /* Midnight Blue */
+        rgba(245, 245, 220, 0.0)
+    );
+    -fx-effect: dropshadow(gaussian, rgba(25, 25, 112, 0.6), 8, 0, 0, 2);
+}
+
+.admin-separator {
+    -fx-background-color: linear-gradient(to right,
+        rgba(39, 84, 138, 0.0),
+        rgba(39, 84, 138, 0.8),
+        rgba(39, 84, 138, 0.0)
+    );
+    -fx-pref-height: 1;
+    -fx-effect: dropshadow(gaussian, rgba(39, 84, 138, 0.6), 8, 0, 0, 2);
+}
+
+.admin-section-label {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: rgba(39, 84, 138, 0.9);
+    -fx-opacity: 0.8;
+}
+
+.icon-shadow {
+    -fx-effect: dropshadow(gaussian, rgba(39, 84, 138, 0.4), 15, 0, 0, 5);
+}
+
+.password-field.modern-text-field {
+    -fx-font-family: 'Rubik', sans-serif;
+}
+
+.password-field.modern-text-field.has-text {
+    -fx-font-family: "monospaced";
 }

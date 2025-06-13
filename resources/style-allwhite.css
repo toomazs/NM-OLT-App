@@ -1,14 +1,12 @@
-/* style-allwhite.css - Tema Branco e Preto */
-@import url('https://fonts.googleapis.com/css2?family=Cascadia+Code:ital,wght@0,200..700;1,200..700&family=Chivo:ital,wght@0,100..900;1,100..900&display=swap');
-
 * {
-    -fx-font-family: 'Chivo', sans-serif;
+    -fx-font-family: 'Rubik', sans-serif;
     -fx-font-smoothing-type: gray;
 }
 
 .root {
     -fx-background-color: #ffffff; /* Branco */
     -fx-background-size: 400px;
+    -fx-background-radius: 15; /* O raio desejado para as bordas */
 }
 
 .label {
@@ -115,6 +113,9 @@
     -fx-cursor: hand;
     -fx-border-width: 0 0 0 3px;
     -fx-border-color: transparent;
+    -fx-effect: null;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
 }
 
 .nav-button .icon {
@@ -137,13 +138,12 @@
     -fx-border-color: #212121; /* Preto/Cinza muito escuro (borda selecionado) */
     -fx-font-weight: bold;
     -fx-text-fill: #000000; /* Preto */
-    -fx-effect: null;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.4), 8, 0.5, 0, 0);
 }
 
 .nav-button:selected .icon {
     -fx-fill: #212121; /* Preto/Cinza muito escuro */
 }
-
 .content-area {
     -fx-background-color: #ffffff; /* Branco */
     -fx-padding: 25px;
@@ -207,7 +207,7 @@
 }
 
 .terminal-box {
-    -fx-background-color: #f5f5f5; /* Cinza muito claro */
+    -fx-background-color: #ffffff; /* Cinza muito claro */
     -fx-background-radius: 8px;
     -fx-padding: 12px;
     -fx-border-radius: 8px;
@@ -218,9 +218,9 @@
 /* Terminal Area - Usando -fx-fill para RichTextFX */
 .terminal-area {
     -fx-control-inner-background: #f5f5f5; /* Cinza muito claro */
-    -fx-background-color: #f5f5f5; /* Cinza muito claro */
+    -fx-background-color: #ffffff; /* Cinza muito claro */
     /* -fx-text-fill: #212121; Removido */
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-size: 12px;
     -fx-padding: 10px;
     -fx-border-width: 0;
@@ -242,7 +242,7 @@
 
 /* Prompt Label - Usando -fx-fill */
 .prompt-label {
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-size: 14px;
     -fx-font-weight: bold;
     -fx-fill: #212121; /* Preto/Cinza muito escuro */
@@ -254,7 +254,7 @@
     -fx-text-fill: #333333; /* Cinza escuro */
     -fx-prompt-text-fill: #666666; /* Placeholder */
     -fx-padding: 10px;
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-size: 14px;
     -fx-background-radius: 4px;
     -fx-border-width: 1px;
@@ -362,7 +362,7 @@
     -fx-background-color: #f5f5f5; /* Cinza muito claro */
     -fx-background-radius: 8px;
     -fx-padding: 10px;
-    -fx-font-family: "Cascadia Code";
+    -fx-font-family: "Jetbrains Mono";
 }
 
 .code-area .content {
@@ -370,14 +370,14 @@
 }
 
 .code-area .text {
-    -fx-font-family: "Cascadia Code";
+    -fx-font-family: "Jetbrains Mono";
     -fx-fill: #333333; /* Cinza escuro - COR DO TEXTO */
 }
 
 .code-area .text.ip-address {
     -fx-fill: #d32f2f !important; /* Vermelho (ou outra cor de destaque) */
-    -fx-font-weight: 630;
-    -fx-font-family: "Cascadia Code";
+    -fx-font-family: "Jetbrains Mono";
+    -fx-font-weight: bold;
 }
 
 .code-area .caret {
@@ -548,13 +548,6 @@
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 6, 0, 0, 2);
 }
 
-.user-info-box:hover {
-    -fx-background-color: linear-gradient(to bottom right, rgba(224, 224, 224, 0.9), rgba(238, 238, 238, 0.8));
-    -fx-border-color: #424242; /* Cinza escuro (borda hover) */
-    -fx-translate-x: 2px;
-    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.15), 8, 0, 0, 3);
-}
-
 .user-name {
     -fx-text-fill: #000000; /* Preto */
     -fx-font-size: 13px;
@@ -585,6 +578,7 @@
 }
 
 .dropdown-arrow-active {
+    -fx-text: "▴" !important; }
     -fx-background-color: transparent;
     -fx-font-weight: bold;
     -fx-rotate: 180;
@@ -661,6 +655,8 @@
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 10, 0, 0, 3);
     -fx-border-width: 1px;
     -fx-border-color: #e0e0e0; /* Cinza muito claro (borda) */
+        -fx-background-radius: 15;
+        -fx-border-radius: 15;
 }
 
 .help-section {
@@ -690,57 +686,163 @@
 }
 
 .command-highlight {
-    -fx-font-family: 'Cascadia Code', monospace;
+    -fx-font-family: 'Jetbrains Mono', monospace;
     -fx-font-weight: bold;
     -fx-text-fill: #212121; /* Preto/Cinza muito escuro */
     -fx-effect: null;
 }
 
+/* ===== TAB PANE BASE ===== */
 .tab-pane {
     -fx-background-color: transparent;
-    -fx-tab-min-width: 100px; -fx-tab-max-width: 200px;
-    -fx-tab-min-height: 35px;
+    -fx-tab-min-width: 120px;
+    -fx-tab-max-width: 220px;
+    -fx-tab-min-height: 40px;
+    -fx-open-tab-animation: GROW;
+    -fx-close-tab-animation: GROW;
 }
 
-.tab-pane .tab-header-area { -fx-padding: 5px 0 0 0; }
+/* ===== HEADER AREA ===== */
+.tab-pane .tab-header-area {
+    -fx-padding: 5px 0 0 0;
+    -fx-background-color: transparent;
+}
 
 .tab-pane .tab-header-background {
-    -fx-background-color: #ffffff; /* Branco */
-    -fx-effect: innershadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);
+    -fx-background-color: linear-gradient(to bottom, #f5f5f5, #ffffff);
+    -fx-effect: innershadow(gaussian, rgba(0,0,0,0.4), 4, 0, 0, 2);
+    -fx-border-width: 0 0 1px 0;
+    -fx-border-color: #e0e0e0;
 }
 
+/* ===== TABS NORMAIS ===== */
 .tab-pane .tab {
-    -fx-background-color: #f5f5f5; /* Cinza muito claro */
-    -fx-background-radius: 8px 8px 0 0;
+    -fx-background-color: linear-gradient(to bottom, #eeeeee, #f5f5f5);
+    -fx-background-radius: 10px 10px 0 0;
     -fx-border-width: 1px 1px 0 1px;
-    -fx-border-color: #e0e0e0; /* Cinza muito claro (borda) */
-    -fx-border-radius: 8px 8px 0 0;
-    -fx-padding: 5px 15px;
+    -fx-border-color: #e0e0e0;
+    -fx-border-radius: 10px 10px 0 0;
+    -fx-padding: 8px 18px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 2, 0, 0, 1);
 }
 
+/* Hover effect para tabs não selecionadas */
+.tab-pane .tab:hover {
+    -fx-background-color: linear-gradient(to bottom, #e0e0e0, #eeeeee);
+    -fx-border-color: #bdbdbd;
+    -fx-effect: dropshadow(gaussian, rgba(189, 189, 189, 0.3), 4, 0, 0, 1);
+}
+
+/* ===== TAB SELECIONADA ===== */
 .tab-pane .tab:selected {
-    -fx-background-color: #eeeeee; /* Cinza claro (selecionado) */
-    -fx-border-color: #212121 #212121 transparent #212121; /* Borda escura */
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 8, 0, 0, -3);
+    -fx-background-color: linear-gradient(to bottom, #616161, #757575);
+    -fx-border-color: #212121 #212121 transparent #212121;
+    -fx-border-width: 2px 2px 0 2px;
 }
 
+/* ===== LABELS DAS TABS ===== */
 .tab-pane .tab .tab-label {
-    -fx-text-fill: #666666; /* Cinza médio */
+    -fx-text-fill: #333333;
     -fx-font-size: 13px;
     -fx-font-weight: 600;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 1, 0, 0, 1);
+}
+
+.tab-pane .tab:hover .tab-label {
+    -fx-text-fill: #000000;
 }
 
 .tab-pane .tab:selected .tab-label {
-    -fx-text-fill: #000000; /* Preto */
-    -fx-effect: null;
+    -fx-text-fill: #ffffff;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 2, 0, 0, 0);
 }
 
-.tab-pane .tab-content-area {
-    -fx-background-color: #ffffff; /* Branco */
-    -fx-border-width: 1px;
-    -fx-border-color: #e0e0e0; /* Cinza muito claro (borda) */
-    -fx-border-radius: 0 0 8px 8px;
-    -fx-padding: 15px;
+/* ===== BOTÃO DE FECHAR ===== */
+.tab-pane .tab .tab-close-button {
+    -fx-background-color: rgba(51, 51, 51, 0.3);
+    -fx-background-radius: 50%;
+    -fx-padding: 0;
+    -fx-pref-width: 14px;
+    -fx-pref-height: 14px;
+    -fx-min-width: 14px;
+    -fx-min-height: 14px;
+    -fx-max-width: 14px;
+    -fx-max-height: 14px;
+}
+
+.tab-pane .tab:selected .tab-close-button {
+    -fx-background-color: rgba(255, 255, 255, 0.4);
+}
+
+.tab-pane .tab .tab-close-button:hover {
+    -fx-background-color: rgba(255, 100, 100, 0.7) !important;
+    -fx-effect: dropshadow(gaussian, rgba(255, 100, 100, 0.5), 3, 0, 0, 0);
+}
+
+/* Estilo do X dentro do botão */
+.tab-pane .tab .tab-close-button > .graphic {
+    -fx-background-color: #333333;
+    -fx-background-radius: 0;
+    -fx-padding: 0;
+    -fx-shape: "M 0,0 L 1,1 M 0,1 L 1,0";
+    -fx-scale-shape: true;
+    -fx-pref-width: 8px;
+    -fx-pref-height: 8px;
+}
+
+.tab-pane .tab:selected .tab-close-button > .graphic {
+    -fx-background-color: white;
+}
+
+.tab-pane .tab .tab-close-button:hover > .graphic {
+    -fx-background-color: white !important;
+}
+
+/* ===== CONTROLES DE NAVEGAÇÃO ===== */
+.tab-pane .control-buttons-tab {
+    -fx-background-color: transparent;
+}
+
+.tab-pane .tab-down-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 4px;
+}
+
+.tab-pane .tab-down-button .arrow {
+    -fx-background-color: black;
+    -fx-shape: "M 0 0 L 4 4 L 8 0 Z";
+}
+
+.tab-pane .tab-down-button:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.1);
+    -fx-background-radius: 4px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 3, 0, 0, 0);
+}
+
+/* ===== ANIMAÇÕES E TRANSIÇÕES ===== */
+.tab-pane .tab {
+    -fx-cursor: hand;
+}
+
+/* Melhora a aparência quando há muitas tabs */
+.tab-pane:many-tabs .tab {
+    -fx-tab-min-width: 80px;
+    -fx-padding: 6px 12px;
+}
+
+.tab-pane:many-tabs .tab .tab-label {
+    -fx-font-size: 12px;
+}
+
+/* ===== DISABLED STATE ===== */
+.tab-pane:disabled .tab {
+    -fx-opacity: 0.5;
+}
+
+.tab-pane:disabled .tab .tab-label {
+    -fx-text-fill: #666666;
 }
 
 .badge {
@@ -833,12 +935,6 @@
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 6, 0, 0, 2);
 }
 
-.user-info-box:hover {
-    -fx-background-color: linear-gradient(to bottom right, rgba(224, 224, 224, 0.9), rgba(238, 238, 238, 0.8));
-    -fx-border-color: #424242; /* Cinza escuro (borda hover) */
-    -fx-translate-x: 2px;
-    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.15), 8, 0, 0, 3);
-}
 
 /* Reduzir tamanho da exibição do avatar */
 .user-info-box ImageView {
@@ -865,9 +961,135 @@
 }
 
 .eye-button {
+    -fx-text-fill: #000000; /* Preto */
     -fx-font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji";
     -fx-font-size: 14px;
     -fx-background-color: transparent;
     -fx-padding: 5px;
     -fx-cursor: hand;
+}
+
+/* === Context Menu All White Theme === */
+.context-menu {
+    -fx-background-color: #fdfdfd; /* Quase branco, para leve diferenciação do root #ffffff */
+    -fx-border-color: #e0e0e0;    /* Cinza muito claro (de user-info-box) */
+    -fx-border-width: 1px;
+    -fx-padding: 5px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.12), 8, 0, 0, 1);
+}
+
+.context-menu .label {
+    -fx-text-fill: #000000; /* Texto preto */
+}
+
+.context-menu .menu-item:focused {
+    -fx-background-color: #eeeeee; /* Cinza claro para seleção */
+}
+
+.context-menu .menu-item:focused .label {
+    -fx-text-fill: #000000; /* Texto preto no foco */
+}
+
+.context-menu .separator .line {
+    -fx-border-style: solid;
+    -fx-border-width: 1px 0 0 0;
+    -fx-border-color: #e0e0e0;
+}
+
+.status-label {
+    -fx-font-size: 10px;
+    -fx-text-fill: #666666;
+    /* Add other styling as needed, e.g., text color based on theme */
+}
+
+.olt-card .label { /* Ensure labels in card don't overflow if text is long */
+    -fx-text-overrun: ellipsis;
+}
+
+.logout-btn {
+    -fx-background-color: linear-gradient(to bottom, #E96D74, #D34750); /* Softer, prominent red */
+    -fx-text-fill: #FFFFFF; /* White text */
+    -fx-background-radius: 6px;
+    -fx-padding: 6px 12px;
+    -fx-cursor: hand;
+    -fx-font-weight: 700;
+    -fx-border-width: 1px;
+    -fx-border-color: #C0392B; /* Darker, less intense red border */
+    -fx-border-radius: 6px;
+    -fx-effect: innershadow(gaussian, rgba(100, 0, 0, 0.3), 1, 0, 0, 1); /* Softer shadow */
+}
+
+/* Efeito de hover para quando o mouse passar por cima */
+.logout-btn:hover {
+    -fx-background-color: linear-gradient(to bottom, #A52A2A, #8B0000); /* Inverte o gradiente ou usa tons mais escuros */
+    -fx-border-color: #CD5C5C; /* Borda um pouco mais clara no hover */
+}
+
+/* Efeito quando o botão é pressionado */
+.logout-btn:pressed {
+    -fx-background-color: #8B0000; /* Cor sólida mais escura ao clicar */
+    -fx-effect: innershadow(gaussian, #CD5C5C, 1, 0, 0, 1); /* Sombra inversa ou mais proeminente */
+}
+
+/* Estilo para mensagens de erro */
+.error-label {
+    -fx-text-fill: linear-gradient(to bottom, #E96D74, #D34750); /* Vermelho para erro */
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-padding: 8px 12px;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-effect: dropshadow(gaussian, rgba(220, 53, 69, 0.2), 2, 0, 0, 1);
+}
+
+/* Estilo para mensagens de sucesso */
+.success-label {
+    -fx-text-fill: #28a745; /* Verde para sucesso */
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-padding: 8px 12px;
+    -fx-border-radius: 4px;
+    -fx-effect: dropshadow(gaussian, rgba(40, 167, 69, 0.2), 2, 0, 0, 1);
+}
+
+.progress-indicator {
+    -fx-progress-color: #000000; /* Preto */
+}
+
+.separator {
+    -fx-fill: linear-gradient(to right,
+        rgba(255, 255, 255, 0.0),
+        rgba(220, 220, 220, 0.8), /* Light grey for visibility */
+        rgba(255, 255, 255, 0.0)
+    );
+    -fx-effect: dropshadow(gaussian, rgba(150, 150, 150, 0.4), 8, 0, 0, 2);
+}
+
+.admin-separator {
+    -fx-background-color: linear-gradient(to right,
+        rgba(0, 0, 0, 0.0),
+        rgba(0, 0, 0, 0.5),
+        rgba(0, 0, 0, 0.0)
+    );
+    -fx-pref-height: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 8, 0, 0, 2);
+}
+
+.admin-section-label {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: rgba(0, 0, 0, 0.7);
+    -fx-opacity: 0.8;
+}
+
+.icon-shadow {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.25), 15, 0, 0, 5);
+}
+
+.password-field.modern-text-field {
+    -fx-font-family: 'Rubik', sans-serif;
+}
+
+.password-field.modern-text-field.has-text {
+    -fx-font-family: "monospaced";
 }

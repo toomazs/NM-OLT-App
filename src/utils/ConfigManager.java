@@ -1,17 +1,22 @@
 package utils;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
-import java.io.*;
-import java.nio.file.*;
-import java.nio.file.FileAlreadyExistsException;
-import java.util.prefs.Preferences;
+import models.OLT;
+import models.Secrets;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ConfigManager {
 
     private static final String CONFIG_SUBPATH = "OLTApp/config/settings.json";
     private JSONObject config;
-    private PrintStream logger;
     private static ConfigManager instance;
+
     private ConfigManager() {
         loadConfig();
     }
@@ -21,13 +26,6 @@ public class ConfigManager {
             instance = new ConfigManager();
         }
         return instance;
-    }
-
-    public void setLogger(PrintStream logger) {
-        this.logger = logger;
-        if (this.logger != null) {
-            this.logger.println("DEBUG (ConfigManager): Logger instance received.");
-        }
     }
 
     private Path getConfigFileFullPath() {
@@ -41,33 +39,11 @@ public class ConfigManager {
         try {
             String content = new String(Files.readAllBytes(configFile));
             config = new JSONObject(content);
-            if (logger != null) {
-                logger.println("DEBUG (ConfigManager): Configurações carregadas de " + configFile.toAbsolutePath());
-            }
-        } catch (NoSuchFileException e) {
-
+        } catch (IOException e) {
             config = new JSONObject();
             config.put("theme", "style.css");
             config.put("lastUser", "");
-            if (logger != null) {
-                logger.println("DEBUG (ConfigManager): Arquivo de configuração não encontrado, criando padrão.");
-            } else {
-                System.err.println("DEBUG (ConfigManager): Arquivo de configuração não encontrado, criando padrão. Logger não setado ainda.");
-            }
-            saveConfig();
-        }
-        catch (Exception e) {
-            config = new JSONObject();
-            config.put("theme", "style.css");
-            config.put("lastUser", "");
-            if (logger != null) {
-                logger.println("DEBUG (ConfigManager): Erro ao carregar configurações, criando padrão.");
-                logger.println("DEBUG (ConfigManager): Erro ao carregar: " + e.getMessage());
-                e.printStackTrace(logger);
-            } else {
-                System.err.println("DEBUG (ConfigManager): Erro ao carregar configurações, criando padrão. Logger não setado ainda.");
-                e.printStackTrace();
-            }
+            config.put("dynamicOLTs", new JSONArray());
             saveConfig();
         }
     }
@@ -75,95 +51,67 @@ public class ConfigManager {
     private void saveConfig() {
         Path configFile = getConfigFileFullPath();
         Path configDir = configFile.getParent();
-
-        if (logger == null) {
-            System.err.println("ERRO: Logger não setado no ConfigManager. Logs de salvamento não detalhados.");
-        }
-
         try {
-
             Files.createDirectories(configDir);
-            if (logger != null) {
-                logger.println("DEBUG (ConfigManager): Diretório de configuração verificado/criado: " + configDir.toAbsolutePath());
-            }
-
-
             Files.write(configFile, config.toString(4).getBytes());
-            if (logger != null) {
-                logger.println("DEBUG (ConfigManager): Configurações salvas com sucesso em: " + configFile.toAbsolutePath());
-            }
-
-        } catch (FileAlreadyExistsException e) {
-
-            if (logger != null) {
-                logger.println("DEBUG (ConfigManager): Diretório de configuração já existe: " + configDir.toAbsolutePath());
-            }
-
-            try {
-                Files.write(configFile, config.toString(4).getBytes());
-                if (logger != null) {
-                    logger.println("DEBUG (ConfigManager): Configurações salvas com sucesso (diretório já existia) em: " + configFile.toAbsolutePath());
-                }
-            } catch (Exception writeEx) {
-
-                if (logger != null) {
-                    logger.println("!!!!!!!! ERRO CRÍTICO (ConfigManager): Falha ao salvar o arquivo de configurações (diretório existente) !!!!!!!");
-                    logger.println("Caminho tentado para salvar: " + configFile.toAbsolutePath());
-                    logger.println("Detalhes do erro:");
-                    writeEx.printStackTrace(logger);
-                } else {
-                    System.err.println("!!!!!!!! ERRO CRÍTICO (ConfigManager): Falha ao salvar o arquivo de configurações (diretório existente) !!!!!!!");
-                    System.err.println("Caminho tentado para salvar: " + configFile.toAbsolutePath());
-                    System.err.println("Detalhes do erro:");
-                    writeEx.printStackTrace();
-                }
-            }
-        }
-        catch (Exception e) {
-
-            if (logger != null) {
-                logger.println("!!!!!!!! ERRO CRÍTICO (ConfigManager): Falha ao salvar o arquivo de configurações !!!!!!!");
-                logger.println("Caminho tentado para salvar: " + configFile.toAbsolutePath());
-                logger.println("Detalhes do erro:");
-                e.printStackTrace(logger);
-            } else {
-                System.err.println("!!!!!!!! ERRO CRÍTICO (ConfigManager): Falha ao salvar o arquivo de configurações !!!!!!!");
-                System.err.println("Caminho tentado para salvar: " + configFile.toAbsolutePath());
-                System.err.println("Detalhes do erro:");
-                e.printStackTrace();
-            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
     public String getLastUser() {
-        String lastUser = config.optString("lastUser", "");
-        if (logger != null) {
-            logger.println("DEBUG (ConfigManager): Obtendo último usuário: '" + lastUser + "'");
-        }
-        return lastUser;
+        return config.optString("lastUser", "");
     }
 
     public void setLastUser(String username) {
-        if (logger != null) {
-            logger.println("DEBUG (ConfigManager): Definindo último usuário para: '" + username + "'");
-        }
         config.put("lastUser", username);
         saveConfig();
     }
 
     public String getTheme() {
-        String theme = config.optString("theme", "style.css");
-        if (logger != null) {
-            logger.println("DEBUG (ConfigManager): Obtendo tema: '" + theme + "'");
-        }
-        return theme;
+        return config.optString("theme", "style.css");
     }
 
     public void setTheme(String themeName) {
-        if (logger != null) {
-            logger.println("DEBUG (ConfigManager): Definindo tema para: '" + themeName + "'");
-        }
         config.put("theme", themeName);
+        saveConfig();
+    }
+
+
+    public List<OLT> getDynamicOLTs() {
+        List<OLT> olts = new ArrayList<>();
+        JSONArray oltArray = config.optJSONArray("dynamicOLTs");
+        if (oltArray != null) {
+            for (int i = 0; i < oltArray.length(); i++) {
+                JSONObject oltJson = oltArray.getJSONObject(i);
+                olts.add(new OLT(
+                        oltJson.getString("name"),
+                        oltJson.getString("ip"),
+                        oltJson.optString("port", "22"),
+                        oltJson.optString("user", null),
+                        oltJson.optString("password", null)
+                ));
+            }
+        }
+        return olts;
+    }
+
+    public void saveDynamicOLTs(List<OLT> olts) {
+        JSONArray oltArray = new JSONArray();
+        for (OLT olt : olts) {
+            JSONObject oltJson = new JSONObject();
+            oltJson.put("name", olt.getName());
+            oltJson.put("ip", olt.getIp());
+            oltJson.put("port", olt.getPort());
+            if (!olt.getUser().equals(Secrets.SSH_USER)) {
+                oltJson.put("user", olt.getUser());
+            }
+            if (!olt.getPassword().equals(Secrets.SSH_PASS)) {
+                oltJson.put("password", olt.getPassword());
+            }
+            oltArray.put(oltJson);
+        }
+        config.put("dynamicOLTs", oltArray);
         saveConfig();
     }
 }
