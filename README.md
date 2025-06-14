@@ -9,32 +9,26 @@
 O **Gerenciador de OLTs** é uma solução completa desenvolvida em Java que oferece acesso SSH seguro, diagnósticos avançados e monitoramento em tempo real para gestão centralizada de ONTs dos clientes dentro das OLTs, reduzindo o tempo de resposta e facilitando o trabalho por meio de automações internas.<br>
 A ferramenta foi criada especificamente para otimizar o trabalho das equipes de Suporte e T.I. da ***N-Multifibra***, proporcionando uma interface intuitiva, automática e confortavel para gerenciamento dos clientes na rede.
 
-### ✨ Principais Diferenciais
+<br>
 
-- 🔐 **Conexão SSH Segura** - Acesso direto e autenticado às OLTs
-- 🤖 **Diagnósticos Inteligentes** - Detecção automática de problemas via pattern matching
-- 📊 **Monitoramento em Tempo Real** - Acompanhamento contínuo de métricas de rede
-- 🎨 **Confortabilidade** - 14 temas diferentes disponíveis
-- 📄 **Exportação Completa** - Relatórios em PDF, XLSX, CSV e TXT
-> Veja mais sobre abaixo!
 ---
 
-## 🎯 Abas Disponíveis
+## 🎯 Recursos Principais
 
 ### 🔐 **Login & Alteração de Senha**
 - Autenticação segura com controle de permissões por cargo
-- Alteração de senha integrada, com senha padrão inicial protegida
+- Alteração de senha integrada, com senha padrão inicial protegida e criptografada
 - Verificação em tempo real do status das credenciais
 - Sessão protegida com logout forçado ao fechar o aplicativo
 
 <details>
 
-<summary> Imagens da aba </summary>
+<summary> Imagens </summary>
 
-- Tela de Login <br>
-  <img src="https://i.imgur.com/OQIEhPa.png" width="300"/><br><br>
-- Tela de Alteração de Senha <br>
-  <img src="https://i.imgur.com/qZU833p.png" width="300"/> <br>
+- Login *(com último user salvo via .json)* <br>
+  <img src="https://i.imgur.com/xgSbtHO.jpeg" width="300"/><br><br>
+- Alteração de Senha <br>
+  <img src="https://i.imgur.com/TdPSwSV.jpeg" width="300"/> <br>
 
 </details> <br>
 
@@ -43,14 +37,14 @@ A ferramenta foi criada especificamente para otimizar o trabalho das equipes de 
 ### 🌐 **OLTs**
 - Acesso direto às OLTs em tempo real via autenticação SSH
 - Conexão e desconexão seguras, sem cache e sem sobrecarga das OLTs
-- Status Online/Offline por protocolos TCP e ICMP (com fallback automático)
+- Status Online/Offline por protocolos TCP e ICMP *(fallback automático)*
 - Adição manual e dinâmica de OLTs pelo usuário final
 <details>
-<summary> Imagens da aba </summary>
+<summary> Imagens </summary>
 
-- Tela inicial da aba OLTs <br>
-  <img src="https://i.imgur.com/0sokRnv.jpeg" width="400"/><br><br>
-- Inside-Terminal <br>
+- Aba OLTs <br>
+  <img src="https://i.imgur.com/oR2ljOI.jpeg" width="400"/><br><br>
+- Inside-Terminal *(ssh)*<br>
   <img src="https://i.imgur.com/rj8uKrH.png" width="400"/> <br>
 
 </details> <br>
@@ -62,13 +56,13 @@ A ferramenta foi criada especificamente para otimizar o trabalho das equipes de 
 - Alertas para sinais críticos (abaixo de -29.00 dBm)
 - Identificação de sinais incompatíveis com a média da PON (entre -27 e -29 dBm)
 <details>
+<summary> Imagens </summary>
 
-- Sinal da PON 0/4/9 consultada <br>
+- Consulta de Sinal <br>
   <img src="https://i.imgur.com/AXUHqa1.png" width="400"/><br><br>
 - Média dos Sinais e Alertas <br>
   <img src="https://i.imgur.com/WVFEP25.png" width="400"/> <br>
 
-<summary> Imagens da aba </summary>
 </details> <br>
 
 ### 📋 **Summary**
@@ -77,12 +71,13 @@ A ferramenta foi criada especificamente para otimizar o trabalho das equipes de 
 - Status em tempo real de todos os dispositivos
 <details>
 
-- Summary da PON 0/4/9 consultada <br>
+<summary> Imagens </summary>
+
+- Consulta de Summary <br>
   <img src="https://i.imgur.com/UoDPWuG.png" width="400"/><br><br>
 - Análise de Rompimentos ou Drops <br>
   <img src="https://i.imgur.com/4HUAuw6.png" width="400"/> <br>
 
-<summary> Imagens da aba </summary>
 </details> <br>
 
 ### 🔍 **By-SN**
@@ -90,11 +85,11 @@ A ferramenta foi criada especificamente para otimizar o trabalho das equipes de 
 - Acesso prioritário ao IP remoto via DHCP
 - Informações completas do dispositivo (T-CONT, GEM PORT, TR-069, etc.)
 <details>
+<summary> Imagens </summary>
 
-- Resumo geral do SN <br>
+- Consulta de By-SN <br>
   <img src="https://i.imgur.com/6MUeqsG.png" width="400"/><br>
 
-<summary> Imagens da aba </summary>
 </details> <br>
 
 ### 📉 **Quedas**
@@ -102,11 +97,11 @@ A ferramenta foi criada especificamente para otimizar o trabalho das equipes de 
 - Horários precisos de cada ocorrência
 - Resumo de cada incidente e respectiva causa
 <details>
+<summary> Imagens </summary>
 
-- Resumo geral de Quedas <br>
+- Consulta de Quedas <br>
   <img src="https://i.imgur.com/DHpL4wK.png" width="400"/><br>
 
-<summary> Imagens da aba </summary>
 </details> <br>
 
 ### 📈 **Tráfego**
@@ -114,11 +109,11 @@ A ferramenta foi criada especificamente para otimizar o trabalho das equipes de 
 - Conversão automática de Kbps para Mbps
 - Opção de interrupção do monitoramento a qualquer momento
 <details>
+<summary> Imagens </summary>
 
-- Monitoramento em tempo real de Tráfego <br>
+- Consulta em tempo real de Tráfego <br>
   <img src="https://i.imgur.com/FryBWL9.png" width="400"/><br>
 
-<summary> Imagens da aba </summary>
 </details> <br>
 
 ### ⚙️ **Serviços**
@@ -126,14 +121,28 @@ A ferramenta foi criada especificamente para otimizar o trabalho das equipes de 
 - Classificação por VLANs (100, 101, 102)
 - Status detalhado de cada serviço ativo (Internet, Acesso Remoto, VoIP, etc.)
 <details>
+<summary> Imagens </summary>
 
-- Resumo geral de Serviços <br>
+- Consulta de Serviços <br>
   <img src="https://i.imgur.com/DVw1YD2.png" width="400"/><br><br>
 
-<summary> Imagens da aba </summary>
 </details> <br>
 
-> 💡 **Simplicidade:** Basta informar o **F/S/P** ou o **ID da ONT** em cada aba!
+> 💡 Bastando informar apenas o **F/S/P** ou o **ID da ONT** em cada aba! 
+
+<br>
+
+### 🎫 **Chamados** (Admin e Devs)
+- Acompanhamento dos tickets internos abertos
+- Respostas em tempo real aos tickets (em manutenção, resolvido, etc.)
+- Exclusão de tickets desnecessários
+<details>
+<summary> Imagens </summary>
+
+- Gerenciamento de Chamados <br>
+  <img src="https://i.imgur.com/hFZXcog.jpeg" width="400"/><br><br>
+
+</details> <br>
 
 ---
 
@@ -146,7 +155,7 @@ A ferramenta foi criada especificamente para otimizar o trabalho das equipes de 
 - **Resumos Inteligentes** de dados complexos
 - **Alertas Proativos** para problemas críticos
 <details>
-<summary> Todos os Matchers & Regexs do Projeto </summary>
+<summary> Patterns Matchings e Regex </summary>
   <br>
 
 ## 🧑‍💻 Regex Globais
@@ -269,24 +278,27 @@ A ferramenta foi criada especificamente para otimizar o trabalho das equipes de 
 
 - OLT Offline (Bloqueada/Desligada) <br>
   <img src="https://i.imgur.com/bsUR2OT.png" width="150"/> <br><br>
-- OLT Online (Acessivel) <br>
+- OLT Online (Porta Aberta e Acessível) <br>
   <img src="https://i.imgur.com/IYxKO27.png" width="150"/> <br>
 
 Os protocolos TCP e ICMP verificarão se a porta está aberta e acessível para autenticação.<br>
 </details> <br>
 
-### ➕ Adição Dinâmica de OLTs
+### ➕ Adição Dinâmica e Filtragem de OLTs
 - Interface modal para adicionar novas OLTs-
 - Integração automática com a lista existente
 - Validação de conectividade em tempo real
+- Filtragem por busca, status, IP, etc.
 <details>
 <summary> Imagens do Modal de Adição </summary>
   <br>
 
 - Modal de Adicionar OLT <br>
-  <img src="https://i.imgur.com/gbP15wk.jpeg" width="500"/> <br><br>
-- OLT criada previamente, na lista junto com as OLTs fixas <br>
-  <img src="https://i.imgur.com/tBN3oms.jpeg" width="500"/> <br><br>
+  <img src="https://i.imgur.com/UbzG6eE.jpeg" width="500"/> <br><br>
+- Exemplo de Adição de OLT<br>
+  <img src="https://i.imgur.com/beRVcjb.jpeg" width="500"/> <br><br>
+- Exemplo de Filtragem de OLTs <br>
+  <img src="https://i.imgur.com/tVuFZ6r.jpeg" width="500"/> <br><br> 
 
 </details> <br>
 
@@ -300,9 +312,9 @@ Os protocolos TCP e ICMP verificarão se a porta está aberta e acessível para 
     <br>
 
 - Modal de Abrir Ticket <br>
-  <img src="https://i.imgur.com/EgAQdZJ.png" width="500"/><br><br>
-- Ticket criado previamente, na lista de Chamados (ADMIN) <br>
-  <img src="https://i.imgur.com/RcBYBQ7.png" width="500"/><br><br>
+  <img src="https://i.imgur.com/vZBZ9DH.jpeg" width="500"/><br><br>
+- Modal dos seus Tickets abertos <br>
+  <img src="https://i.imgur.com/fg9PzmM.jpeg" width="500"/><br><br>
 
 </details> <br>
 
@@ -317,7 +329,7 @@ Geração de relatórios completos usando:
   <br>
 
 - Modal de relatórios (exports) em PDF, XLSX, CSV e TXT<br>
-  <img src="https://i.imgur.com/kyV6CEI.jpeg" width="500"/><br><br>
+  <img src="https://i.imgur.com/vGWey3P.jpeg" width="500"/><br><br>
 
 </details> <br>
 
@@ -328,39 +340,39 @@ Geração de relatórios completos usando:
 <summary> Ver todos os 14 temas disponíveis</summary>
 
 - 💜 **Roxo** (Tema Padrão)<br>
-  <img src="https://i.imgur.com/0sokRnv.jpeg" width="400"/><br><br>
+  <img src="https://i.imgur.com/oR2ljOI.jpeg" width="400"/><br><br>
 - 🖤 **All Black**<br>
-  <img src="https://i.imgur.com/OlUc1Ms.jpeg" width="400"/><br><br>
+  <img src="https://i.imgur.com/PPDFfPZ.jpeg" width="400"/><br><br>
 - 🤍 **All White**<br>
-  <img src="https://i.imgur.com/HUqVNag.jpeg" width="400"/><br><br>
+  <img src="https://i.imgur.com/ant4yIJ.jpeg" width="400"/><br><br>
 - 🧛 **Dracula**<br>
-  <img src="https://i.imgur.com/ubSFq9m.jpeg" width="400"/><br><br>
+  <img src="https://i.imgur.com/4UH0bth.jpeg" width="400"/><br><br>
 - 🔮 **GitHub Dark**<br>
-  <img src="https://i.imgur.com/9CP2dB2.png" width="400"/><br><br>
+  <img src="https://i.imgur.com/R1MBEVX.jpeg" width="400"/><br><br>
 - 🟪 **Shades of Purple**<br>
-  <img src="https://i.imgur.com/Mt5coqk.png" width="400"/><br><br>
+  <img src="https://i.imgur.com/aEztdxG.jpeg" width="400"/><br><br>
 - 🦉 **Night Owl**<br>
-  <img src="https://i.imgur.com/J3XsRLw.jpeg" width="400"/><br><br>
+  <img src="https://i.imgur.com/lYatAQg.jpeg" width="400"/><br><br>
 - 🦉 **Light Owl**<br>
-  <img src="https://i.imgur.com/MKufPRC.jpeg" width="400"/><br><br>
+  <img src="https://i.imgur.com/uhS34aD.jpeg" width="400"/><br><br>
 - 🍮 **Creme**<br>
-  <img src="https://i.imgur.com/63P609S.jpeg" width="400"/><br><br>
+  <img src="https://i.imgur.com/JK0KeuX.jpeg" width="400"/><br><br>
 - 🧑‍💻 **Terminal**<br>
-  <img src="https://i.imgur.com/wKGpKlZ.png" width="400"/><br><br>
+  <img src="https://i.imgur.com/DLueSdT.jpeg" width="400"/><br><br>
 - 💙 **Azul**<br>
-  <img src="https://i.imgur.com/cLjtIRZ.jpeg" width="400"/><br><br>
+  <img src="https://i.imgur.com/Tm6GgZo.jpeg" width="400"/><br><br>
 - 💚 **Verde**<br>
-  <img src="https://i.imgur.com/pkZTQTp.jpeg" width="400"/><br><br>
+  <img src="https://i.imgur.com/ZAJoVnw.jpeg" width="400"/><br><br>
 - ❤️ **Vermelho**<br>
-  <img src="https://i.imgur.com/zKwLMcC.jpeg" width="400"/><br><br>
+  <img src="https://i.imgur.com/NRGChpb.jpeg" width="400"/><br><br>
 - 🩷 **Rosa**<br>
-  <img src="https://i.imgur.com/eqrEYIF.jpeg" width="400"/><br><br>
+  <img src="https://i.imgur.com/RpVv76u.jpeg" width="400"/><br><br>
 
 </details>
 
 ---
 
-## 🛠️ Libs Usadas
+## 🛠️ Libs
 
 | Bibliotecas | Versão | Função |
 |------------|--------|---------|
@@ -381,20 +393,8 @@ Geração de relatórios completos usando:
 
 ## 💾 Instalação
 
-### 📥 Download Direto (Recomendado)
-
 ⚠️ Se você for um colaborador da ***N-Multifibra***, procure o Eduardo Tomaz — ele lhe fornecerá o projeto completo personalizado desenvolvido internamente para a empresa.<br> <br>
-Se você for um desconhecido, apenas baixe o **`SetupOLTApp1.6.0.0.exe`** na seção de [Releases](../../releases).
-
-**Vantagens do Setup:**
-- ✅ Inclui JavaFX, JDK e todas as bibliotecas
-- ✅ Cria atalho automático na área de trabalho
-- ✅ Zero configuração manual necessária
-- ✅ Instalação em menos de 2 minutos
-
----
-
-## 👨‍💻 4Devs
+Se você for um desconhecido, siga os passos abaixo:
 
 ### 🔧 Configuração do Ambiente
 
@@ -403,7 +403,7 @@ Se você for um desconhecido, apenas baixe o **`SetupOLTApp1.6.0.0.exe`** na se�
 git clone https://github.com/toomazs/NM-OLT-App.git
 cd NM-OLT-App
 
-# 2. Verifique a versão do Java (22+ obrigatório)
+# 2. Verifique a versão do Java (Recomendado Java 24)
 java -version
 
 # 3. Abra na sua IDE favorita
@@ -436,7 +436,7 @@ INSERT INTO usuarios (nome, usuario, senha, cargo) VALUES
 --  ... Quantos users quiser
 ```
 
-### ⚙️ Arquivos de Configuração
+### ⚙️ Arquivos de Configuração (Obrigatório)
 
 #### 🔐 SecretsDB.java - Credenciais do Banco
 
@@ -453,10 +453,10 @@ public class SecretsDB {
 
 📁 **Localização:** `src/database/SecretsDB.java`
 
-#### 🌐 models.Secrets.java - SSH e Lista de OLTs
+#### 🌐 Secrets.java - SSH e Lista de OLTs
 
 ```java
-public class models.Secrets {
+public class Secrets {
   // Credenciais SSH
   public static final String SSH_USER = "usuario_ssh";
   public static final String SSH_PASS = "senha_ssh";
@@ -474,7 +474,7 @@ public class models.Secrets {
 
 📁 **Localização:** `src/models/Secrets.java`
 
-Após isso, recompile o código `.java` usando uma IDE, Launch4j ou `-cp` via Terminal.
+Após isso, recompile o código `.java` usando uma IDE. Pode compilar um `.exe` com Launch4j ou use `-cp` via bash ou bat.
 
 ---
 
