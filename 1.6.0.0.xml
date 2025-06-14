@@ -1,9 +1,15 @@
+<!-- XML para o Launch4j -->
+
+
 <?xml version="1.0" encoding="UTF-8"?>
 <launch4jConfig>
   <dontWrapJar>false</dontWrapJar>
   <headerType>gui</headerType>
-  <jar>C:\Users\N-Multifibra\Documents\GitHub\NM-OLT-AppCasa\OLTApp.jar</jar>
-  <outfile>C:\Users\N-Multifibra\Documents\GitHub\NM-OLT-AppCasa\OLTApp.exe</outfile>
+
+  <!-- Mude para o diretorio do projeto no seu PC -->
+  <jar>C:\Users\SEU_USUARIO\Documents\GitHub\NM-OLT-App\OLTApp.jar</jar>
+  <outfile>C:\Users\SEU_USUARIO\Documents\GitHub\NM-OLT-App\OLTApp.exe</outfile>
+
   <errTitle></errTitle>
   <cmdLine></cmdLine>
   <chdir></chdir>
@@ -13,7 +19,10 @@
   <stayAlive>false</stayAlive>
   <restartOnCrash>false</restartOnCrash>
   <manifest></manifest>
-  <icon>C:\Users\N-Multifibra\Documents\GitHub\NM-OLT-AppCasa\resources\oltapp-icon.ico</icon>
+
+  <!-- XML para o Launch4j -->
+  <icon>C:\Users\SEU_USUARIO\Documents\GitHub\NM-OLT-App\resources\oltapp-icon.ico</icon>
+
   <classPath>
     <mainClass>Main</mainClass>
     <cp>./lib/javafx-sdk-24/lib/javafx.base.jar</cp>

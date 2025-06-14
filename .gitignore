@@ -1,9 +1,6 @@
-# Ignorar arquivo com dados sensíveis
+# Ignorar arquivos secretos
 src/models/Secrets.java
 src/database/SecretsDB.java
-
-# Ignorar .jar especifico
-OLTApp.jar
 
 # Ignorar pastas especificas
 exports/
@@ -11,7 +8,6 @@ exports/
 # Ignorar arquivos .log
 *.log
 logs/
-
 
 # Ignorar arquivos .bat
 *.bat
@@ -21,6 +17,7 @@ logs/
 
 ### IntelliJ IDEA ###
 .idea/
+.idea
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
