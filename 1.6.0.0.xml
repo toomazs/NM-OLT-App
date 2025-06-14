@@ -20,7 +20,7 @@
   <restartOnCrash>false</restartOnCrash>
   <manifest></manifest>
 
-  <!-- XML para o Launch4j -->
+  <!-- Mude para o diretorio do projeto no seu PC -->
   <icon>C:\Users\SEU_USUARIO\Documents\GitHub\NM-OLT-App\resources\oltapp-icon.ico</icon>
 
   <classPath>
