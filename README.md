@@ -6,7 +6,7 @@
 
 ## 📋 Sobre o Projeto
 
-O **Gerenciador de OLTs** é uma solução completa desenvolvida em Java que oferece acesso SSH seguro, diagnósticos avançados e monitoramento em tempo real para gestão centralizada de ONTs dos clientes dentro das OLTs, reduzindo o tempo de resposta e facilitando o trabalho por meio de automações internas.<br>
+O **NM OLT App** é uma solução completa desenvolvida em Java que oferece acesso SSH seguro, diagnósticos avançados e monitoramento em tempo real para gestão centralizada de ONTs dos clientes dentro das OLTs, reduzindo o tempo de resposta e facilitando o trabalho por meio de automações internas.<br>
 A ferramenta foi criada especificamente para otimizar o trabalho das equipes de Suporte e T.I. da ***N-Multifibra***, proporcionando uma interface intuitiva, automática e confortavel para gerenciamento dos clientes na rede.
 
 <br>
